@@ -6,6 +6,7 @@ import StatusBar from "./components/StatusBar";
 import useAppStore from "./stores/useAppStore";
 import OnboardingModal from "./components/OnboardingModal";
 import ToastContainer from "./components/ToastContainer";
+import { AnimatedBackground } from "./components/premium/AnimatedBackground";
 import { SkeletonLine } from "./components/Skeleton";
 
 const Editor = lazy(() => import("./components/Editor"));
@@ -19,6 +20,9 @@ function App() {
 
   return (
     <div className="flex flex-col w-full h-full mesh-gradient-bg">
+      {/* Animated background overlay */}
+      <AnimatedBackground />
+
       {/* Toast container - fixed bottom-right */}
       <ToastContainer />
 

@@ -10,7 +10,17 @@ import type {
   LogEntry,
   QueuedGoal,
 } from "../types/autonomous";
-import type { Toast } from "../types";
+import type {
+  Toast,
+  Skill,
+  MCPConnection,
+  ScreenAction,
+  ScreenSettings,
+  AgentRole,
+  AgentMessage,
+  AgentTask,
+  AgentConflict,
+} from "../types";
 
 interface CursorPosition {
   line: number;
@@ -72,6 +82,48 @@ interface AppState {
   autonomousLogs: LogEntry[];
   setAutonomousLogs: (l: LogEntry[]) => void;
   addAutonomousLog: (l: LogEntry) => void;
+
+  // Skill Marketplace
+  skills: Skill[];
+  setSkills: (skills: Skill[]) => void;
+  addSkill: (skill: Skill) => void;
+  removeSkill: (id: string) => void;
+  skillSearchQuery: string;
+  setSkillSearchQuery: (q: string) => void;
+  activeSkillCategory: string;
+  setActiveSkillCategory: (cat: string) => void;
+
+  // MCP Connectors
+  mcpConnections: MCPConnection[];
+  setMcpConnections: (conns: MCPConnection[]) => void;
+  addMcpConnection: (conn: MCPConnection) => void;
+  removeMcpConnection: (id: string) => void;
+  updateMcpConnection: (id: string, updates: Partial<MCPConnection>) => void;
+
+  // Screen Control
+  screenActions: ScreenAction[];
+  setScreenActions: (actions: ScreenAction[]) => void;
+  addScreenAction: (action: ScreenAction) => void;
+  removeScreenAction: (id: string) => void;
+  screenSettings: ScreenSettings;
+  setScreenSettings: (settings: Partial<ScreenSettings>) => void;
+  isRecording: boolean;
+  setIsRecording: (v: boolean) => void;
+  isPlaying: boolean;
+  setIsPlaying: (v: boolean) => void;
+
+  // Multi-Agent
+  agentTeam: AgentRole[];
+  setAgentTeam: (agents: AgentRole[]) => void;
+  updateAgent: (id: string, updates: Partial<AgentRole>) => void;
+  agentMessages: AgentMessage[];
+  setAgentMessages: (msgs: AgentMessage[]) => void;
+  addAgentMessage: (msg: AgentMessage) => void;
+  agentTasks: AgentTask[];
+  setAgentTasks: (tasks: AgentTask[]) => void;
+  updateAgentTask: (id: string, updates: Partial<AgentTask>) => void;
+  agentConflicts: AgentConflict[];
+  setAgentConflicts: (conflicts: AgentConflict[]) => void;
 
   // Onboarding
   onboardingComplete: boolean;
@@ -151,6 +203,81 @@ const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       autonomousLogs: [...state.autonomousLogs, l],
     })),
+
+  // Skill Marketplace
+  skills: [],
+  setSkills: (skills) => set({ skills }),
+  addSkill: (skill) =>
+    set((state) => ({ skills: [...state.skills, skill] })),
+  removeSkill: (id) =>
+    set((state) => ({ skills: state.skills.filter((s) => s.id !== id) })),
+  skillSearchQuery: "",
+  setSkillSearchQuery: (q) => set({ skillSearchQuery: q }),
+  activeSkillCategory: "All",
+  setActiveSkillCategory: (cat) => set({ activeSkillCategory: cat }),
+
+  // MCP Connectors
+  mcpConnections: [],
+  setMcpConnections: (conns) => set({ mcpConnections: conns }),
+  addMcpConnection: (conn) =>
+    set((state) => ({ mcpConnections: [...state.mcpConnections, conn] })),
+  removeMcpConnection: (id) =>
+    set((state) => ({
+      mcpConnections: state.mcpConnections.filter((c) => c.id !== id),
+    })),
+  updateMcpConnection: (id, updates) =>
+    set((state) => ({
+      mcpConnections: state.mcpConnections.map((c) =>
+        c.id === id ? { ...c, ...updates } : c
+      ),
+    })),
+
+  // Screen Control
+  screenActions: [],
+  setScreenActions: (actions) => set({ screenActions: actions }),
+  addScreenAction: (action) =>
+    set((state) => ({ screenActions: [...state.screenActions, action] })),
+  removeScreenAction: (id) =>
+    set((state) => ({
+      screenActions: state.screenActions.filter((a) => a.id !== id),
+    })),
+  screenSettings: {
+    sandboxMode: true,
+    consentRequired: true,
+    rateLimit: 10,
+  },
+  setScreenSettings: (settings) =>
+    set((state) => ({
+      screenSettings: { ...state.screenSettings, ...settings },
+    })),
+  isRecording: false,
+  setIsRecording: (v) => set({ isRecording: v }),
+  isPlaying: false,
+  setIsPlaying: (v) => set({ isPlaying: v }),
+
+  // Multi-Agent
+  agentTeam: [],
+  setAgentTeam: (agents) => set({ agentTeam: agents }),
+  updateAgent: (id, updates) =>
+    set((state) => ({
+      agentTeam: state.agentTeam.map((a) =>
+        a.id === id ? { ...a, ...updates } : a
+      ),
+    })),
+  agentMessages: [],
+  setAgentMessages: (msgs) => set({ agentMessages: msgs }),
+  addAgentMessage: (msg) =>
+    set((state) => ({ agentMessages: [...state.agentMessages, msg] })),
+  agentTasks: [],
+  setAgentTasks: (tasks) => set({ agentTasks: tasks }),
+  updateAgentTask: (id, updates) =>
+    set((state) => ({
+      agentTasks: state.agentTasks.map((t) =>
+        t.id === id ? { ...t, ...updates } : t
+      ),
+    })),
+  agentConflicts: [],
+  setAgentConflicts: (conflicts) => set({ agentConflicts: conflicts }),
 
   // Onboarding
   onboardingComplete: false,

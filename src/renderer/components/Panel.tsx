@@ -8,10 +8,18 @@ import {
   Brain,
   Bot,
   Zap,
+  Wrench,
+  Plug,
+  Monitor,
+  Users,
 } from "lucide-react";
 import MemoryPanel from "./MemoryPanel";
 import AgentPanel from "./AgentPanel";
 import AutonomousPanel from "./AutonomousPanel";
+import SkillMarketplace from "./SkillMarketplace";
+import MCPConnector from "./MCPConnector";
+import ScreenControl from "./ScreenControl";
+import MultiAgentPanel from "./MultiAgentPanel";
 
 interface Tab {
   id: string;
@@ -26,6 +34,10 @@ const tabs: Tab[] = [
   { id: "chat", icon: <MessageSquare size={14} />, label: "Chat" },
   { id: "agent", icon: <Bot size={14} />, label: "Agent" },
   { id: "memory", icon: <Brain size={14} />, label: "Memory" },
+  { id: "skills", icon: <Wrench size={14} />, label: "Skills" },
+  { id: "mcp", icon: <Plug size={14} />, label: "MCP" },
+  { id: "screen", icon: <Monitor size={14} />, label: "Screen" },
+  { id: "agents", icon: <Users size={14} />, label: "Agents" },
 ];
 
 function Panel() {
@@ -35,14 +47,14 @@ function Panel() {
     <div className="flex flex-col w-full h-full">
       {/* Tab Bar */}
       <div className="flex items-center justify-between h-8 bg-construct-panel border-b border-construct-border">
-        <div className="flex">
+        <div className="flex overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
                 flex items-center h-8 px-3 gap-1.5 text-xs border-r border-construct-border
-                transition-colors duration-100
+                transition-colors duration-100 shrink-0 whitespace-nowrap
                 ${
                   activeTab === tab.id
                     ? "bg-construct-bg text-construct-text border-t-2 border-t-construct-accent"
@@ -55,7 +67,7 @@ function Panel() {
             </button>
           ))}
         </div>
-        <div className="flex items-center pr-1">
+        <div className="flex items-center pr-1 shrink-0">
           <button
             onClick={() => {}}
             className="flex items-center justify-center w-6 h-6 rounded text-construct-textMuted hover:text-construct-text hover:bg-construct-hover transition-colors"
@@ -72,9 +84,9 @@ function Panel() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-3">
+      <div className="flex-1 overflow-auto p-0">
         {activeTab === "terminal" && (
-          <div className="font-mono text-xs space-y-1">
+          <div className="font-mono text-xs space-y-1 p-3">
             <div className="text-construct-textMuted">
               $ construct --version
             </div>
@@ -99,7 +111,7 @@ function Panel() {
         )}
 
         {activeTab === "problems" && (
-          <div className="text-xs">
+          <div className="text-xs p-3">
             <div className="flex items-center py-1.5 px-2 text-construct-success border-b border-construct-border">
               <ListChecks size={14} className="mr-2" />
               No problems detected
@@ -108,7 +120,7 @@ function Panel() {
         )}
 
         {activeTab === "chat" && (
-          <div className="text-xs text-construct-textMuted">
+          <div className="text-xs text-construct-textMuted p-3">
             <p>AI Assistant chat panel.</p>
             <div className="mt-3 flex items-center gap-2">
               <input
@@ -126,6 +138,10 @@ function Panel() {
         {activeTab === "autonomous" && <AutonomousPanel />}
         {activeTab === "agent" && <AgentPanel />}
         {activeTab === "memory" && <MemoryPanel />}
+        {activeTab === "skills" && <SkillMarketplace />}
+        {activeTab === "mcp" && <MCPConnector />}
+        {activeTab === "screen" && <ScreenControl />}
+        {activeTab === "agents" && <MultiAgentPanel />}
       </div>
     </div>
   );
