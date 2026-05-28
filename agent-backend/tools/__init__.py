@@ -32,6 +32,9 @@ from tools.git_tools import (
 from tools.code_tools import parse_ast, find_references, refactor_rename, extract_function
 from tools.markitdown_tool import MarkItDownTool
 from tools.ghidra_tool import GhidraTool
+from tools.browser_tool import BrowserTool
+from tools.code_search_tool import CodeSearchTool
+from tools.database_tool import DatabaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +45,9 @@ logger = logging.getLogger(__name__)
 # Lazy-initialized singleton instances for stateful tools
 _markitdown_instance: Optional[MarkItDownTool] = None
 _ghidra_instance: Optional[GhidraTool] = None
+_browser_instance: Optional[BrowserTool] = None
+_code_search_instance: Optional[CodeSearchTool] = None
+_database_instance: Optional[DatabaseTool] = None
 
 
 def _get_markitdown() -> MarkItDownTool:
@@ -58,6 +64,30 @@ def _get_ghidra() -> GhidraTool:
     if _ghidra_instance is None:
         _ghidra_instance = GhidraTool()
     return _ghidra_instance
+
+
+def _get_browser() -> BrowserTool:
+    """Return (creating if needed) the shared BrowserTool instance."""
+    global _browser_instance
+    if _browser_instance is None:
+        _browser_instance = BrowserTool()
+    return _browser_instance
+
+
+def _get_code_search() -> CodeSearchTool:
+    """Return (creating if needed) the shared CodeSearchTool instance."""
+    global _code_search_instance
+    if _code_search_instance is None:
+        _code_search_instance = CodeSearchTool()
+    return _code_search_instance
+
+
+def _get_database() -> DatabaseTool:
+    """Return (creating if needed) the shared DatabaseTool instance."""
+    global _database_instance
+    if _database_instance is None:
+        _database_instance = DatabaseTool()
+    return _database_instance
 
 
 # -- MarkItDown tool wrappers -----------------------------------------------
@@ -133,6 +163,166 @@ def compare_binaries(binary_a: str, binary_b: str) -> Dict[str, Any]:
     if not tool.is_available():
         return {"success": False, "error": "Ghidra is not installed or not found.", "similarity_score": 0.0}
     return tool.compare_binaries(binary_a, binary_b)
+
+# -- Browser tool wrappers --------------------------------------------------
+
+async def browser_navigate(url: str, wait_until: str = "networkidle") -> Dict[str, Any]:
+    """Launch a headless browser, navigate to a URL, and return page info."""
+    tool = _get_browser()
+    if not tool.is_available():
+        return {
+            "success": False,
+            "error": "Playwright not installed. Run: pip install playwright && playwright install",
+        }
+    await tool.launch()
+    try:
+        result = await tool.navigate(url, wait_until=wait_until)
+        page_info = await tool.get_page_info()
+        result.update(page_info)
+        return result
+    finally:
+        await tool.close()
+
+
+async def browser_screenshot(url: str, full_page: bool = True) -> Dict[str, Any]:
+    """Take a screenshot of a web page and return as base64."""
+    tool = _get_browser()
+    if not tool.is_available():
+        return {
+            "success": False,
+            "error": "Playwright not installed. Run: pip install playwright && playwright install",
+        }
+    await tool.launch()
+    try:
+        nav_result = await tool.navigate(url)
+        if not nav_result.get("success"):
+            return nav_result
+        return await tool.screenshot(full_page=full_page)
+    finally:
+        await tool.close()
+
+
+async def browser_extract_text(url: str, selector: Optional[str] = None) -> Dict[str, Any]:
+    """Extract text from a web page or a specific element."""
+    tool = _get_browser()
+    if not tool.is_available():
+        return {
+            "success": False,
+            "error": "Playwright not installed. Run: pip install playwright && playwright install",
+        }
+    await tool.launch()
+    try:
+        nav_result = await tool.navigate(url)
+        if not nav_result.get("success"):
+            return nav_result
+        return await tool.extract_text(selector=selector)
+    finally:
+        await tool.close()
+
+
+async def browser_click(url: str, selector: str) -> Dict[str, Any]:
+    """Navigate to a page and click an element."""
+    tool = _get_browser()
+    if not tool.is_available():
+        return {
+            "success": False,
+            "error": "Playwright not installed. Run: pip install playwright && playwright install",
+        }
+    await tool.launch()
+    try:
+        nav_result = await tool.navigate(url)
+        if not nav_result.get("success"):
+            return nav_result
+        return await tool.click(selector)
+    finally:
+        await tool.close()
+
+
+# -- Code search tool wrappers ----------------------------------------------
+
+def code_search(query: str, file_pattern: Optional[str] = None, max_results: int = 50) -> Dict[str, Any]:
+    """Search for text across project source files."""
+    tool = _get_code_search()
+    return tool.search_text(query, file_pattern=file_pattern, max_results=max_results)
+
+
+def code_find_definition(symbol: str, language: Optional[str] = None) -> Dict[str, Any]:
+    """Find where a symbol (function, class, variable) is defined."""
+    tool = _get_code_search()
+    return tool.find_definition(symbol, language=language)
+
+
+def code_find_usages(symbol: str) -> Dict[str, Any]:
+    """Find all usages of a symbol across the project."""
+    tool = _get_code_search()
+    return tool.find_usages(symbol)
+
+
+def code_file_structure(path: str = ".") -> Dict[str, Any]:
+    """Get directory/file structure with metadata."""
+    tool = _get_code_search()
+    return tool.get_file_structure(path)
+
+
+# -- Database tool wrappers -------------------------------------------------
+
+def db_connect_sqlite(path: str) -> Dict[str, Any]:
+    """Connect to a SQLite database file."""
+    tool = _get_database()
+    success = tool.connect_sqlite(path)
+    return {"success": success, "db_type": "sqlite", "path": path}
+
+
+def db_connect_postgres(
+    host: str, database: str, user: str, password: str, port: int = 5432
+) -> Dict[str, Any]:
+    """Connect to a PostgreSQL database."""
+    tool = _get_database()
+    try:
+        success = tool.connect_postgres(host, database, user, password, port)
+        return {"success": success, "db_type": "postgresql", "host": host, "database": database}
+    except RuntimeError as exc:
+        return {"success": False, "error": str(exc)}
+
+
+def db_connect_mysql(
+    host: str, database: str, user: str, password: str, port: int = 3306
+) -> Dict[str, Any]:
+    """Connect to a MySQL database."""
+    tool = _get_database()
+    try:
+        success = tool.connect_mysql(host, database, user, password, port)
+        return {"success": success, "db_type": "mysql", "host": host, "database": database}
+    except RuntimeError as exc:
+        return {"success": False, "error": str(exc)}
+
+
+def db_query(sql: str, params: Optional[tuple] = None) -> Dict[str, Any]:
+    """Execute a SQL query on the connected database."""
+    tool = _get_database()
+    result = tool.query(sql, params=params)
+    return result.to_dict()
+
+
+def db_list_tables() -> Dict[str, Any]:
+    """List all tables in the connected database."""
+    tool = _get_database()
+    tables = tool.list_tables()
+    return {"success": True, "tables": tables}
+
+
+def db_get_schema(table: str) -> Dict[str, Any]:
+    """Get the column schema for a table."""
+    tool = _get_database()
+    return tool.get_schema(table)
+
+
+def db_disconnect() -> Dict[str, Any]:
+    """Close the active database connection."""
+    tool = _get_database()
+    tool.close()
+    return {"success": True, "message": "Disconnected"}
+
 
 # ---------------------------------------------------------------------------
 # Tool definitions (OpenAI function calling format)
@@ -791,6 +981,382 @@ TOOL_DEFINITIONS: List[Dict[str, Any]] = [
             },
         },
     },
+    # -- Browser tools --------------------------------------------------------
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_navigate",
+            "description": (
+                "Launch a headless browser, navigate to a URL, and return page "
+                "information including title, status, and URL. Supports wait strategies "
+                "(networkidle, load, domcontentloaded). Closes browser automatically."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL to navigate to",
+                    },
+                    "wait_until": {
+                        "type": "string",
+                        "description": "When to consider navigation complete: networkidle, load, domcontentloaded",
+                        "default": "networkidle",
+                    },
+                },
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_screenshot",
+            "description": (
+                "Take a screenshot of a web page and return it as a base64-encoded "
+                "PNG image. Supports full-page capture. Useful for visual verification "
+                "of rendered pages."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL to screenshot",
+                    },
+                    "full_page": {
+                        "type": "boolean",
+                        "description": "Capture the full scrollable page (default: true)",
+                        "default": True,
+                    },
+                },
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_extract_text",
+            "description": (
+                "Extract visible text from a web page or a specific CSS selector. "
+                "Returns the extracted text and the count of matched elements. "
+                "Useful for scraping content from web pages."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL to extract text from",
+                    },
+                    "selector": {
+                        "type": "string",
+                        "description": "Optional CSS selector to extract text from a specific element (e.g., 'article', '#main')",
+                    },
+                },
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_click",
+            "description": (
+                "Navigate to a URL and click an element identified by a CSS selector. "
+                "Useful for interacting with buttons, links, and form elements on web pages. "
+                "Returns success status of the click operation."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL of the page containing the element",
+                    },
+                    "selector": {
+                        "type": "string",
+                        "description": "CSS selector for the element to click (e.g., 'button#submit', 'a.login')",
+                    },
+                },
+                "required": ["url", "selector"],
+            },
+        },
+    },
+    # -- Code search tools ----------------------------------------------------
+    {
+        "type": "function",
+        "function": {
+            "name": "code_search",
+            "description": (
+                "Search for text across project source files using ripgrep (fast) or "
+                "a Python fallback. Supports regex patterns, file glob filters, and "
+                "configurable result limits. Returns file paths, line numbers, columns, "
+                "and matching context."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Text string or regex pattern to search for",
+                    },
+                    "file_pattern": {
+                        "type": "string",
+                        "description": "Glob pattern to filter files (e.g., '*.py', '*.js')",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum number of matches to return (default 50)",
+                        "default": 50,
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "code_find_definition",
+            "description": (
+                "Find where a symbol (function, class, variable, trait, struct, etc.) "
+                "is defined in the codebase. Uses language-aware patterns for Python, "
+                "JavaScript, TypeScript, Rust, Go, Java, C, C++, Ruby, PHP, Swift, and Kotlin. "
+                "Returns file paths, line numbers, and surrounding context."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "description": "The symbol name to find definitions for",
+                    },
+                    "language": {
+                        "type": "string",
+                        "description": "Optional: restrict search to a specific language (e.g., 'python', 'rust')",
+                    },
+                },
+                "required": ["symbol"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "code_find_usages",
+            "description": (
+                "Find all references/usages of a symbol across the entire project. "
+                "Returns every occurrence with file path, line number, column, and "
+                "context line. Useful for refactoring and understanding code impact."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "description": "The symbol name to find usages of",
+                    },
+                },
+                "required": ["symbol"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "code_file_structure",
+            "description": (
+                "List files and directories within a project path with metadata "
+                "(name, type, size, modification time). Skips hidden directories "
+                "and common build artifacts. Useful for exploring project layout."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Directory path to explore (default: project root)",
+                        "default": ".",
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    # -- Database tools -------------------------------------------------------
+    {
+        "type": "function",
+        "function": {
+            "name": "db_connect_sqlite",
+            "description": (
+                "Connect to a SQLite database file (or :memory: for in-memory). "
+                "Connection persists for subsequent db_query calls. Use db_disconnect "
+                "to close the connection."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the SQLite database file, or ':memory:'",
+                    },
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "db_connect_postgres",
+            "description": (
+                "Connect to a PostgreSQL database server. Requires psycopg2-binary "
+                "to be installed. Connection persists for subsequent db_query calls."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "description": "Database server hostname or IP",
+                    },
+                    "database": {
+                        "type": "string",
+                        "description": "Name of the database to connect to",
+                    },
+                    "user": {
+                        "type": "string",
+                        "description": "Database username",
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "Database password",
+                    },
+                    "port": {
+                        "type": "integer",
+                        "description": "TCP port (default 5432)",
+                        "default": 5432,
+                    },
+                },
+                "required": ["host", "database", "user", "password"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "db_connect_mysql",
+            "description": (
+                "Connect to a MySQL database server. Requires pymysql to be installed. "
+                "Connection persists for subsequent db_query calls."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "description": "Database server hostname or IP",
+                    },
+                    "database": {
+                        "type": "string",
+                        "description": "Name of the database/schema to connect to",
+                    },
+                    "user": {
+                        "type": "string",
+                        "description": "Database username",
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "Database password",
+                    },
+                    "port": {
+                        "type": "integer",
+                        "description": "TCP port (default 3306)",
+                        "default": 3306,
+                    },
+                },
+                "required": ["host", "database", "user", "password"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "db_query",
+            "description": (
+                "Execute a SQL query on the currently connected database. "
+                "Supports SELECT, INSERT, UPDATE, DELETE, CREATE, and DDL statements. "
+                "Use parameterized queries via the params argument for safety. "
+                "Returns columns, rows, row count, and execution duration."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sql": {
+                        "type": "string",
+                        "description": "SQL query string to execute",
+                    },
+                    "params": {
+                        "type": "string",
+                        "description": "Optional: JSON array of parameter values for parameterized queries",
+                    },
+                },
+                "required": ["sql"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "db_list_tables",
+            "description": (
+                "List all tables/views in the currently connected database. "
+                "Works for SQLite, PostgreSQL, and MySQL."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "db_get_schema",
+            "description": (
+                "Get the column schema for a table: column names, data types, "
+                "nullability, defaults, and primary key status."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "table": {
+                        "type": "string",
+                        "description": "Name of the table to describe",
+                    },
+                },
+                "required": ["table"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "db_disconnect",
+            "description": (
+                "Close the active database connection. Call this when done "
+                "with database operations to release resources."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -828,6 +1394,24 @@ _TOOL_FUNCTIONS: Dict[str, Callable] = {
     "find_references": find_references,
     "refactor_rename": refactor_rename,
     "extract_function": extract_function,
+    # Browser tools
+    "browser_navigate": browser_navigate,
+    "browser_screenshot": browser_screenshot,
+    "browser_extract_text": browser_extract_text,
+    "browser_click": browser_click,
+    # Code search tools
+    "code_search": code_search,
+    "code_find_definition": code_find_definition,
+    "code_find_usages": code_find_usages,
+    "code_file_structure": code_file_structure,
+    # Database tools
+    "db_connect_sqlite": db_connect_sqlite,
+    "db_connect_postgres": db_connect_postgres,
+    "db_connect_mysql": db_connect_mysql,
+    "db_query": db_query,
+    "db_list_tables": db_list_tables,
+    "db_get_schema": db_get_schema,
+    "db_disconnect": db_disconnect,
 }
 
 # ---------------------------------------------------------------------------

@@ -56,3 +56,22 @@ schedule>=1.2.0
 
 # Microsoft MarkItDown — convert 20+ document formats to Markdown
 markitdown[all]>=0.1.0
+
+# ---------------------------------------------------------------------------
+# Browser automation
+# ---------------------------------------------------------------------------
+
+playwright>=1.40.0
+
+# ---------------------------------------------------------------------------
+# Code search (ripgrep is system-level, not pip)
+# ---------------------------------------------------------------------------
+
+# ripgrep — install via apt: sudo apt-get install ripgrep
+
+# ---------------------------------------------------------------------------
+# Database drivers (uncomment as needed)
+# ---------------------------------------------------------------------------
+
+# psycopg2-binary  # uncomment for PostgreSQL support
+# pymysql          # uncomment for MySQL support
