@@ -1,0 +1,27 @@
+[package]
+name = "construct"
+version = "0.1.0"
+description = "Construct - A Tauri Desktop App"
+authors = ["Razisafir"]
+edition = "2021"
+rust-version = "1.70"
+
+[lib]
+name = "construct_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "construct"
+path = "src/main.rs"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
