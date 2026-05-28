@@ -827,3 +827,80 @@ class AgentExecutor:
         if not session:
             return []
         return session.output_log[since_index:]
+
+    # -- Task execution facade (for orchestrator_v2) -------------------------
+
+    async def execute_task(
+        self, task_description: str, context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Execute a single task and return the result.
+
+        This is a facade used by :class:`orchestrator_v2.TaskOrchestrator`
+        to execute individual subtasks through the full OODA loop without
+        managing a persistent session.
+
+        Parameters
+        ----------
+        task_description:
+            What the agent should do.
+        context:
+            Extra context keys such as ``role``, ``task_id``, etc.
+
+        Returns
+        -------
+        dict
+            ``{"success": bool, "output": str, "error": str|None,
+            "files_modified": list, "tests_passed": bool}``
+        """
+        # Create a lightweight agent task
+        task = AgentTask(
+            id=context.get("task_id", str(uuid.uuid4())[:8]),
+            description=task_description,
+            status=TaskStatus.IN_PROGRESS,
+        )
+
+        # Create a transient session
+        session = AgentSession(
+            id=f"task-{task.id}",
+            goal=task_description,
+            project_path=context.get("project_path", "."),
+            status=AgentStatus.RUNNING,
+        )
+        session.tasks = [task]
+
+        try:
+            # Phase 1: Observe
+            observe_ctx = await self.observe(session)
+            observe_ctx.update(context)
+
+            # Phase 3: Act (direct tool execution)
+            result = await self.act(session, task)
+
+            if result.get("success"):
+                # Phase 4: Verify
+                verified = await self.verify(session, task)
+                return {
+                    "success": True,
+                    "output": str(result.get("output", ""))[:5000],
+                    "error": None,
+                    "files_modified": result.get("files_modified", []),
+                    "tests_passed": verified,
+                }
+            else:
+                return {
+                    "success": False,
+                    "output": "",
+                    "error": result.get("error", "Execution failed"),
+                    "files_modified": [],
+                    "tests_passed": False,
+                }
+
+        except Exception as exc:
+            logger.exception("Task execution failed: %s", task_description)
+            return {
+                "success": False,
+                "output": "",
+                "error": str(exc),
+                "files_modified": [],
+                "tests_passed": False,
+            }

@@ -225,17 +225,75 @@ class TaskOrchestrator:
         return self._decompose_rule_based(goal)
 
     def _decompose_with_llm(self, goal: str) -> List[SubTask]:
-        """Attempt LLM-based decomposition.
+        """Decompose a goal into subtasks using the LLM service.
 
-        This is a template implementation.  In production, replace the
-        prompt and parsing logic with calls to your actual LLM service.
+        Falls back to rule-based decomposition if the LLM call fails
+        or returns invalid JSON.
         """
-        # Placeholder: in production, construct a proper prompt and parse
-        # the JSON response into SubTask objects.
         logger.info("Attempting LLM decomposition for goal: %s", goal)
-        raise NotImplementedError(
-            "LLM decomposition not yet implemented — configure a real LLM client"
-        )
+
+        try:
+            from core.llm_service import LLMService
+
+            llm = LLMService()
+
+            prompt = (
+                f"Decompose this software development goal into subtasks.\n\n"
+                f"Goal: {goal}\n\n"
+                f"Return a JSON array of objects with these fields:\n"
+                f"- id: unique task ID (task_0, task_1, ...)\n"
+                f"- description: specific, actionable description\n"
+                f"- role_required: one of [code, security, test, ui, devops, research, docs]\n"
+                f"- dependencies: list of task IDs that must complete first\n\n"
+                f"Rules:\n"
+                f"- Order matters — earlier tasks run first\n"
+                f"- Be specific, not generic\n"
+                f"- Include testing and code review as separate subtasks\n"
+                f"- Maximum 15 subtasks\n"
+                f"- Return ONLY valid JSON, no markdown, no explanation"
+            )
+
+            response = asyncio.get_event_loop().run_until_complete(
+                llm.complete(prompt, model="claude-sonnet-4-20250514")
+            )
+
+            # Extract JSON from response (handle markdown fences)
+            raw = response.strip()
+            if raw.startswith("```"):
+                raw = raw.strip("`").strip()
+                if raw.lower().startswith("json"):
+                    raw = raw[4:].strip()
+
+            tasks_data = json.loads(raw)
+            subtasks: List[SubTask] = []
+
+            for task_data in tasks_data:
+                subtask = SubTask(
+                    id=task_data["id"],
+                    description=task_data["description"],
+                    role_required=task_data.get("role_required", "code"),
+                    dependencies=task_data.get("dependencies", []),
+                )
+                subtasks.append(subtask)
+
+            # Validate: all dependency IDs must exist
+            task_ids = {t.id for t in subtasks}
+            for task in subtasks:
+                for dep in task.dependencies:
+                    if dep not in task_ids:
+                        logger.warning(
+                            "Removing dangling dependency %s from task %s",
+                            dep, task.id,
+                        )
+                        task.dependencies = [d for d in task.dependencies if d in task_ids]
+
+            self._detect_cycles(subtasks)
+            logger.info("LLM decomposition produced %d subtasks", len(subtasks))
+            return subtasks
+
+        except Exception:
+            logger.exception("LLM decomposition failed; using fallback")
+            raise  # Let caller fall through to rule-based
 
     def _decompose_rule_based(self, goal: str) -> List[SubTask]:
         """Heuristic decomposition based on keyword matching.
@@ -518,12 +576,66 @@ class TaskOrchestrator:
 
     @staticmethod
     async def _default_executor(task: SubTask) -> None:
-        """Placeholder executor that simulates work.
+        """Execute a task using the real agent executor and tool system.
 
-        In production, replace this with a real agent invocation.
+        Connects to LLMService and AgentExecutor from the core module.
+        Publishes progress updates on the context bus when available.
         """
-        await asyncio.sleep(0.05)  # Simulate 50ms of work
-        task.result = f"Placeholder result for {task.description}"
+        import time
+
+        start_time = time.time()
+        task.status = TaskStatus.IN_PROGRESS
+        task.started_at = start_time
+
+        try:
+            from core.executor import AgentExecutor
+            from core.llm_service import LLMService
+            from tools import ToolRegistry
+
+            llm = LLMService()
+            tools = ToolRegistry()
+            executor = AgentExecutor(llm_service=llm, tool_registry=tools)
+
+            context = {
+                "task": task.description,
+                "role": task.role_required,
+                "task_id": task.id,
+            }
+
+            result = await asyncio.wait_for(
+                executor.execute_task(task.description, context),
+                timeout=300,
+            )
+
+            duration_ms = int((time.time() - start_time) * 1000)
+
+            if result.get("success"):
+                task.status = TaskStatus.COMPLETED
+                task.result = result.get("output", "")
+                task.completed_at = time.time()
+                logger.info(
+                    "Task %s completed by %s in %dms",
+                    task.id, task.role_required, duration_ms,
+                )
+            else:
+                task.status = TaskStatus.FAILED
+                task.error = result.get("error", "Unknown error")
+                task.completed_at = time.time()
+                logger.warning(
+                    "Task %s failed: %s", task.id, task.error,
+                )
+
+        except asyncio.TimeoutError:
+            task.status = TaskStatus.FAILED
+            task.error = "Task timed out after 5 minutes"
+            task.completed_at = time.time()
+            logger.error("Task %s timed out after 300s", task.id)
+
+        except Exception as exc:
+            task.status = TaskStatus.FAILED
+            task.error = str(exc)
+            task.completed_at = time.time()
+            logger.exception("Task %s failed with exception", task.id)
 
     @staticmethod
     def _build_dependency_graph(
