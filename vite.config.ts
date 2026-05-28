@@ -2,10 +2,10 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   root: ".",
-  base: "./",
+  base: mode === "web" ? "/" : "./",
   build: {
     outDir: "dist",
     emptyOutDir: true,
@@ -31,4 +31,4 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ["monaco-editor"],
   },
-});
+}));

@@ -1,0 +1,44 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Construct AI Agent — Netlify Deployment Config
+# ═══════════════════════════════════════════════════════════════════════════════
+# Deploy: Connect GitHub repo at https://app.netlify.com
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[build]
+  command = "npx vite build"
+  publish = "dist"
+  environment = { NODE_VERSION = "20" }
+
+# SPA routing — all paths serve index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# API proxy (set your backend URL in environment)
+[[redirects]]
+  from = "/api/*"
+  to = "${API_PROXY_URL}/api/:splat"
+  status = 200
+  force = true
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-XSS-Protection = "1; mode=block"
+
+# Cache static assets
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Performance headers
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

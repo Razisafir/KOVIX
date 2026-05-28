@@ -1,0 +1,23 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Construct AI Agent — Railway Deployment Config
+# ═══════════════════════════════════════════════════════════════════════════════
+# Deploy: https://railway.app/new/template (use Dockerfile deploy)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+buildTarget = "backend"
+
+[deploy]
+startCommand = "uvicorn app:app --host 0.0.0.0 --port $PORT --proxy-headers"
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
+
+[environments.production]
+numReplicas = 1
+
+[environments.production.deploy]
+startCommand = "uvicorn app:app --host 0.0.0.0 --port $PORT --proxy-headers --workers 2"

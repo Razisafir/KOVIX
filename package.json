@@ -16,6 +16,11 @@
     "build:all": "npm run build:mac && npm run build:win && npm run build:linux",
     "prebuild": "tsc --noEmit",
     "lint": "tsc --noEmit && echo 'Type check passed'",
+    "build:web": "vite build --mode web",
+    "preview:web": "vite preview --mode web",
+    "docker:build": "docker build -t construct .",
+    "docker:up": "docker compose up --build",
+    "docker:backend": "docker compose --profile backend up --build",
     "icons:generate": "cd src/main && cargo tauri icon ../../icons/icon.png"
   },
   "dependencies": {
@@ -24,7 +29,7 @@
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-fs": "^2.0.0",
     "@tauri-apps/plugin-shell": "^2.0.0",
-    "framer-motion": "^11.0.0",
+
     "lucide-react": "^0.460.0",
     "monaco-editor": "^0.52.0",
     "react": "^18.3.1",

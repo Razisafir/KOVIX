@@ -1,0 +1,91 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Construct AI Agent — Docker Compose
+# ═══════════════════════════════════════════════════════════════════════════════
+# Usage:
+#   docker compose up --build
+#   docker compose up -d  (detached)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  # ─── Web Frontend ─────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      target: frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    profiles:
+      - web  # Only start when --profile web is used
+
+  # ─── Python Backend ───────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      target: backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist database and vector store
+      - construct-data:/app/data
+      # Persist skills
+      - construct-skills:/app/resources/skills
+      # Mount local projects (optional)
+      - type: bind
+        source: ${PROJECT_PATH:-.}
+        target: /projects
+        read_only: true
+    environment:
+      # Core
+      - DATABASE_URL=sqlite:///app/data/construct.db
+      - CHROMA_PERSIST_DIR=/app/data/vector
+      - SKILLS_DIR=/app/resources/skills
+
+      # LLM Providers (set in .env)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+
+      # Security
+      - SECRET_KEY=${SECRET_KEY:-construct-default-secret-change-me}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+
+      # Features
+      - MAX_CONCURRENT_AGENTS=5
+      - CONTEXT_LIMIT=200000
+      - AUTONOMOUS_ENABLED=${AUTONOMOUS_ENABLED:-true}
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+
+    restart: unless-stopped
+
+  # ─── ChromaDB Vector Store (optional, for external Chroma) ────────────────
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+    profiles:
+      - chroma  # Only start when --profile chroma is used
+
+volumes:
+  construct-data:
+    driver: local
+  construct-skills:
+    driver: local
+  chroma-data:
+    driver: local
