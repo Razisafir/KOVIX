@@ -1,6 +1,5 @@
 import { useState, useRef } from "react";
 import type { ReactNode } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   Monitor,
   Shield,
@@ -22,14 +21,15 @@ import {
   ChevronRight,
   Zap,
   Eye,
-  Lock,
-  Unlock,
   Trash2,
-  Plus,
 } from "lucide-react";
-import { GlassCard } from "./premium/GlassCard";
-import { GlowButton } from "./premium/GlowButton";
-import { StatusBadge } from "./premium/StatusBadge";
+
+const C = {
+  base: "#0c0c10", s1: "#12121a", s2: "#1a1a24", s3: "#22222e",
+  accent: "#6366f1", t1: "#e8e8ec", t2: "#94949c", t3: "#6b6b73", t4: "#4a4a52",
+  ok: "#10b981", wrn: "#f59e0b", err: "#ef4444", inf: "#60a5fa"
+};
+const ff = '"Geist Mono", "JetBrains Mono", monospace';
 
 interface ScreenAction {
   id: string;
@@ -55,10 +55,10 @@ const actionTypeIcons: Record<string, ReactNode> = {
 };
 
 const actionTypeColors: Record<string, string> = {
-  click: "#6366f1",
-  type: "#10b981",
+  click: C.accent,
+  type: C.ok,
   key: "#cba6f7",
-  scroll: "#f59e0b",
+  scroll: C.wrn,
   drag: "#fab387",
   screenshot: "#94e2d5",
 };
@@ -136,7 +136,6 @@ export default function ScreenControl() {
   const toggleRecording = () => {
     setIsRecording(!isRecording);
     if (!isRecording) {
-      // Starting recording - add an action
       const newAction: ScreenAction = {
         id: `action-${Date.now()}`,
         actionType: "key",
@@ -152,89 +151,163 @@ export default function ScreenControl() {
     setActions(actions.filter((a) => a.id !== id));
   };
 
+  // ── Shared Styles ──────────────────────────────────────────
+  const tabBtnBase: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    padding: "4px 10px",
+    borderRadius: "2px",
+    fontSize: "10px",
+    fontWeight: 500,
+    fontFamily: ff,
+    border: "none",
+    cursor: "pointer",
+    transition: "background-color 0.15s, color 0.15s",
+  };
+
+  const smallBtn = (bg: string, color: string): React.CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    padding: "4px 10px",
+    borderRadius: "2px",
+    fontSize: "10px",
+    fontWeight: 500,
+    fontFamily: ff,
+    border: "none",
+    cursor: "pointer",
+    backgroundColor: bg,
+    color: color,
+    transition: "background-color 0.15s",
+  });
+
   return (
-    <div className="flex flex-col h-full overflow-auto">
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "auto", fontFamily: ff }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-construct-border/50">
-        <div className="flex items-center gap-2">
-          <Monitor size={16} className="text-construct-accent-primary" />
-          <span className="text-sm font-semibold text-construct-text-primary">Screen Control</span>
-          <StatusBadge
-            status={sandboxMode ? "active" : "warning"}
-            text={sandboxMode ? "Sandbox" : "Unsafe"}
-            pulse={sandboxMode}
-          />
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "12px 16px",
+        borderBottom: `1px solid ${C.s3}`,
+        backgroundColor: C.s1,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Monitor size={16} style={{ color: C.accent }} />
+          <span style={{ fontSize: "13px", fontWeight: 600, color: C.t1 }}>Screen Control</span>
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+            padding: "2px 8px",
+            borderRadius: "2px",
+            fontSize: "9px",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            backgroundColor: sandboxMode ? `${C.ok}20` : `${C.wrn}20`,
+            color: sandboxMode ? C.ok : C.wrn,
+          }}>
+            {sandboxMode ? "Sandbox" : "Unsafe"}
+          </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           {sandboxMode ? (
-            <ShieldCheck size={14} className="text-construct-semantic-success" />
+            <ShieldCheck size={14} style={{ color: C.ok }} />
           ) : (
-            <Shield size={14} className="construct-semantic-warning" />
+            <Shield size={14} style={{ color: C.wrn }} />
           )}
         </div>
       </div>
 
       {/* Safety Settings */}
-      <div className="px-4 py-2 border-b border-construct-border/30">
-        <div className="text-[10px] font-semibold text-construct-text-muted uppercase tracking-wider mb-2">
+      <div style={{ padding: "8px 16px", borderBottom: `1px solid ${C.s3}`, backgroundColor: C.s1 }}>
+        <div style={{ fontSize: "10px", fontWeight: 600, color: C.t3, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "8px" }}>
           Safety Settings
         </div>
-        <div className="flex items-center gap-4">
-          {/* Sandbox Mode */}
-          <label className="flex items-center gap-2 cursor-pointer">
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+          {/* Sandbox Mode Toggle */}
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
             <button
               onClick={() => setSandboxMode(!sandboxMode)}
-              className={`relative w-8 h-4 rounded-full transition-colors ${
-                sandboxMode ? "bg-construct-semantic-success/40" : "bg-construct-text-muted/20"
-              }`}
+              style={{
+                position: "relative",
+                width: "32px",
+                height: "16px",
+                borderRadius: "8px",
+                border: "none",
+                cursor: "pointer",
+                backgroundColor: sandboxMode ? `${C.ok}40` : `${C.t3}20`,
+                transition: "background-color 0.15s",
+              }}
             >
-              <motion.div
-                className="absolute top-0.5 w-3 h-3 rounded-full"
-                style={{ backgroundColor: sandboxMode ? "#10b981" : "#64748b" }}
-                animate={{ left: sandboxMode ? 16 : 2 }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "2px",
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "6px",
+                  backgroundColor: sandboxMode ? C.ok : C.t3,
+                  left: sandboxMode ? "16px" : "2px",
+                  transition: "left 0.15s, background-color 0.15s",
+                }}
               />
             </button>
-            <span className="text-[10px] text-construct-text-primary">Sandbox</span>
+            <span style={{ fontSize: "10px", color: C.t1 }}>Sandbox</span>
           </label>
 
-          {/* Consent Required */}
-          <label className="flex items-center gap-2 cursor-pointer">
+          {/* Consent Required Toggle */}
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
             <button
               onClick={() => setConsentRequired(!consentRequired)}
-              className={`relative w-8 h-4 rounded-full transition-colors ${
-                consentRequired ? "bg-construct-accent-primary/40" : "bg-construct-text-muted/20"
-              }`}
+              style={{
+                position: "relative",
+                width: "32px",
+                height: "16px",
+                borderRadius: "8px",
+                border: "none",
+                cursor: "pointer",
+                backgroundColor: consentRequired ? `${C.accent}40` : `${C.t3}20`,
+                transition: "background-color 0.15s",
+              }}
             >
-              <motion.div
-                className="absolute top-0.5 w-3 h-3 rounded-full"
-                style={{ backgroundColor: consentRequired ? "#6366f1" : "#64748b" }}
-                animate={{ left: consentRequired ? 16 : 2 }}
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              <div
+                style={{
+                  position: "absolute",
+                  top: "2px",
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "6px",
+                  backgroundColor: consentRequired ? C.accent : C.t3,
+                  left: consentRequired ? "16px" : "2px",
+                  transition: "left 0.15s, background-color 0.15s",
+                }}
               />
             </button>
-            <span className="text-[10px] text-construct-text-primary">Require consent</span>
+            <span style={{ fontSize: "10px", color: C.t1 }}>Require consent</span>
           </label>
 
           {/* Rate Limit */}
-          <div className="flex items-center gap-2">
-            <Zap size={10} className="text-construct-text-muted" />
-            <span className="text-[10px] text-construct-text-muted">Rate:</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <Zap size={10} style={{ color: C.t3 }} />
+            <span style={{ fontSize: "10px", color: C.t3 }}>Rate:</span>
             <input
               type="range"
               min={1}
               max={60}
               value={rateLimit}
               onChange={(e) => setRateLimit(Number(e.target.value))}
-              className="w-16 h-1 accent-construct-accent-primary"
+              style={{ width: "64px", height: "4px", accentColor: C.accent }}
             />
-            <span className="text-[10px] text-construct-accent-primary">{rateLimit}/min</span>
+            <span style={{ fontSize: "10px", color: C.accent, fontFamily: ff }}>{rateLimit}/min</span>
           </div>
         </div>
       </div>
 
       {/* Sub-tabs */}
-      <div className="flex items-center gap-1 px-4 py-1 border-b border-construct-border/30">
+      <div style={{ display: "flex", alignItems: "center", gap: "4px", padding: "4px 16px", borderBottom: `1px solid ${C.s3}`, backgroundColor: C.s1 }}>
         {[
           { id: "recorder" as const, label: "Recorder", icon: <MousePointer size={10} /> },
           { id: "screenshots" as const, label: "Screenshots", icon: <Camera size={10} /> },
@@ -243,13 +316,11 @@ export default function ScreenControl() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`
-              flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all
-              ${activeTab === tab.id
-                ? "bg-construct-accent-primary/15 text-construct-accent-primary"
-                : "text-construct-text-muted hover:text-construct-text-primary"
-              }
-            `}
+            style={{
+              ...tabBtnBase,
+              backgroundColor: activeTab === tab.id ? `${C.accent}15` : "transparent",
+              color: activeTab === tab.id ? C.accent : C.t3,
+            }}
           >
             {tab.icon}
             {tab.label}
@@ -258,54 +329,81 @@ export default function ScreenControl() {
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-auto px-4 py-3">
+      <div style={{ flex: 1, overflow: "auto", padding: "12px 16px", backgroundColor: C.base }}>
         {/* Recorder Tab */}
         {activeTab === "recorder" && (
-          <div className="space-y-3">
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {/* Playback Controls */}
-            <GlassCard className="p-3" glow="accent">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            <div style={{
+              padding: "12px",
+              border: `1px solid ${C.s3}`,
+              backgroundColor: C.s1,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   {/* Record Button */}
-                  <GlowButton
-                    variant={isRecording ? "danger" : "primary"}
-                    size="sm"
+                  <button
                     onClick={toggleRecording}
+                    style={smallBtn(isRecording ? C.err : C.accent, C.t1)}
                   >
-                    <div className={`w-2 h-2 rounded-full ${isRecording ? "bg-white animate-pulse" : "bg-white"}`} />
+                    <div style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: isRecording ? "0px" : "4px",
+                      backgroundColor: C.t1,
+                    }} />
                     {isRecording ? "Stop" : "Record"}
-                  </GlowButton>
+                  </button>
 
                   {/* Playback controls */}
-                  <div className="flex items-center gap-1 ml-2">
-                    <GlowButton
-                      variant="secondary"
-                      size="sm"
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px", marginLeft: "8px" }}>
+                    <button
                       onClick={() => setIsPlaying(!isPlaying)}
                       disabled={actions.length === 0}
+                      style={{
+                        ...smallBtn(C.s3, C.t2),
+                        opacity: actions.length === 0 ? 0.4 : 1,
+                        cursor: actions.length === 0 ? "not-allowed" : "pointer",
+                      }}
                     >
                       {isPlaying ? <Pause size={10} /> : <Play size={10} />}
-                    </GlowButton>
-                    <GlowButton variant="secondary" size="sm" disabled={actions.length === 0}>
+                    </button>
+                    <button
+                      disabled={actions.length === 0}
+                      style={{
+                        ...smallBtn(C.s3, C.t2),
+                        opacity: actions.length === 0 ? 0.4 : 1,
+                        cursor: actions.length === 0 ? "not-allowed" : "pointer",
+                      }}
+                    >
                       <Square size={10} />
-                    </GlowButton>
-                    <GlowButton
-                      variant={loopEnabled ? "primary" : "secondary"}
-                      size="sm"
+                    </button>
+                    <button
                       onClick={() => setLoopEnabled(!loopEnabled)}
+                      style={smallBtn(loopEnabled ? C.accent : C.s3, loopEnabled ? C.t1 : C.t2)}
                     >
                       <Repeat size={10} />
-                    </GlowButton>
+                    </button>
                   </div>
                 </div>
 
                 {/* Speed */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-construct-text-muted">Speed:</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span style={{ fontSize: "10px", color: C.t3 }}>Speed:</span>
                   <select
                     value={playbackSpeed}
                     onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-                    className="h-6 px-1.5 bg-[rgba(255,255,255,0.04)] border border-construct-border/50 rounded text-[10px] text-construct-text-primary outline-none"
+                    style={{
+                      height: "24px",
+                      padding: "0 6px",
+                      backgroundColor: C.s1,
+                      border: `1px solid ${C.s3}`,
+                      borderRadius: "2px",
+                      fontSize: "10px",
+                      color: C.t1,
+                      outline: "none",
+                      fontFamily: ff,
+                    }}
                   >
                     <option value={0.25}>0.25x</option>
                     <option value={0.5}>0.5x</option>
@@ -318,82 +416,124 @@ export default function ScreenControl() {
 
               {/* Progress */}
               {actions.length > 0 && (
-                <div className="mt-2">
-                  <div className="flex items-center justify-between text-[10px] mb-1">
-                    <span className="text-construct-text-muted">{actions.length} actions</span>
-                    <span className="text-construct-accent-primary">{isPlaying ? "Playing..." : isRecording ? "Recording..." : "Ready"}</span>
+                <div style={{ marginTop: "8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10px", marginBottom: "4px" }}>
+                    <span style={{ color: C.t3 }}>{actions.length} actions</span>
+                    <span style={{ color: C.accent }}>
+                      {isPlaying ? "Playing..." : isRecording ? "Recording..." : "Ready"}
+                    </span>
                   </div>
-                  <div className="h-1 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ background: "linear-gradient(90deg, #6366f1, #10b981)" }}
-                      animate={{ width: isPlaying ? "100%" : isRecording ? ["0%", "100%"] : "0%" }}
-                      transition={{
-                        duration: isRecording ? 2 : isPlaying ? 3 / playbackSpeed : 0,
-                        repeat: isRecording || isPlaying ? Infinity : 0,
-                        ease: "linear",
+                  <div style={{ height: "4px", backgroundColor: C.s2, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        height: "100%",
+                        width: isRecording ? "60%" : isPlaying ? "100%" : "0%",
+                        background: `linear-gradient(90deg, ${C.accent}, ${C.ok})`,
+                        transition: "width 0.3s linear",
                       }}
                     />
                   </div>
                 </div>
               )}
-            </GlassCard>
+            </div>
 
             {/* Action List */}
-            <div className="space-y-1">
-              {actions.map((action, index) => (
-                <motion.div
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              {actions.map((action) => (
+                <div
                   key={action.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.03)] transition-colors group"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "6px 8px",
+                    borderRadius: "2px",
+                    transition: "background-color 0.15s",
+                    cursor: "default",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = C.s1; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
                 >
                   <div
-                    className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${actionTypeColors[action.actionType]}20`, color: actionTypeColors[action.actionType] }}
+                    style={{
+                      width: "24px",
+                      height: "24px",
+                      borderRadius: "2px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      backgroundColor: `${actionTypeColors[action.actionType]}20`,
+                      color: actionTypeColors[action.actionType],
+                    }}
                   >
                     {actionTypeIcons[action.actionType]}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-medium text-construct-text-primary capitalize">{action.actionType}</span>
-                      <span className="text-[9px] text-construct-text-muted font-mono">{formatTime(action.timestamp)}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 500, color: C.t1, textTransform: "capitalize" }}>
+                        {action.actionType}
+                      </span>
+                      <span style={{ fontSize: "9px", color: C.t3, fontFamily: ff }}>
+                        {formatTime(action.timestamp)}
+                      </span>
                     </div>
-                    <div className="text-[10px] text-construct-text-muted truncate">
+                    <div style={{ fontSize: "10px", color: C.t3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {Object.entries(action.params)
                         .map(([k, v]) => `${k}: ${String(v)}`)
                         .join(", ")}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
                     <button
                       onClick={() => setExpandedAction(expandedAction === action.id ? null : action.id)}
-                      className="p-1 rounded text-construct-text-muted hover:text-construct-text-primary hover:bg-[rgba(255,255,255,0.06)]"
+                      style={{
+                        padding: "4px",
+                        borderRadius: "2px",
+                        border: "none",
+                        backgroundColor: "transparent",
+                        color: C.t3,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
                     >
                       {expandedAction === action.id ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
                     </button>
                     <button
                       onClick={() => deleteAction(action.id)}
-                      className="p-1 rounded text-construct-text-muted hover:text-construct-semantic-error hover:bg-construct-semantic-error/10"
+                      style={{
+                        padding: "4px",
+                        borderRadius: "2px",
+                        border: "none",
+                        backgroundColor: "transparent",
+                        color: C.t3,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.err; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.t3; }}
                     >
                       <Trash2 size={10} />
                     </button>
                   </div>
                   {action.approved ? (
-                    <CheckCircle size={12} className="text-construct-semantic-success shrink-0" />
+                    <CheckCircle size={12} style={{ color: C.ok, flexShrink: 0 }} />
                   ) : (
-                    <AlertTriangle size={12} className="text-construct-semantic-warning shrink-0" />
+                    <AlertTriangle size={12} style={{ color: C.wrn, flexShrink: 0 }} />
                   )}
-                </motion.div>
+                </div>
               ))}
             </div>
 
             {actions.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-8 text-construct-text-muted">
-                <MousePointer size={24} className="mb-2 opacity-50" />
-                <p className="text-xs">No recorded actions</p>
-                <p className="text-[10px] mt-1">Click Record to start capturing</p>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 0", color: C.t3 }}>
+                <MousePointer size={24} style={{ marginBottom: "8px", opacity: 0.5 }} />
+                <p style={{ fontSize: "12px" }}>No recorded actions</p>
+                <p style={{ fontSize: "10px", marginTop: "4px" }}>Click Record to start capturing</p>
               </div>
             )}
           </div>
@@ -401,41 +541,70 @@ export default function ScreenControl() {
 
         {/* Screenshots Tab */}
         {activeTab === "screenshots" && (
-          <div className="grid grid-cols-3 gap-2">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
             {demoScreenshots.map((shot) => (
-              <GlassCard key={shot.id} className="p-2" hover>
-                <div className="aspect-video bg-[rgba(255,255,255,0.04)] rounded-lg flex items-center justify-center mb-1.5 border border-construct-border/30">
-                  <Camera size={20} className="text-construct-text-muted/30" />
+              <div
+                key={shot.id}
+                style={{
+                  padding: "8px",
+                  border: `1px solid ${C.s3}`,
+                  backgroundColor: C.s1,
+                  cursor: "pointer",
+                  transition: "border-color 0.15s",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.accent; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.s3; }}
+              >
+                <div style={{
+                  aspectRatio: "16 / 9",
+                  backgroundColor: C.s2,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: "6px",
+                  border: `1px solid ${C.s3}`,
+                }}>
+                  <Camera size={20} style={{ color: C.t4 }} />
                 </div>
-                <div className="text-[10px] font-medium text-construct-text-primary">{shot.label}</div>
-                <div className="text-[9px] text-construct-text-muted">{formatTime(shot.timestamp)}</div>
-              </GlassCard>
+                <div style={{ fontSize: "10px", fontWeight: 500, color: C.t1 }}>{shot.label}</div>
+                <div style={{ fontSize: "9px", color: C.t3, fontFamily: ff }}>{formatTime(shot.timestamp)}</div>
+              </div>
             ))}
           </div>
         )}
 
         {/* Audit Log Tab */}
         {activeTab === "audit" && (
-          <div className="space-y-1">
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             {demoAuditLog.map((log) => (
               <div
                 key={log.id}
-                className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-[rgba(255,255,255,0.03)]"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "6px 8px",
+                  borderRadius: "2px",
+                  transition: "background-color 0.15s",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = C.s1; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
               >
                 <div
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    log.level === "success"
-                      ? "bg-construct-semantic-success"
-                      : log.level === "warning"
-                      ? "bg-construct-semantic-warning"
-                      : "bg-construct-accent-primary"
-                  }`}
+                  style={{
+                    width: "6px",
+                    height: "6px",
+                    borderRadius: "3px",
+                    flexShrink: 0,
+                    backgroundColor:
+                      log.level === "success" ? C.ok : log.level === "warning" ? C.wrn : C.accent,
+                  }}
                 />
-                <Clock size={10} className="text-construct-text-muted shrink-0" />
-                <span className="text-[9px] text-construct-text-muted font-mono w-16 shrink-0">
+                <Clock size={10} style={{ color: C.t3, flexShrink: 0 }} />
+                <span style={{ fontSize: "9px", color: C.t3, fontFamily: ff, width: "64px", flexShrink: 0 }}>
                   {formatTime(log.timestamp)}
                 </span>
-                <span className="text-[11px] text-construct-text-primary">{log.action}</span>
+                <span style={{ fontSize: "11px", color: C.t1 }}>{log.action}</span>
               </div>
             ))}
           </div>

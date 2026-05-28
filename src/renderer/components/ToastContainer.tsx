@@ -1,5 +1,4 @@
 import React, { useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
   XCircle,
@@ -10,33 +9,36 @@ import {
 import useAppStore from "../stores/useAppStore";
 import type { ToastType } from "../types";
 
+const C = {
+  base: "#0c0c10", s1: "#12121a", s2: "#1a1a24", s3: "#22222e",
+  accent: "#6366f1", t1: "#e8e8ec", t2: "#94949c", t3: "#6b6b73", t4: "#4a4a52",
+  ok: "#10b981", wrn: "#f59e0b", err: "#ef4444", inf: "#60a5fa"
+};
+const ff = '"Geist Mono", "JetBrains Mono", monospace';
+
 const toastConfig: Record<
   ToastType,
-  { icon: React.ElementType; iconColor: string; borderColor: string; bgColor: string }
+  { icon: React.ElementType; iconColor: string; borderColor: string }
 > = {
   success: {
     icon: CheckCircle2,
-    iconColor: "text-green-400",
-    borderColor: "border-green-500/30",
-    bgColor: "bg-green-500/5",
+    iconColor: C.ok,
+    borderColor: "rgba(16,185,129,0.3)",
   },
   error: {
     icon: XCircle,
-    iconColor: "text-red-400",
-    borderColor: "border-red-500/30",
-    bgColor: "bg-red-500/5",
+    iconColor: C.err,
+    borderColor: "rgba(239,68,68,0.3)",
   },
   info: {
     icon: Info,
-    iconColor: "text-blue-400",
-    borderColor: "border-blue-500/30",
-    bgColor: "bg-blue-500/5",
+    iconColor: C.inf,
+    borderColor: "rgba(96,165,250,0.3)",
   },
   warning: {
     icon: AlertTriangle,
-    iconColor: "text-yellow-400",
-    borderColor: "border-yellow-500/30",
-    bgColor: "bg-yellow-500/5",
+    iconColor: C.wrn,
+    borderColor: "rgba(245,158,11,0.3)",
   },
 };
 
@@ -63,34 +65,81 @@ const ToastItem: React.FC<{ toastId: string }> = ({ toastId }) => {
   const Icon = config.icon;
 
   return (
-    <motion.div
-      layout
-      initial={{ x: 120, opacity: 0, scale: 0.9 }}
-      animate={{ x: 0, opacity: 1, scale: 1 }}
-      exit={{ x: 120, opacity: 0, scale: 0.9 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-      className={`glass-panel rounded-lg border ${config.borderColor} ${config.bgColor} p-3 min-w-[280px] max-w-[360px] shadow-lg pointer-events-auto`}
+    <div
+      style={{
+        background: C.s2,
+        border: `1px solid ${config.borderColor}`,
+        borderRadius: "0px",
+        padding: "12px",
+        minWidth: "280px",
+        maxWidth: "360px",
+        pointerEvents: "auto",
+        fontFamily: ff,
+        transition: "opacity 100ms ease",
+      }}
     >
-      <div className="flex items-start gap-3">
-        <Icon className={`w-5 h-5 ${config.iconColor} shrink-0 mt-0.5`} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-construct-text-primary leading-tight">
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+        <Icon
+          style={{
+            width: "20px",
+            height: "20px",
+            color: config.iconColor,
+            flexShrink: 0,
+            marginTop: "2px",
+          }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              color: C.t1,
+              lineHeight: 1.3,
+              margin: 0,
+            }}
+          >
             {toast.title}
           </p>
           {toast.message && (
-            <p className="text-xs text-construct-text-muted mt-1 leading-relaxed">
+            <p
+              style={{
+                fontSize: "10px",
+                color: C.t2,
+                marginTop: "4px",
+                lineHeight: 1.5,
+              }}
+            >
               {toast.message}
             </p>
           )}
         </div>
         <button
           onClick={handleDismiss}
-          className="shrink-0 p-0.5 rounded-md text-construct-text-muted hover:text-construct-text-primary hover:bg-white/5 transition-colors"
+          style={{
+            flexShrink: 0,
+            padding: "2px",
+            borderRadius: "2px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: C.t3,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = C.t1;
+            (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = C.t3;
+            (e.currentTarget as HTMLButtonElement).style.background = "none";
+          }}
         >
-          <X className="w-3.5 h-3.5" />
+          <X style={{ width: "14px", height: "14px" }} />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -100,12 +149,21 @@ const ToastContainer: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
-      <AnimatePresence mode="popLayout">
-        {toasts.map((toast) => (
-          <ToastItem key={toast.id} toastId={toast.id} />
-        ))}
-      </AnimatePresence>
+    <div
+      style={{
+        position: "fixed",
+        bottom: "16px",
+        right: "16px",
+        zIndex: 100,
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        pointerEvents: "none",
+      }}
+    >
+      {toasts.map((toast) => (
+        <ToastItem key={toast.id} toastId={toast.id} />
+      ))}
     </div>
   );
 };

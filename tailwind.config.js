@@ -79,7 +79,7 @@ export default {
       none: "0px",
       sm:   "2px",    /* buttons            */
       DEFAULT: "2px",
-      md:   "4px",    /* floating menus     */
+      md:   "4px",    /* dropdown menus     */
       lg:   "4px",    /* max radius         */
     },
 

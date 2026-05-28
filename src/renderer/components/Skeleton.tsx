@@ -1,20 +1,27 @@
 import React from "react";
 
+const C = {
+  s2: "#1a1a24",
+  s3: "#22222e",
+};
+
 interface SkeletonLineProps {
   width?: string;
   height?: string;
-  className?: string;
 }
 
 export const SkeletonLine: React.FC<SkeletonLineProps> = ({
   width = "100%",
-  height = "16px",
-  className = "",
+  height = "12px",
 }) => {
   return (
     <div
-      className={`skeleton ${className}`}
-      style={{ width, height }}
+      style={{
+        width,
+        height,
+        background: C.s2,
+        borderRadius: "0px",
+      }}
     />
   );
 };
@@ -22,56 +29,56 @@ export const SkeletonLine: React.FC<SkeletonLineProps> = ({
 interface SkeletonBlockProps {
   width?: string;
   height?: string;
-  rounded?: string;
-  className?: string;
 }
 
 export const SkeletonBlock: React.FC<SkeletonBlockProps> = ({
   width = "100%",
   height = "80px",
-  rounded = "6px",
-  className = "",
 }) => {
   return (
     <div
-      className={`skeleton ${className}`}
-      style={{ width, height, borderRadius: rounded }}
+      style={{
+        width,
+        height,
+        background: C.s2,
+        borderRadius: "0px",
+      }}
     />
   );
 };
 
 interface SkeletonCircleProps {
   size?: string;
-  className?: string;
 }
 
 export const SkeletonCircle: React.FC<SkeletonCircleProps> = ({
-  size = "40px",
-  className = "",
+  size = "32px",
 }) => {
   return (
     <div
-      className={`skeleton rounded-full ${className}`}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        background: C.s2,
+        borderRadius: "0px",
+      }}
     />
   );
-};
+}
 
 interface SkeletonTextProps {
   lines?: number;
   lineHeight?: string;
   lastLineWidth?: string;
-  className?: string;
 }
 
 export const SkeletonText: React.FC<SkeletonTextProps> = ({
   lines = 3,
-  lineHeight = "14px",
+  lineHeight = "12px",
   lastLineWidth = "60%",
-  className = "",
 }) => {
   return (
-    <div className={`space-y-2 ${className}`}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
       {Array.from({ length: lines }).map((_, i) => (
         <SkeletonLine
           key={i}
@@ -83,14 +90,12 @@ export const SkeletonText: React.FC<SkeletonTextProps> = ({
   );
 };
 
-export const SkeletonCard: React.FC<{ className?: string }> = ({
-  className = "",
-}) => {
+export const SkeletonCard: React.FC = () => {
   return (
-    <div className={`p-4 space-y-3 ${className}`}>
-      <div className="flex items-center gap-3">
-        <SkeletonCircle size="36px" />
-        <div className="flex-1 space-y-2">
+    <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <SkeletonCircle size="32px" />
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
           <SkeletonLine width="60%" height="12px" />
           <SkeletonLine width="40%" height="10px" />
         </div>

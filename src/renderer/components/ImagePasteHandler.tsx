@@ -1,6 +1,12 @@
 import { useState, useCallback, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Image, X, Upload } from "lucide-react";
+
+const C = {
+  base: "#0c0c10", s1: "#12121a", s2: "#1a1a24", s3: "#22222e",
+  accent: "#6366f1", t1: "#e8e8ec", t2: "#94949c", t3: "#6b6b73", t4: "#4a4a52",
+  ok: "#10b981", wrn: "#f59e0b", err: "#ef4444", inf: "#60a5fa"
+};
+const ff = '"Geist Mono", "JetBrains Mono", monospace';
 
 export interface PastedImage {
   id: string;
@@ -82,46 +88,87 @@ export function ImagePasteHandler({
       }}
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
-      className="relative"
+      style={{ position: "relative", fontFamily: ff }}
     >
       {/* Drop zone indicator */}
-      <AnimatePresence>
-        {isDragging && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-construct-accent-primary/10 border-2 border-dashed border-construct-accent-primary rounded-xl flex items-center justify-center z-50"
-          >
-            <div className="text-center">
-              <Upload
-                size={24}
-                className="text-construct-accent-primary mx-auto mb-2"
-              />
-              <span className="text-sm text-construct-accent-primary">
-                Drop images here
-              </span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isDragging && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: C.s2,
+            border: `1px dashed ${C.accent}`,
+            borderRadius: "0px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 50,
+          }}
+        >
+          <div style={{ textAlign: "center" }}>
+            <Upload
+              size={24}
+              style={{ color: C.accent, margin: "0 auto 8px auto", display: "block" }}
+            />
+            <span style={{ fontSize: "12px", color: C.accent }}>
+              Drop images here
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Pasted image previews */}
       {images.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-2">
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "8px",
+            marginBottom: "8px",
+          }}
+        >
           {images.map((img) => (
-            <div key={img.id} className="relative group">
+            <div key={img.id} style={{ position: "relative" }}>
               <img
                 src={img.preview}
                 alt="Pasted"
-                className="w-16 h-16 object-cover rounded-lg border border-construct-border"
+                style={{
+                  width: "64px",
+                  height: "64px",
+                  objectFit: "cover",
+                  borderRadius: "0px",
+                  border: `1px solid ${C.s3}`,
+                  display: "block",
+                }}
               />
               <button
                 onClick={() => onRemoveImage(img.id)}
-                className="absolute -top-1 -right-1 w-4 h-4 bg-construct-semantic-error rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 title="Remove image"
+                style={{
+                  position: "absolute",
+                  top: "-4px",
+                  right: "-4px",
+                  width: "16px",
+                  height: "16px",
+                  background: C.err,
+                  borderRadius: "0px",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                  opacity: 0,
+                  transition: "opacity 100ms ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.opacity = "1";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.opacity = "0";
+                }}
               >
-                <X size={10} className="text-white" />
+                <X size={10} style={{ color: "#fff" }} />
               </button>
             </div>
           ))}
@@ -130,7 +177,15 @@ export function ImagePasteHandler({
 
       {/* Paste hint */}
       {images.length === 0 && (
-        <div className="flex items-center gap-1 text-[10px] text-construct-text-muted">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            fontSize: "10px",
+            color: C.t3,
+          }}
+        >
           <Image size={10} />
           <span>Ctrl+V to paste image</span>
         </div>

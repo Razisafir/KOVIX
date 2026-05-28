@@ -1,35 +1,60 @@
 import { Brain } from "lucide-react";
 
 interface ContextBarProps {
-  percent: number; // 0-100
+  percent: number;
   onClick?: () => void;
 }
 
+const C = {
+  s2: "#1a1a24",
+  s3: "#22222e",
+  accent: "#6366f1",
+  t2: "#94949c",
+  t3: "#6b6b73",
+  ok: "#10b981",
+  wrn: "#f59e0b",
+  err: "#ef4444",
+};
+
 export function ContextBar({ percent, onClick }: ContextBarProps) {
-  const color =
-    percent < 70
-      ? "bg-construct-semantic-success"
-      : percent < 90
-        ? "bg-construct-semantic-warning"
-        : "bg-construct-semantic-error";
+  const barColor =
+    percent < 70 ? C.ok : percent < 90 ? C.wrn : C.err;
 
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1.5 group"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        fontFamily: '"Geist Mono", "JetBrains Mono", monospace',
+      }}
       title="Context window usage"
     >
-      <Brain
-        size={10}
-        className="text-construct-text-muted group-hover:text-construct-accent-primary transition-colors"
-      />
-      <span className="text-[10px] text-construct-text-muted group-hover:text-construct-text-primary transition-colors">
+      <Brain size={10} color={C.t3} />
+      <span style={{ fontSize: "10px", color: C.t3, fontVariantNumeric: "tabular-nums" }}>
         {Math.round(percent)}%
       </span>
-      <div className="w-12 h-1.5 bg-white/10 rounded-full overflow-hidden">
+      <div
+        style={{
+          width: "32px",
+          height: "4px",
+          background: C.s3,
+          borderRadius: "0px",
+          overflow: "hidden",
+        }}
+      >
         <div
-          className={`h-full rounded-full transition-all duration-500 ${color}`}
-          style={{ width: `${percent}%` }}
+          style={{
+            height: "100%",
+            background: barColor,
+            width: `${percent}%`,
+            transition: "width 100ms ease",
+            borderRadius: "0px",
+          }}
         />
       </div>
     </button>

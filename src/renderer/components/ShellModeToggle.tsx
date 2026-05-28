@@ -1,5 +1,11 @@
-import { motion } from "framer-motion";
 import { Terminal, Zap, Shield } from "lucide-react";
+
+const C = {
+  base: "#0c0c10", s1: "#12121a", s2: "#1a1a24", s3: "#22222e",
+  accent: "#6366f1", t1: "#e8e8ec", t2: "#94949c", t3: "#6b6b73", t4: "#4a4a52",
+  ok: "#10b981", wrn: "#f59e0b", err: "#ef4444", inf: "#60a5fa"
+};
+const ff = '"Geist Mono", "JetBrains Mono", monospace';
 
 interface ShellModeToggleProps {
   shellMode: boolean;
@@ -7,33 +13,47 @@ interface ShellModeToggleProps {
 }
 
 export function ShellModeToggle({ shellMode, onToggle }: ShellModeToggleProps) {
+  const baseBtn: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "4px 10px",
+    borderRadius: "2px",
+    fontSize: "10px",
+    fontWeight: 500,
+    fontFamily: ff,
+    textTransform: "uppercase",
+    border: "none",
+    cursor: "pointer",
+    transition: "background-color 0.15s, color 0.15s",
+    letterSpacing: "0.05em",
+  };
+
   return (
-    <div className="flex items-center gap-2">
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
       <button
         onClick={() => onToggle(false)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-          !shellMode
-            ? "bg-construct-accent-primary/20 text-construct-accent-primary"
-            : "text-construct-text-muted hover:text-construct-text-secondary"
-        }`}
+        style={{
+          ...baseBtn,
+          backgroundColor: !shellMode ? C.accent : C.s2,
+          color: !shellMode ? C.t1 : C.t3,
+        }}
       >
         <Zap size={10} />
         Agent
       </button>
-      <motion.button
+      <button
         onClick={() => onToggle(true)}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all ${
-          shellMode
-            ? "bg-construct-semantic-warning/20 text-construct-semantic-warning"
-            : "text-construct-text-muted hover:text-construct-text-secondary"
-        }`}
+        style={{
+          ...baseBtn,
+          backgroundColor: shellMode ? C.accent : C.s2,
+          color: shellMode ? C.t1 : C.t3,
+        }}
       >
         <Terminal size={10} />
         Shell
-        <Shield size={9} className="text-construct-semantic-warning" />
-      </motion.button>
+        <Shield size={9} style={{ color: C.wrn }} />
+      </button>
     </div>
   );
 }
