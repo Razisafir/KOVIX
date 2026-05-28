@@ -30,7 +30,7 @@ anthropic>=0.40.0
 # Google (Gemini 1.5 Pro)
 google-generativeai>=0.8.0
 
-# Async HTTP for Ollama + Google REST API
+# Async HTTP for Ollama + Google REST API + Tauri notifications
 aiohttp>=3.11.0
 
 # ---------------------------------------------------------------------------
@@ -39,3 +39,13 @@ aiohttp>=3.11.0
 
 # AST -> source code conversion for Python refactoring
 astor>=0.8.1
+
+# ---------------------------------------------------------------------------
+# Autonomous Agent (Background Worker + Checkpoint + Safety)
+# ---------------------------------------------------------------------------
+
+# System resource monitoring (CPU, memory, disk)
+psutil>=6.0.0
+
+# Task scheduling
+schedule>=1.2.0

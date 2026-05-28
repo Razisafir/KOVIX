@@ -5,6 +5,11 @@ import type {
   MemoryTab,
 } from "../types/memory";
 import type { AgentOutputEvent } from "../types/agent";
+import type {
+  AutonomousStatus,
+  LogEntry,
+  QueuedGoal,
+} from "../types/autonomous";
 
 interface CursorPosition {
   line: number;
@@ -53,6 +58,19 @@ interface AppState {
   agentEvents: AgentOutputEvent[];
   setAgentEvents: (events: AgentOutputEvent[]) => void;
   addAgentEvent: (event: AgentOutputEvent) => void;
+
+  // Autonomous
+  autonomousEnabled: boolean;
+  setAutonomousEnabled: (v: boolean) => void;
+  autonomousStatus: AutonomousStatus;
+  setAutonomousStatus: (s: AutonomousStatus) => void;
+  autonomousProgress: number;
+  setAutonomousProgress: (p: number) => void;
+  autonomousGoals: QueuedGoal[];
+  setAutonomousGoals: (g: QueuedGoal[]) => void;
+  autonomousLogs: LogEntry[];
+  setAutonomousLogs: (l: LogEntry[]) => void;
+  addAutonomousLog: (l: LogEntry) => void;
 }
 
 const useAppStore = create<AppState>((set) => ({
@@ -101,6 +119,22 @@ const useAppStore = create<AppState>((set) => ({
   setAgentEvents: (events) => set({ agentEvents: events }),
   addAgentEvent: (event) =>
     set((state) => ({ agentEvents: [...state.agentEvents, event] })),
+
+  // Autonomous
+  autonomousEnabled: false,
+  setAutonomousEnabled: (v) => set({ autonomousEnabled: v }),
+  autonomousStatus: "disabled",
+  setAutonomousStatus: (s) => set({ autonomousStatus: s }),
+  autonomousProgress: 0,
+  setAutonomousProgress: (p) => set({ autonomousProgress: p }),
+  autonomousGoals: [],
+  setAutonomousGoals: (g) => set({ autonomousGoals: g }),
+  autonomousLogs: [],
+  setAutonomousLogs: (l) => set({ autonomousLogs: l }),
+  addAutonomousLog: (l) =>
+    set((state) => ({
+      autonomousLogs: [...state.autonomousLogs, l],
+    })),
 }));
 
 export default useAppStore;

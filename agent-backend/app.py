@@ -5,9 +5,27 @@ Exposes the ChromaDB-backed semantic memory AND the autonomous agent
 execution system over HTTP so the Tauri/Rust backend can call them
 via REST.
 
+Autonomous mode endpoints (new):
+    POST /autonomous/start      — Start background worker
+    POST /autonomous/stop       — Stop background worker
+    GET  /autonomous/status     — Get worker status + current goal + queue
+    POST /autonomous/pause      — Pause worker
+    POST /autonomous/resume     — Resume worker
+    POST /autonomous/goal       — Add a goal to the queue
+    GET  /autonomous/goals      — List all goals in queue
+    POST /autonomous/checkpoint/{session_id}  — Force save checkpoint
+    GET  /autonomous/checkpoints              — List available checkpoints
+    GET  /autonomous/checkpoints/{session_id} — Load checkpoint
+
+Notification endpoints (new):
+    POST /notifications         — Send a test notification
+    GET  /notifications/recent  — Get recent notifications
+
 Run with:
     uvicorn app:app --host 127.0.0.1 --port 8000 --reload
 """
+
+from __future__ import annotations
 
 import os
 import time
@@ -55,9 +73,16 @@ _tool_registry = None
 _agent_executor = None
 _session_store = None
 
+# Autonomous mode services
+_background_worker: Optional[Any] = None
+_checkpoint_manager: Optional[Any] = None
+_safety_monitor: Optional[Any] = None
+_resource_monitor: Optional[Any] = None
+_notification_service: Optional[Any] = None
+
 
 # ---------------------------------------------------------------------------
-# Lifespan — warm up embedding model + init agent services on startup
+# Lifespan — warm up embedding model + init agent + autonomous services
 # ---------------------------------------------------------------------------
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -70,18 +95,21 @@ async def lifespan(app: FastAPI):
 
     # Initialise agent services
     global _llm_service, _tool_registry, _agent_executor, _session_store
+    global _background_worker, _checkpoint_manager, _safety_monitor
+    global _resource_monitor, _notification_service
 
     from core.llm_service import LLMService
     from tools import ToolRegistry
     from core.executor import AgentExecutor
     from core.agent_session import SessionStore
 
+    # Core agent
     _llm_service = LLMService()
     _tool_registry = ToolRegistry()
     _agent_executor = AgentExecutor(
         llm_service=_llm_service,
         tool_registry=_tool_registry,
-        memory_client=None,  # wired up below if available
+        memory_client=None,
     )
     _session_store = SessionStore()
 
@@ -94,17 +122,55 @@ async def lifespan(app: FastAPI):
         ", ".join(p.value for p in _llm_service.configs.keys()),
     )
 
+    # Autonomous services
+    from core.checkpoint import CheckpointManager
+    from core.safety import SafetyMonitor, SafetySettings
+    from core.notifications import NotificationService
+    from core.background_worker import (
+        BackgroundWorker, ResourceMonitor, GoalPriority,
+    )
+
+    _checkpoint_manager = CheckpointManager()
+    _safety_monitor = SafetyMonitor(settings=SafetySettings())
+    _resource_monitor = ResourceMonitor(
+        max_cpu_percent=float(os.environ.get("AGENT_MAX_CPU", "30.0")),
+        max_memory_mb=float(os.environ.get("AGENT_MAX_MEMORY", "2048.0")),
+    )
+    _notification_service = NotificationService(
+        tauri_port=int(os.environ.get("TAURI_PORT", "3000")),
+    )
+    _background_worker = BackgroundWorker(
+        agent_executor=_agent_executor,
+        checkpoint_manager=_checkpoint_manager,
+        safety_monitor=_safety_monitor,
+        resource_monitor=_resource_monitor,
+        notification_service=_notification_service,
+    )
+
+    logger.info(
+        "Autonomous services initialised (safety=%s, resources=cpu:%s%%/mem:%sMB)",
+        _safety_monitor.settings.require_approval_for,
+        _resource_monitor.max_cpu,
+        _resource_monitor.max_memory,
+    )
+
     yield
 
     # Shutdown
+    logger.info("Shutting down autonomous worker …")
+    if _background_worker is not None:
+        try:
+            await asyncio.wait_for(_background_worker.stop(), timeout=15.0)
+        except Exception:
+            pass
+
     logger.info("Closing LLM service connections...")
     if _llm_service is not None:
-        import asyncio
         try:
             asyncio.create_task(_llm_service.close())
         except Exception:
             pass
-    logger.info("Construct Agent API shutting down.")
+    logger.info("Construct Agent API shut down.")
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +179,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Construct Agent API",
     description="Autonomous AI agent with vector-backed semantic memory",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -250,6 +316,77 @@ class ToolExecuteResponse(BaseModel):
 
 
 # ===========================================================================
+# Pydantic request / response models — Autonomous
+# ===========================================================================
+
+class AutonomousStartRequest(BaseModel):
+    immediate_goal: Optional[str] = Field(
+        None, description="Optional goal to start working on immediately"
+    )
+    project_path: str = Field(".", description="Project path for immediate goal")
+
+
+class AutonomousGoalRequest(BaseModel):
+    description: str = Field(..., description="Goal description")
+    priority: str = Field("normal", description="One of: critical, high, normal, low")
+    deadline: Optional[float] = Field(
+        None, description="Unix timestamp deadline (optional)"
+    )
+    project_path: str = Field(".", description="Path to the project directory")
+
+
+class AutonomousControlResponse(BaseModel):
+    action: str
+    status: str
+    message: str
+    worker_status: Optional[dict] = None
+
+
+class WorkerStatusResponse(BaseModel):
+    status: str
+    current_goal: Optional[dict]
+    queue_size: int
+    goals_completed: int
+    goals_failed: int
+    error_retries: int
+
+
+class GoalListResponse(BaseModel):
+    goals: List[dict]
+    total: int
+
+
+class CheckpointListResponse(BaseModel):
+    checkpoints: List[dict]
+    total: int
+
+
+class CheckpointLoadResponse(BaseModel):
+    session_id: str
+    goal: str
+    status: str
+    task_count: int
+    saved_at: float
+    tasks: List[dict]
+
+
+# ===========================================================================
+# Pydantic request / response models — Notifications
+# ===========================================================================
+
+class SendNotificationRequest(BaseModel):
+    title: str = Field(..., description="Notification title")
+    body: str = Field(..., description="Notification body text")
+    actions: List[str] = Field(default_factory=list, description="Action buttons")
+    urgency: str = Field("normal", description="One of: low, normal, critical")
+
+
+class NotificationListResponse(BaseModel):
+    notifications: List[dict]
+    total: int
+
+
+# ===========================================================================
 # Health check
 # ===========================================================================
 
@@ -259,11 +396,20 @@ async def health() -> dict:
     providers = []
     if _llm_service is not None:
         providers = [p.value for p in _llm_service.configs.keys()]
+
+    worker_status = None
+    if _background_worker is not None:
+        worker_status = _background_worker.get_status()
+
     return {
         "status": "ok",
         "service": "construct-agent-api",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "llm_providers": providers,
+        "autonomous": {
+            "available": _background_worker is not None,
+            "worker_status": worker_status,
+        },
     }
 
 
@@ -453,6 +599,15 @@ def _get_session_store():
             status_code=503, detail="Agent services not yet initialised"
         )
     return _session_store
+
+
+def _get_autonomous_services():
+    """Return autonomous services, raising 503 if not initialised."""
+    if _background_worker is None:
+        raise HTTPException(
+            status_code=503, detail="Autonomous services not yet initialised"
+        )
+    return _background_worker, _checkpoint_manager, _safety_monitor, _resource_monitor, _notification_service
 
 
 @app.post("/agent/start", response_model=StartAgentResponse)
@@ -680,8 +835,6 @@ async def llm_complete(req: LLMCompleteRequest) -> dict:
         )
 
         if req.stream:
-            # For streaming, we return an initial response
-            # Full streaming would use SSE (see /llm/stream endpoint)
             response = await _llm_service.complete(messages, model=req.model)
         else:
             response = await _llm_service.complete(messages, model=req.model)
@@ -711,6 +864,361 @@ async def llm_stats() -> dict:
     if _llm_service is None:
         raise HTTPException(status_code=503, detail="LLM service not initialised")
     return _llm_service.get_stats()
+
+
+# ===========================================================================
+# Autonomous Endpoints — Background Worker Control
+# ===========================================================================
+
+@app.post("/autonomous/start", response_model=AutonomousControlResponse)
+async def autonomous_start(req: AutonomousStartRequest) -> dict:
+    """Start the background worker.
+
+    If *immediate_goal* is provided, it is added to the queue and the worker
+    will begin processing it immediately.
+    """
+    worker, _, _, _, notifier = _get_autonomous_services()
+
+    try:
+        await worker.start()
+
+        # Optionally queue an immediate goal
+        if req.immediate_goal:
+            goal_id = await worker.queue.add_goal(
+                description=req.immediate_goal,
+                priority=GoalPriority.HIGH,
+                project_path=req.project_path,
+            )
+            logger.info("Immediate goal queued: %s", goal_id)
+
+        status = worker.get_status()
+        return {
+            "action": "start",
+            "status": "started",
+            "message": "Background worker started" + (f" with goal '{req.immediate_goal[:60]}'" if req.immediate_goal else ""),
+            "worker_status": status,
+        }
+    except Exception as exc:
+        logger.error("Failed to start background worker: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/autonomous/stop", response_model=AutonomousControlResponse)
+async def autonomous_stop() -> dict:
+    """Stop the background worker gracefully."""
+    worker, _, _, _, _ = _get_autonomous_services()
+
+    try:
+        await worker.stop()
+        return {
+            "action": "stop",
+            "status": "stopped",
+            "message": "Background worker stopped",
+        }
+    except Exception as exc:
+        logger.error("Failed to stop background worker: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/autonomous/status", response_model=WorkerStatusResponse)
+async def autonomous_status() -> dict:
+    """Get the current worker status, including the active goal and queue size."""
+    worker, _, _, _, _ = _get_autonomous_services()
+    return worker.get_status()
+
+
+@app.post("/autonomous/pause", response_model=AutonomousControlResponse)
+async def autonomous_pause() -> dict:
+    """Pause the background worker and any active session."""
+    worker, _, _, _, _ = _get_autonomous_services()
+
+    try:
+        await worker.pause()
+        return {
+            "action": "pause",
+            "status": "paused",
+            "message": "Background worker paused",
+        }
+    except Exception as exc:
+        logger.error("Failed to pause background worker: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/autonomous/resume", response_model=AutonomousControlResponse)
+async def autonomous_resume() -> dict:
+    """Resume the background worker from paused/throttled/error state."""
+    worker, _, _, _, _ = _get_autonomous_services()
+
+    try:
+        await worker.resume()
+        return {
+            "action": "resume",
+            "status": "running",
+            "message": "Background worker resumed",
+        }
+    except Exception as exc:
+        logger.error("Failed to resume background worker: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ===========================================================================
+# Autonomous Endpoints — Goal Management
+# ===========================================================================
+
+@app.post("/autonomous/goal")
+async def autonomous_add_goal(req: AutonomousGoalRequest) -> dict:
+    """Add a new goal to the worker's priority queue."""
+    worker, _, _, _, _ = _get_autonomous_services()
+
+    # Map string priority to enum
+    priority_map = {
+        "critical": GoalPriority.CRITICAL,
+        "high": GoalPriority.HIGH,
+        "normal": GoalPriority.NORMAL,
+        "low": GoalPriority.LOW,
+    }
+    priority = priority_map.get(req.priority.lower(), GoalPriority.NORMAL)
+
+    try:
+        goal_id = await worker.queue.add_goal(
+            description=req.description,
+            priority=priority,
+            deadline=req.deadline,
+            project_path=req.project_path,
+        )
+        return {
+            "goal_id": goal_id,
+            "status": "queued",
+            "priority": req.priority,
+            "message": f"Goal added to queue: {req.description[:80]}",
+        }
+    except Exception as exc:
+        logger.error("Failed to add goal: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/autonomous/goals", response_model=GoalListResponse)
+async def autonomous_list_goals() -> dict:
+    """List all goals in the queue with their status."""
+    worker, _, _, _, _ = _get_autonomous_services()
+
+    try:
+        goals = await worker.queue.list_goals()
+        return {
+            "goals": [g.to_dict() for g in goals],
+            "total": len(goals),
+        }
+    except Exception as exc:
+        logger.error("Failed to list goals: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ===========================================================================
+# Autonomous Endpoints — Checkpoint Management
+# ===========================================================================
+
+@app.post("/autonomous/checkpoint/{session_id}")
+async def autonomous_force_checkpoint(
+    session_id: str = Path(..., description="The session ID to checkpoint"),
+) -> dict:
+    """Force an immediate checkpoint save for a session."""
+    _, checkpoint_mgr, _, _, _ = _get_autonomous_services()
+
+    try:
+        executor = _get_executor()
+        session = executor.get_session(session_id)
+        if not session:
+            # Try restoring from checkpoint
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        filepath = await checkpoint_mgr.save_checkpoint(session)
+        return {
+            "session_id": session_id,
+            "checkpoint_file": filepath,
+            "status": "saved",
+            "task_count": len(session.tasks),
+            "message": f"Checkpoint saved to {filepath}",
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to save checkpoint: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/autonomous/checkpoints", response_model=CheckpointListResponse)
+async def autonomous_list_checkpoints() -> dict:
+    """List all available checkpoints."""
+    _, checkpoint_mgr, _, _, _ = _get_autonomous_services()
+
+    try:
+        checkpoints = await checkpoint_mgr.list_checkpoints()
+        return {
+            "checkpoints": checkpoints,
+            "total": len(checkpoints),
+        }
+    except Exception as exc:
+        logger.error("Failed to list checkpoints: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/autonomous/checkpoints/{session_id}")
+async def autonomous_load_checkpoint(
+    session_id: str = Path(..., description="The session ID to load"),
+) -> dict:
+    """Load a checkpoint by session ID and return its contents."""
+    _, checkpoint_mgr, _, _, _ = _get_autonomous_services()
+
+    try:
+        checkpoint = await checkpoint_mgr.load_checkpoint(session_id)
+        if checkpoint is None:
+            raise HTTPException(status_code=404, detail="Checkpoint not found")
+
+        return {
+            "session_id": checkpoint.session_id,
+            "goal": checkpoint.goal,
+            "status": checkpoint.status,
+            "project_path": checkpoint.project_path,
+            "current_task_index": checkpoint.current_task_index,
+            "saved_at": checkpoint.saved_at,
+            "task_count": len(checkpoint.tasks),
+            "tasks": checkpoint.tasks,
+            "output_log_length": len(checkpoint.output_log),
+            "file_hash_count": len(checkpoint.file_hashes),
+            "git_state": checkpoint.git_state.to_dict() if checkpoint.git_state else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to load checkpoint: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.delete("/autonomous/checkpoints/{session_id}")
+async def autonomous_delete_checkpoint(
+    session_id: str = Path(..., description="The session ID to delete"),
+) -> dict:
+    """Delete a checkpoint by session ID."""
+    _, checkpoint_mgr, _, _, _ = _get_autonomous_services()
+
+    try:
+        deleted = await checkpoint_mgr.delete_checkpoint(session_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Checkpoint not found")
+        return {"session_id": session_id, "deleted": True}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to delete checkpoint: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ===========================================================================
+# Autonomous Endpoints — Safety
+# ===========================================================================
+
+@app.get("/autonomous/safety/stats")
+async def autonomous_safety_stats() -> dict:
+    """Return safety monitor statistics."""
+    _, _, safety, _, _ = _get_autonomous_services()
+    return safety.get_stats()
+
+
+@app.post("/autonomous/safety/reset")
+async def autonomous_safety_reset() -> dict:
+    """Reset safety monitor counters (failure counts, deletion counts)."""
+    _, _, safety, _, _ = _get_autonomous_services()
+    safety.reset_deletion_count()
+    return {"status": "reset", "message": "Safety counters reset"}
+
+
+# ===========================================================================
+# Autonomous Endpoints — Resource Monitor
+# ===========================================================================
+
+@app.get("/autonomous/resources")
+async def autonomous_resources() -> dict:
+    """Return current system resource usage."""
+    _, _, _, resources, _ = _get_autonomous_services()
+    return resources.check_resources()
+
+
+# ===========================================================================
+# Notification Endpoints
+# ===========================================================================
+
+@app.post("/notifications")
+async def notifications_send(req: SendNotificationRequest) -> dict:
+    """Send a notification (test endpoint or manual send)."""
+    _, _, _, _, notifier = _get_autonomous_services()
+
+    try:
+        ok = await notifier.send(
+            title=req.title,
+            body=req.body,
+            actions=req.actions,
+            urgency=req.urgency,
+        )
+        return {
+            "sent": ok,
+            "title": req.title,
+            "urgency": req.urgency,
+        }
+    except Exception as exc:
+        logger.error("Failed to send notification: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/notifications/recent", response_model=NotificationListResponse)
+async def notifications_recent(limit: int = 10) -> dict:
+    """Get recent notifications."""
+    _, _, _, _, notifier = _get_autonomous_services()
+
+    try:
+        recent = await notifier.get_recent(limit=limit)
+        return {
+            "notifications": recent,
+            "total": len(recent),
+        }
+    except Exception as exc:
+        logger.error("Failed to get recent notifications: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/notifications/stats")
+async def notifications_stats() -> dict:
+    """Return notification service statistics."""
+    _, _, _, _, notifier = _get_autonomous_services()
+    return notifier.get_stats()
+
+
+@app.post("/notifications/flush")
+async def notifications_flush() -> dict:
+    """Attempt to re-send all queued notifications."""
+    _, _, _, _, notifier = _get_autonomous_services()
+
+    try:
+        delivered = await notifier.flush_queue()
+        return {
+            "delivered": delivered,
+            "message": f"Flushed {delivered} queued notifications",
+        }
+    except Exception as exc:
+        logger.error("Failed to flush notifications: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.delete("/notifications/clear")
+async def notifications_clear() -> dict:
+    """Clear all notification history."""
+    _, _, _, _, notifier = _get_autonomous_services()
+
+    try:
+        await notifier.clear_history()
+        return {"status": "cleared", "message": "Notification history cleared"}
+    except Exception as exc:
+        logger.error("Failed to clear notifications: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ===========================================================================

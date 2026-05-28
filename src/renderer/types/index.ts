@@ -32,7 +32,7 @@ export interface AppSettings {
   tabSize: number;
 }
 
-export type PanelTab = "terminal" | "problems" | "chat" | "agent" | "memory";
+export type PanelTab = "autonomous" | "terminal" | "problems" | "chat" | "agent" | "memory";
 export type SidebarTab = "files" | "search" | "git" | "extensions";
 
 // Re-export memory types
@@ -40,3 +40,6 @@ export * from "./memory";
 
 // Re-export agent types
 export * from "./agent";
+
+// Re-export autonomous types
+export * from "./autonomous";

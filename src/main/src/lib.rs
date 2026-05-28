@@ -1,7 +1,9 @@
 pub mod commands;
 pub mod db;
+pub mod tray;
 
 use commands::agent::AgentState;
+use commands::autonomous::AutonomousManager;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -17,6 +19,12 @@ pub fn run() {
 
             // Initialise the agent session store and register it as shared state.
             app.manage(AgentState::new());
+
+            // Initialise the autonomous-mode manager and register it as shared state.
+            app.manage(AutonomousManager::new());
+
+            // Set up the system tray icon + context menu.
+            tray::setup_tray(app).expect("failed to set up system tray");
 
             #[cfg(debug_assertions)]
             {
@@ -46,6 +54,12 @@ pub fn run() {
             commands::agent::resume_agent,
             commands::agent::stop_agent,
             commands::agent::get_agent_output,
+            // -- autonomous commands --
+            commands::autonomous::enable_autonomous_mode,
+            commands::autonomous::disable_autonomous_mode,
+            commands::autonomous::get_autonomous_status,
+            commands::autonomous::set_goal_deadline,
+            commands::autonomous::get_agent_log,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
