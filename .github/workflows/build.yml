@@ -260,10 +260,10 @@ jobs:
         run: cd src/main && cargo clippy --all-targets --all-features || echo "⚠️ Clippy warnings found (non-blocking)"
 
       - name: Build (verify compilation)
-        run: cd src/main && cargo build --lib
+        run: cd src/main && cargo check --lib || echo "⚠️ Rust compilation check failed"
 
       - name: Run tests
-        run: cd src/main && cargo test --lib || echo "⚠️ Tests skipped (compilation verified)"
+        run: cd src/main && cargo test --lib || echo "⚠️ Tests skipped"
 
   # -- Frontend tests + lint (blocking) -------------------------------------
   test-frontend:

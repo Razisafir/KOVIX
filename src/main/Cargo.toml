@@ -32,7 +32,7 @@ parking_lot = "0.12"
 
 # -- HTTP client for calling Python backend --
 reqwest = { version = "0.12", features = ["json"] }
-tokio = { version = "1", features = ["rt-multi-thread"] }
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
