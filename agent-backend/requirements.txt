@@ -15,7 +15,7 @@ uvicorn==0.32.1
 pydantic==2.10.4
 
 # Configuration
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 
 # LLM Providers
 openai==1.57.0
