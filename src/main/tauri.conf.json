@@ -48,7 +48,7 @@
     "longDescription": "Autonomous AI coding assistant with persistent memory, multi-agent teams, and 24/7 background execution.",
     "linux": {
       "deb": {
-        "depends": ["libgtk-3-0", "libwebkit2gtk-4.1-41", "libappindicator3-1"]
+        "depends": ["libgtk-3-0t64", "libwebkit2gtk-4.1-0", "libayatana-appindicator3-1"]
       }
     },
     "windows": {
