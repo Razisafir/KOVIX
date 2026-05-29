@@ -1,20 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/tauri.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Construct - Desktop App" />
-    <title>Construct</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/renderer/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Construct</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e0e0e6;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      width: 100vw;
+    }
+    #root {
+      text-align: center;
+    }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 300;
+      letter-spacing: 0.15em;
+      margin-bottom: 1rem;
+    }
+    p {
+      color: #6b6b78;
+      font-size: 1rem;
+      letter-spacing: 0.05em;
+    }
+    .status {
+      margin-top: 2rem;
+      padding: 0.5rem 1rem;
+      border: 1px solid #2a2a35;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: #4a9eff;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div id="root">
+    <h1>CONSTRUCT</h1>
+    <p>The AI coding agent that never forgets</p>
+    <div class="status" id="status">Loading...</div>
+  </div>
+  <script>
+    // Minimal frontend - no React, no build step needed
+    document.getElementById('status').textContent = 'Ready';
+    console.log('Construct MVP loaded successfully');
+  </script>
+</body>
 </html>

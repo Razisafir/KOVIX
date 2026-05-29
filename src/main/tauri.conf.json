@@ -10,65 +10,35 @@
     "beforeBuildCommand": "cd ../.. && npm run build"
   },
   "app": {
-    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Construct",
-        "width": 1400,
-        "height": 900,
-        "minWidth": 900,
-        "minHeight": 600,
+        "width": 800,
+        "height": 600,
         "center": true,
         "resizable": true,
-        "maximized": false,
-        "decorations": true,
-        "transparent": false,
-        "focus": true,
-        "visible": false
+        "visible": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://api.github.com https://*.openai.com https://*.anthropic.com https://*.googleapis.com https://api.construct.ai; img-src 'self' data: https:; script-src 'self' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline';"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["msi", "nsis", "dmg", "deb", "appimage", "rpm"],
+    "targets": ["msi"],
     "identifier": "com.construct.ai",
     "icon": [
       "icons/icon.ico",
-      "icons/icon.icns",
-      "icons/icon.png",
-      "icons/icon-32x32.png",
-      "icons/icon-128x128.png",
-      "icons/icon-512x512.png"
+      "icons/icon.png"
     ],
-    "externalBin": ["bin/agent-backend"],
-    "copyright": "2026 Construct AI Inc. All Rights Reserved.",
+    "copyright": "2026 Construct AI Inc.",
     "category": "DeveloperTool",
     "shortDescription": "AI coding agent that never forgets",
-    "longDescription": "Autonomous AI coding assistant with persistent memory, multi-agent teams, and 24/7 background execution.",
-    "linux": {
-      "deb": {
-        "depends": ["libgtk-3-0", "libwebkit2gtk-4.1-41", "libappindicator3-1"]
-      }
-    },
     "windows": {
       "nsis": {
         "installMode": "both"
       }
-    },
-    "macOS": {
-      "frameworks": [],
-      "minimumSystemVersion": "10.13"
-    }
-  },
-  "plugins": {
-    "updater": {
-      "active": false,
-      "endpoints": [],
-      "dialog": false,
-      "pubkey": ""
     }
   }
 }
