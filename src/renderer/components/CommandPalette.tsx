@@ -243,6 +243,7 @@ function CommandPalette({
 
   if (!isOpen) return null;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let cmdIndex = -1;
 
   return (

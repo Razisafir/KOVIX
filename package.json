@@ -47,7 +47,7 @@
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
     "vite": "^6.0.0",
-    "vite-plugin-monaco-editor": "^1.6.0",
+    "vite-plugin-monaco-editor": "^1.1.0",
     "vitest": "^2.1.8",
     "@testing-library/react": "^16.1.0",
     "@testing-library/jest-dom": "^6.6.3",

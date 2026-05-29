@@ -83,7 +83,7 @@ export default function MultiAgentPanel() {
     const now = new Date();
     const ts = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
 
-    let from = "user";
+    const from = "user";
     let to = "all";
     let content = input.trim();
 

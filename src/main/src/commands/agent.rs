@@ -103,6 +103,7 @@ pub struct AgentOutputEvent {
 // ---------------------------------------------------------------------------
 
 /// Thread-safe store of all active and completed agent sessions.
+#[derive(Clone)]
 pub struct AgentState {
     pub sessions: Arc<Mutex<HashMap<String, AgentSession>>>,
 }
@@ -191,6 +192,11 @@ pub fn start_agent(
         sessions.insert(session_id.clone(), session);
     }
 
+    // Clone the sessions Arc for the async background task.
+    // We pass it directly into the closure rather than calling
+    // app.state::<AgentState>() inside the async block.
+    let sessions_for_task = state.sessions.clone();
+
     // Spawn async tokio task for HTTP communication with Python backend
     let sid = session_id.clone();
     let app = app_handle.clone();
@@ -235,7 +241,7 @@ pub fn start_agent(
         loop {
             // Check if session was stopped/paused
             let should_stop = {
-                let sessions_guard = app.state::<AgentState>().sessions.lock();
+                let sessions_guard = sessions_for_task.lock();
                 if let Some(session) = sessions_guard.get(&sid) {
                     if matches!(session.status, AgentStatus::Failed) {
                         // Send stop signal to backend
@@ -272,15 +278,14 @@ pub fn start_agent(
                         if let Ok(events) = resp.json::<Vec<AgentOutputEvent>>().await {
                             for event in events {
                                 last_event_id = event.timestamp;
-                                
+
                                 // Update session state
                                 {
-                                    let state_ref = app.state::<AgentState>();
-                                    let mut sessions = state_ref.sessions.lock();
+                                    let mut sessions = sessions_for_task.lock();
                                     if let Some(session) = sessions.get_mut(&sid) {
                                         session.output_log.push(event.clone());
                                         session.updated_at = Utc::now().timestamp();
-                                        
+
                                         // Update task tracking
                                         match event.event_type.as_str() {
                                             "task_start" => {
@@ -316,7 +321,7 @@ pub fn start_agent(
                                         }
                                     }
                                 }
-                                
+
                                 let _ = app.emit(&format!("agent:{}", sid), event);
                             }
                         }
@@ -333,8 +338,7 @@ pub fn start_agent(
 
             // Check if session completed
             let is_done = {
-                let state_ref = app.state::<AgentState>();
-                let sessions = state_ref.sessions.lock();
+                let sessions = sessions_for_task.lock();
                 if let Some(session) = sessions.get(&sid) {
                     matches!(session.status, AgentStatus::Completed | AgentStatus::Failed)
                 } else {
@@ -346,7 +350,7 @@ pub fn start_agent(
                 break;
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_millis(POLL_INTERVAL_MS)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(POLL_INTERVAL_MS)).await;
         }
     });
 

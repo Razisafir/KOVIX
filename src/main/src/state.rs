@@ -32,9 +32,9 @@ impl SessionStore {
     /// Create a SessionStore using the app's data directory.
     pub fn from_app_dir(app_handle: &tauri::AppHandle) -> Result<Self, String> {
         let app_dir = app_handle
-            .path_resolver()
+            .path()
             .app_data_dir()
-            .ok_or("Failed to get app data directory")?;
+            .map_err(|e| format!("Failed to get app data directory: {}", e))?;
         std::fs::create_dir_all(&app_dir).map_err(|e| format!("Failed to create app dir: {}", e))?;
         let file_path = app_dir.join("sessions.json");
         Ok(Self::new(file_path))
