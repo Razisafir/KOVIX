@@ -35,7 +35,7 @@ psutil==6.1.1
 schedule==1.2.2
 
 # Document Conversion
-markitdown[all]==0.1.1
+markitdown[all]==0.1.6
 
 # Browser automation
 playwright==1.49.1

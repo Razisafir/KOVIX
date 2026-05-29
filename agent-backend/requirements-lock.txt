@@ -16,7 +16,7 @@ aiohttp==3.11.11
 astor==0.8.1
 psutil==6.1.1
 schedule==1.2.2
-markitdown==0.1.1
+markitdown==0.1.6
 playwright==1.49.1
 
 # Transitive dependencies (key ones)
