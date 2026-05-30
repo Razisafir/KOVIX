@@ -79,6 +79,7 @@ lerna-debug.log*
 # ============================================================================
 resources/memory/
 resources/cache/
+agent-backend/resources/
 *.db
 *.sqlite
 *.sqlite3

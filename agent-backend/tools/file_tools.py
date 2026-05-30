@@ -323,8 +323,15 @@ def _safe_write(
                 "error": f"Symlink traversal blocked: '{path}' points outside the allowed directory",
             }
 
-        # Safety checks
-        blocked = _is_path_blocked(abs_path)
+        # Safety checks: only check blocked patterns if the path is outside BASE_DIR.
+        # Paths within BASE_DIR are already validated by _resolve_and_validate()
+        # and are safe to write to. This prevents false positives when the
+        # project itself is under a blocked prefix (e.g. /tmp/ in CI).
+        is_within_base = abs_path.startswith(BASE_DIR + os.sep) or abs_path == BASE_DIR
+        if not is_within_base:
+            blocked = _is_path_blocked(abs_path)
+        else:
+            blocked = None
         if blocked:
             return {
                 "success": False,

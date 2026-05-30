@@ -70,6 +70,31 @@ _query_cache: LRUCache = LRUCache(max_size=200, default_ttl=300)  # 5-min TTL
 
 
 # ---------------------------------------------------------------------------
+# Data classes (must be defined before _keyword_search which uses SearchResult)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class MemoryEntry:
+    """Single memory entry for storage in the vector database."""
+    id: str
+    text: str
+    source: str                 # "conversation" | "code" | "preference" | "context"
+    timestamp: str
+    metadata: Dict[str, Any]
+
+
+@dataclass
+class SearchResult:
+    """Result from a semantic (vector) search."""
+    id: str
+    text: str
+    source: str
+    distance: float
+    metadata: Dict[str, Any]
+    relevance_score: float      # normalised 0-1
+
+
+# ---------------------------------------------------------------------------
 # Keyword search fallback (for offline mode)
 # ---------------------------------------------------------------------------
 
@@ -130,31 +155,6 @@ def _keyword_search(query_text: str, n_results: int = 5) -> List[SearchResult]:
     except Exception as exc:
         logger.warning("Keyword search failed: %s", exc)
         return []
-
-# ---------------------------------------------------------------------------
-# Data classes
-# ---------------------------------------------------------------------------
-
-@dataclass
-class MemoryEntry:
-    """Single memory entry for storage in the vector database."""
-    id: str
-    text: str
-    source: str                 # "conversation" | "code" | "preference" | "context"
-    timestamp: str
-    metadata: Dict[str, Any]
-
-
-@dataclass
-class SearchResult:
-    """Result from a semantic (vector) search."""
-    id: str
-    text: str
-    source: str
-    distance: float
-    metadata: Dict[str, Any]
-    relevance_score: float      # normalised 0-1
-
 
 # ---------------------------------------------------------------------------
 # Internal helpers

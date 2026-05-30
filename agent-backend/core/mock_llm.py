@@ -103,14 +103,24 @@ class MockLLMProvider:
         # Phase detection:
         # - Planning: long prompt with PLANNING_PROMPT_TEMPLATE (contains "decompose")
         # - Acting: contains "Available tools" or "Current Task"
+        # - Fallback: if the message looks like a creation/fix/refactor request
+        #   but doesn't match planning or acting patterns, treat it as planning.
         is_planning = "decompose" in text.lower() or "json array of task" in text.lower()
         is_acting = "available tools" in text.lower() or "current task" in text.lower()
+        # Detect task-like messages that should produce a plan (JSON list)
+        is_task_request = any(
+            w in text.lower()
+            for w in ["create", "make", "generate", "new file", "write a", "fix", "bug", "refactor"]
+        )
 
         if is_planning:
             return self._plan_response(text)
         elif is_acting:
             self._act_call_count += 1
             return self._act_response(text)
+        elif is_task_request:
+            # Treat simple task requests as planning to return a JSON task list
+            return self._plan_response(text)
         else:
             return self._generic_response(text)
 

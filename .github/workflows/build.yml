@@ -81,6 +81,11 @@ jobs:
           mkdir -p src/main/bin
           touch src/main/bin/agent-backend-x86_64-unknown-linux-gnu
 
+      - name: Create placeholder frontend dist
+        run: |
+          mkdir -p dist
+          echo '<!DOCTYPE html><html><body></body></html>' > dist/index.html
+
       - name: Cargo check
         working-directory: src/main
         run: cargo check
