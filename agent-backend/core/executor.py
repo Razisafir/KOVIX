@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
 
 from core.llm_service import LLMService, Message, assemble_messages
+from core.modes import get_mode_config, AgentMode, ModeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,7 @@ class AgentSession:
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     project_path: str = "."
+    mode: str = "code"
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to a plain dictionary."""
@@ -106,6 +108,7 @@ class AgentSession:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "project_path": self.project_path,
+            "mode": self.mode,
             "task_summary": {
                 "total": len(self.tasks),
                 "pending": sum(1 for t in self.tasks if t.status == TaskStatus.PENDING),
@@ -192,23 +195,54 @@ Response (JSON only):
 
 
 class AgentExecutor:
-    """Main agent execution loop: observe -> plan -> act -> verify."""
+    """Main agent execution loop: observe -> plan -> act -> verify.
+
+    The executor is mode-aware: when a session is started with a specific
+    mode (e.g. ``"debug"``, ``"security"``), the agent's system prompt,
+    available tools, verification strategy, max iterations, and human
+    approval requirements are all configured by the mode.
+    """
 
     def __init__(
         self,
         llm_service: LLMService,
         tool_registry: Any,
         memory_client: Any = None,
+        mode: str = "code",
     ) -> None:
         self.llm = llm_service
         self.tools = tool_registry
         self.memory = memory_client
         self.sessions: Dict[str, AgentSession] = {}
 
+        # Mode configuration
+        self.mode_config = get_mode_config(mode)
+        self.mode = self.mode_config.name
+
+        # Filter tools to only those available in the current mode
+        all_tools = set(self.tools.get_tool_names())
+        mode_tools = set(self.mode_config.available_tools)
+        self._filtered_tool_names = sorted(all_tools & mode_tools)
+
+        logger.info(
+            "AgentExecutor initialised in %s mode — %d/%d tools available, "
+            "max_iterations=%d, verification=%s",
+            self.mode,
+            len(self._filtered_tool_names),
+            len(all_tools),
+            self.mode_config.max_iterations,
+            self.mode_config.verification_strategy,
+        )
+        if self.mode_config.require_human_approval:
+            logger.info(
+                "Tools requiring human approval: %s",
+                ", ".join(self.mode_config.require_human_approval),
+            )
+
     # -- Session lifecycle --------------------------------------------------
 
     async def start_session(
-        self, goal: str, project_path: str = "."
+        self, goal: str, project_path: str = ".", mode: Optional[str] = None
     ) -> AgentSession:
         """
         Start a new agent session for the given goal.
@@ -219,19 +253,36 @@ class AgentExecutor:
             The user's goal description.
         project_path:
             Path to the project directory.
+        mode:
+            Agent mode (e.g. ``"code"``, ``"debug"``).  If provided, the
+            executor's mode configuration is updated before starting.
 
         Returns
         -------
         AgentSession
             The newly created session.
         """
+        # Update mode if specified
+        if mode is not None and mode != self.mode:
+            self.mode_config = get_mode_config(mode)
+            self.mode = self.mode_config.name
+            all_tools = set(self.tools.get_tool_names())
+            mode_tools = set(self.mode_config.available_tools)
+            self._filtered_tool_names = sorted(all_tools & mode_tools)
+            logger.info(
+                "Switched to %s mode — %d tools available",
+                self.mode,
+                len(self._filtered_tool_names),
+            )
+
         session = AgentSession(
             id=str(uuid.uuid4())[:8],
             goal=goal,
             project_path=project_path,
+            mode=self.mode,
         )
         self.sessions[session.id] = session
-        logger.info("Starting session %s: %s", session.id, goal)
+        logger.info("Starting session %s [%s mode]: %s", session.id, self.mode, goal)
 
         # Kick off execution in the background
         import asyncio
@@ -369,7 +420,12 @@ class AgentExecutor:
             f"Files:\n{files_summary}"
         )
 
-        prompt = PLANNING_PROMPT_TEMPLATE.format(
+        # Inject mode-specific system prompt context
+        mode_prefix = (
+            f"You are in {self.mode_config.name.upper()} mode.\n"
+            f"{self.mode_config.system_prompt}\n\n"
+        )
+        prompt = mode_prefix + PLANNING_PROMPT_TEMPLATE.format(
             goal=goal, context=context_str
         )
 
@@ -428,7 +484,7 @@ class AgentExecutor:
         task.status = TaskStatus.IN_PROGRESS
         task.started_at = time.time()
 
-        tool_names = self.tools.get_tool_names()
+        tool_names = self._filtered_tool_names
 
         # Build the acting prompt
         previous_results = ""
@@ -442,7 +498,7 @@ class AgentExecutor:
             previous_results=previous_results or "None",
         )
 
-        max_tool_calls = 10
+        max_tool_calls = self.mode_config.max_iterations
         call_count = 0
         accumulated_results: List[Dict[str, Any]] = []
 
@@ -531,6 +587,35 @@ class AgentExecutor:
                     "output": response[:2000],
                     "tool_calls": accumulated_results,
                 }
+
+            # Check if tool requires human approval in this mode
+            if tool_name in self.mode_config.require_human_approval:
+                self._emit(
+                    session,
+                    "approval_required",
+                    f"Tool '{tool_name}' requires human approval in {self.mode} mode. "
+                    f"Auto-approving for now (mock/testing).",
+                )
+                logger.info(
+                    "Tool '%s' requires approval in %s mode — auto-approving",
+                    tool_name,
+                    self.mode,
+                )
+                # In production, this would pause and wait for user input.
+                # For now, auto-approve to keep the loop moving.
+
+            # Check if the tool is available in this mode
+            if tool_name not in self._filtered_tool_names:
+                accumulated_results.append(
+                    {
+                        "tool": tool_name,
+                        "error": (
+                            f"Tool '{tool_name}' is not available in {self.mode} mode. "
+                            f"Available tools: {', '.join(self._filtered_tool_names)}"
+                        ),
+                    }
+                )
+                continue
 
             # Execute the tool
             if not self.tools.has_tool(tool_name):

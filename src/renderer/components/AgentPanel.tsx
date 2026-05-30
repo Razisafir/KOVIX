@@ -286,6 +286,7 @@ function AgentPanel() {
       const sid = await invoke<string>("start_agent", {
         goal: state.goal,
         projectPath: ".",
+        mode: agentMode,
       });
       setSessionId(sid);
     } catch (err) {
@@ -456,6 +457,32 @@ function AgentPanel() {
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.04]">
         {/* Agent Mode Selector */}
         <AgentModeSelector mode={agentMode} onChange={setAgentMode} />
+
+        {/* Mode badge — shows current mode with color */}
+        <span
+          className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider flex-shrink-0"
+          style={{
+            fontFamily: 'inherit',
+            backgroundColor: {
+              code: "rgba(99,102,241,0.15)",
+              architect: "rgba(167,139,250,0.15)",
+              debug: "rgba(245,158,11,0.15)",
+              review: "rgba(6,182,212,0.15)",
+              security: "rgba(16,185,129,0.15)",
+              devops: "rgba(249,115,22,0.15)",
+            }[agentMode],
+            color: {
+              code: "#6366f1",
+              architect: "#a78bfa",
+              debug: "#f59e0b",
+              review: "#06b6d4",
+              security: "#10b981",
+              devops: "#f97316",
+            }[agentMode],
+          }}
+        >
+          {agentMode}
+        </span>
 
         {/* Goal input (editable when idle/stopped/error) */}
         {state.status === "idle" || state.status === "stopped" || state.status === "error" ? (

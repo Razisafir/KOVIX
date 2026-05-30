@@ -89,6 +89,7 @@ pub struct AgentSession {
     pub created_at: i64,
     pub updated_at: i64,
     pub project_path: String,
+    pub mode: String,
 }
 
 /// A single output event emitted by the agent.
@@ -187,8 +188,10 @@ pub fn start_agent(
     app_handle: AppHandle,
     goal: String,
     project_path: Option<String>,
+    mode: Option<String>,
 ) -> Result<String, String> {
     let session_id = Uuid::new_v4().to_string()[..8].to_string();
+    let agent_mode = mode.unwrap_or_else(|| "code".to_string());
 
     let session = AgentSession {
         id: session_id.clone(),
@@ -200,6 +203,7 @@ pub fn start_agent(
         created_at: Utc::now().timestamp(),
         updated_at: Utc::now().timestamp(),
         project_path: project_path.clone().unwrap_or_else(|| ".".to_string()),
+        mode: agent_mode.clone(),
     };
 
     {
@@ -217,6 +221,7 @@ pub fn start_agent(
     let app = app_handle.clone();
     let path = project_path.unwrap_or_else(|| ".".to_string());
     let goal_clone = goal.clone();
+    let mode_for_backend = agent_mode.clone();
 
     tauri::async_runtime::spawn(async move {
         // 1. Start the agent session on the Python backend
@@ -225,7 +230,7 @@ pub fn start_agent(
             "session_id": sid,
             "goal": goal_clone,
             "project_path": path,
-            "mode": "interactive",
+            "mode": mode_for_backend,
         });
 
         match client

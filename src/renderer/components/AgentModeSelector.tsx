@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Code, MessageSquare, Bug, Lightbulb } from "lucide-react";
+import { Code, Layout, Bug, Eye, Shield, Server } from "lucide-react";
 
 const C = {
   base: "#0c0c10",
@@ -20,7 +20,7 @@ const ff = '"Geist Mono", "JetBrains Mono", monospace';
 
 /* ─────────────────────── types ─────────────────────── */
 
-export type AgentMode = "code" | "chat" | "debug" | "architect";
+export type AgentMode = "code" | "architect" | "debug" | "review" | "security" | "devops";
 
 interface AgentModeSelectorProps {
   mode: AgentMode;
@@ -40,29 +40,43 @@ const modes: ModeConfig[] = [
     id: "code",
     label: "CODE",
     icon: <Code size={11} />,
-    color: C.accent,
+    color: "#6366f1",      // Indigo — primary accent
     description: "Write and edit code",
   },
   {
-    id: "chat",
-    label: "CHAT",
-    icon: <MessageSquare size={11} />,
-    color: C.ok,
-    description: "General conversation",
+    id: "architect",
+    label: "ARCH",
+    icon: <Layout size={11} />,
+    color: "#a78bfa",      // Purple — design thinking
+    description: "Design and plan architecture",
   },
   {
     id: "debug",
     label: "DEBUG",
     icon: <Bug size={11} />,
-    color: C.wrn,
+    color: "#f59e0b",      // Amber — caution/alert
     description: "Find and fix bugs",
   },
   {
-    id: "architect",
-    label: "ARCH",
-    icon: <Lightbulb size={11} />,
-    color: "#a78bfa",
-    description: "Design and plan",
+    id: "review",
+    label: "REVIEW",
+    icon: <Eye size={11} />,
+    color: "#06b6d4",      // Cyan — observant
+    description: "Code review and quality check",
+  },
+  {
+    id: "security",
+    label: "SEC",
+    icon: <Shield size={11} />,
+    color: "#10b981",      // Emerald — safety
+    description: "Security audit and hardening",
+  },
+  {
+    id: "devops",
+    label: "DEVOPS",
+    icon: <Server size={11} />,
+    color: "#f97316",      // Orange — infrastructure
+    description: "CI/CD, Docker, deployment",
   },
 ];
 
@@ -142,7 +156,7 @@ function AgentModeSelector({ mode, onChange }: AgentModeSelectorProps) {
             top: "calc(100% + 2px)",
             left: 0,
             zIndex: 100,
-            minWidth: 160,
+            minWidth: 200,
             backgroundColor: C.s1,
             border: `1px solid ${C.border}`,
             boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
@@ -158,6 +172,7 @@ function AgentModeSelector({ mode, onChange }: AgentModeSelectorProps) {
                   onChange(m.id);
                   setOpen(false);
                 }}
+                title={m.description}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -189,6 +204,9 @@ function AgentModeSelector({ mode, onChange }: AgentModeSelectorProps) {
               >
                 <span style={{ color: m.color, opacity: 0.8 }}>{m.icon}</span>
                 <span>{m.label}</span>
+                <span style={{ color: C.t4, fontSize: 9, marginLeft: 4, fontWeight: 400, letterSpacing: "normal" }}>
+                  {m.description}
+                </span>
                 {isSelected && (
                   <span style={{ marginLeft: "auto", fontSize: 9, color: m.color }}>
                     ●

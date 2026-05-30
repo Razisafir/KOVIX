@@ -349,12 +349,21 @@ class StartAgentRequest(BaseModel):
     project_path: str = Field(
         ".", description="Path to the project directory"
     )
+    mode: str = Field(
+        "code",
+        description=(
+            "Agent mode: code, architect, debug, review, security, devops. "
+            "Each mode configures system prompt, available tools, verification "
+            "strategy, and iteration limits."
+        ),
+    )
 
 
 class StartAgentResponse(BaseModel):
     session_id: str
     goal: str
     status: str
+    mode: str
     message: str
 
 
@@ -570,7 +579,7 @@ class AgentStartRequest(BaseModel):
     session_id: str
     goal: str
     project_path: str = "."
-    mode: str = "interactive"  # "interactive" | "autonomous"
+    mode: str = "code"  # "code" | "architect" | "debug" | "review" | "security" | "devops"
 
 
 class AgentEventResponse(BaseModel):
@@ -811,18 +820,22 @@ async def agent_start(req: StartAgentRequest) -> dict:
 
     The agent will automatically begin executing in the background,
     observing the project state, planning tasks, and acting on them.
+    The optional ``mode`` parameter selects an agent mode that configures
+    system prompt, available tools, verification strategy, and limits.
     """
     executor = _get_executor()
     try:
         session = await executor.start_session(
             goal=req.goal,
             project_path=req.project_path,
+            mode=req.mode,
         )
         return {
             "session_id": session.id,
             "goal": session.goal,
             "status": session.status.value,
-            "message": f"Agent session started with {len(session.tasks)} planned tasks",
+            "mode": session.mode,
+            "message": f"Agent session started in {session.mode} mode",
         }
     except Exception as exc:
         logger.error("Failed to start agent session: %s", exc)
@@ -940,6 +953,17 @@ async def agent_output(
         "events": events,
         "has_more": len(events) > 0,
     }
+
+
+@app.get("/agent/modes")
+async def agent_list_modes() -> dict:
+    """List all available agent modes with descriptions, icons, and colors.
+
+    Returns a list of mode objects suitable for rendering a mode selector
+    in the frontend UI.
+    """
+    from core.modes import list_modes as _list_modes
+    return {"modes": _list_modes(), "default": "code"}
 
 
 @app.get("/agent/sessions", response_model=SessionsListResponse)

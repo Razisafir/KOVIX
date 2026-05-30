@@ -329,6 +329,166 @@ async def test_full_react_loop_creates_file():
 
 
 # ---------------------------------------------------------------------------
+# Tests for Agent Modes
+# ---------------------------------------------------------------------------
+
+
+class TestAgentModes:
+    """Tests for the 6 agent modes: Code, Architect, Debug, Review, Security, DevOps."""
+
+    def test_all_six_modes_exist(self):
+        """All 6 modes are defined in the AgentMode enum."""
+        from core.modes import AgentMode
+
+        expected = {"code", "architect", "debug", "review", "security", "devops"}
+        actual = {m.value for m in AgentMode}
+        assert actual == expected, f"Missing modes: {expected - actual}"
+
+    def test_get_mode_config_code(self):
+        """CODE mode has write_file available and test_and_lint verification."""
+        from core.modes import get_mode_config
+
+        config = get_mode_config("code")
+        assert config.name == "code"
+        assert "write_file" in config.available_tools
+        assert "read_file" in config.available_tools
+        assert config.verification_strategy == "test_and_lint"
+        assert config.max_iterations == 15
+        assert len(config.require_human_approval) == 0
+
+    def test_get_mode_config_architect(self):
+        """ARCHITECT mode requires approval for write_file."""
+        from core.modes import get_mode_config
+
+        config = get_mode_config("architect")
+        assert config.name == "architect"
+        assert "write_file" in config.require_human_approval
+        assert config.verification_strategy == "design_review"
+        assert config.max_iterations == 8
+
+    def test_get_mode_config_debug(self):
+        """DEBUG mode allows 20 iterations (more than default)."""
+        from core.modes import get_mode_config
+
+        config = get_mode_config("debug")
+        assert config.name == "debug"
+        assert config.max_iterations == 20
+        assert config.verification_strategy == "regression_test"
+        assert "run_test" in config.available_tools
+
+    def test_get_mode_config_review(self):
+        """REVIEW mode has 5 iterations (quick and focused)."""
+        from core.modes import get_mode_config
+
+        config = get_mode_config("review")
+        assert config.name == "review"
+        assert config.max_iterations == 5
+        assert config.verification_strategy == "checklist"
+        # Review mode should NOT have write_file (read-only)
+        assert "write_file" not in config.available_tools
+
+    def test_get_mode_config_security(self):
+        """SECURITY mode requires approval for execute_command."""
+        from core.modes import get_mode_config
+
+        config = get_mode_config("security")
+        assert config.name == "security"
+        assert "execute_command" in config.require_human_approval
+        assert config.verification_strategy == "security_scan"
+        assert "find_vulnerabilities" in config.available_tools
+
+    def test_get_mode_config_devops(self):
+        """DEVOPS mode requires approval for execute_command."""
+        from core.modes import get_mode_config
+
+        config = get_mode_config("devops")
+        assert config.name == "devops"
+        assert "execute_command" in config.require_human_approval
+        assert config.verification_strategy == "dry_run"
+        assert "git_commit" in config.available_tools
+
+    def test_get_mode_config_case_insensitive(self):
+        """Mode lookup is case-insensitive."""
+        from core.modes import get_mode_config
+
+        config = get_mode_config("DEBUG")
+        assert config.name == "debug"
+
+    def test_get_mode_config_unknown_defaults_to_code(self):
+        """Unknown mode defaults to CODE."""
+        from core.modes import get_mode_config
+
+        config = get_mode_config("unknown_mode")
+        assert config.name == "code"
+
+    def test_list_modes_returns_six(self):
+        """list_modes() returns exactly 6 modes."""
+        from core.modes import list_modes
+
+        modes = list_modes()
+        assert len(modes) == 6
+        ids = [m["id"] for m in modes]
+        assert set(ids) == {"code", "architect", "debug", "review", "security", "devops"}
+
+    def test_list_modes_has_required_fields(self):
+        """Each mode from list_modes() has id, name, description, icon, color."""
+        from core.modes import list_modes
+
+        modes = list_modes()
+        for m in modes:
+            assert "id" in m
+            assert "name" in m
+            assert "description" in m
+            assert "icon" in m
+            assert "color" in m
+
+    def test_mode_config_to_dict(self):
+        """ModeConfig.to_dict() serializes correctly."""
+        from core.modes import get_mode_config
+
+        config = get_mode_config("debug")
+        d = config.to_dict()
+        assert d["name"] == "debug"
+        assert isinstance(d["available_tools"], list)
+        assert isinstance(d["require_human_approval"], list)
+        assert d["max_iterations"] == 20
+        assert d["verification_strategy"] == "regression_test"
+
+    def test_each_mode_has_distinct_tools(self):
+        """Each mode has a different set of available tools."""
+        from core.modes import MODE_CONFIGS, AgentMode
+
+        tool_sets = {}
+        for mode, config in MODE_CONFIGS.items():
+            tool_sets[mode] = set(config.available_tools)
+
+        # At least some modes should have different tool sets
+        unique_sets = set(frozenset(s) for s in tool_sets.values())
+        assert len(unique_sets) > 1, "All modes have the same tools — they should differ"
+
+    def test_each_mode_has_system_prompt(self):
+        """Every mode has a non-empty system prompt."""
+        from core.modes import MODE_CONFIGS
+
+        for mode, config in MODE_CONFIGS.items():
+            assert len(config.system_prompt) > 50, (
+                f"{mode.value} mode has a very short system prompt"
+            )
+
+    def test_code_mode_has_most_tools(self):
+        """CODE mode should have the most tools (it's the general-purpose mode)."""
+        from core.modes import MODE_CONFIGS, AgentMode
+
+        code_count = len(MODE_CONFIGS[AgentMode.CODE].available_tools)
+        for mode, config in MODE_CONFIGS.items():
+            if mode != AgentMode.CODE:
+                assert code_count >= len(config.available_tools), (
+                    f"CODE mode should have >= tools than {mode.value}, "
+                    f"but {code_count} < {len(config.available_tools)}"
+                )
+
+
+# ---------------------------------------------------------------------------
 # Run directly
 # ---------------------------------------------------------------------------
 
