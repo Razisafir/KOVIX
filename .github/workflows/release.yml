@@ -55,9 +55,7 @@ jobs:
 
       - name: Build Tauri app
         shell: bash
-        run: |
-          cd src/main
-          npx tauri build
+        run: npx tauri build
 
       - name: List build artifacts
         shell: bash
@@ -65,7 +63,7 @@ jobs:
           echo "=== Bundle directory ==="
           find src/main/target/release/bundle -type f 2>/dev/null || echo "No bundle directory found"
           echo "=== Release directory ==="
-          ls -la src/main/target/release/*.exe 2>/dev/null || echo "No exe found"
+          ls -la src/main/target/release/construct.exe 2>/dev/null || echo "No exe found"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -121,9 +119,7 @@ jobs:
         run: npm install @tauri-apps/cli@^2
 
       - name: Build Tauri app
-        run: |
-          cd src/main
-          npx tauri build --target aarch64-apple-darwin
+        run: npx tauri build --target aarch64-apple-darwin
 
       - name: List build artifacts
         run: |
@@ -186,9 +182,7 @@ jobs:
         run: npm install @tauri-apps/cli@^2
 
       - name: Build Tauri app
-        run: |
-          cd src/main
-          npx tauri build
+        run: npx tauri build
 
       - name: List build artifacts
         run: |
