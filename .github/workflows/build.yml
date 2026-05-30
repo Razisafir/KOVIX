@@ -2,6 +2,7 @@ name: Build & Test
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -109,13 +110,50 @@ jobs:
       - name: Build frontend (vite)
         run: npm run build
 
+  # -- Mock E2E Test -----------------------------------------------------
+  test-e2e-mock:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: |
+            agent-backend/requirements.txt
+            agent-backend/requirements-test.txt
+
+      - name: Install Python dependencies
+        working-directory: agent-backend
+        run: |
+          python -m pip install -r requirements.txt -r requirements-test.txt
+
+      - name: Run mock E2E test
+        working-directory: agent-backend
+        env:
+          CONSTRUCT_OFFLINE: "1"
+          CONSTRUCT_MOCK_LLM: "1"
+        run: |
+          python tests/e2e/test_mock_llm_standalone.py
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-mock-results
+          path: |
+            agent-backend/test_output/
+            agent-backend/logs/
+
   # =====================================================================
   # BUILD JOBS — gated on all tests passing
   # =====================================================================
 
   # -- Windows -----------------------------------------------------------
   build-windows:
-    needs: [test-python-unit, test-rust, test-frontend]
+    needs: [test-python-unit, test-rust, test-frontend, test-e2e-mock]
     runs-on: windows-latest
     permissions:
       contents: write
@@ -168,7 +206,7 @@ jobs:
 
   # -- macOS ---------------------------------------------------------------
   build-macos:
-    needs: [test-python-unit, test-rust, test-frontend]
+    needs: [test-python-unit, test-rust, test-frontend, test-e2e-mock]
     runs-on: macos-latest
     permissions:
       contents: write
@@ -226,7 +264,7 @@ jobs:
 
   # -- Linux ---------------------------------------------------------------
   build-linux:
-    needs: [test-python-unit, test-rust, test-frontend]
+    needs: [test-python-unit, test-rust, test-frontend, test-e2e-mock]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
