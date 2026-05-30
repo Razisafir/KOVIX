@@ -399,6 +399,7 @@ pub fn start_agent(
                         }
                     }
                 }
+                }
                 Err(_) => {
                     consecutive_errors += 1;
                     if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
