@@ -50,27 +50,38 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: './src/main'
-
-      - name: Stage and upload artifacts
+      - name: Verify frontend dist
         shell: bash
         run: |
-          mkdir -p /tmp/artifacts
-          find src/main/target/release/bundle -type f \
-            \( -name '*.msi' -o -name '*.exe' \) \
-            -exec cp {} /tmp/artifacts/ \;
-          ls -la /tmp/artifacts/
+          echo "--- dist/ contents ---"
+          ls -la dist/ | head -20
+          echo "--- dist/index.html ---"
+          head -5 dist/index.html || echo "No index.html found!"
+
+      - name: Build Tauri app (Windows)
+        shell: bash
+        run: |
+          cd src/main
+          npx tauri build 2>&1 | tee /tmp/tauri-build.log
+          echo "--- Build log tail ---"
+          tail -50 /tmp/tauri-build.log
+
+      - name: List bundle output
+        shell: bash
+        run: |
+          echo "--- Searching for bundle artifacts ---"
+          find src/main/target/release/bundle -type f 2>/dev/null || echo "No bundle directory found"
+          echo "--- Searching for any .msi/.exe ---"
+          find src/main/target -name '*.msi' -o -name '*.exe' 2>/dev/null | head -20
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-artifacts
-          path: /tmp/artifacts/
+          path: |
+            src/main/target/release/bundle/msi/*.msi
+            src/main/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
 
   # -- macOS (Apple Silicon / arm64 only) --------------------------------
   release-macos:
@@ -114,27 +125,33 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: './src/main'
-          args: '--target aarch64-apple-darwin'
-
-      - name: Stage and upload artifacts
+      - name: Verify frontend dist
         run: |
-          mkdir -p /tmp/artifacts
-          find src/main/target/aarch64-apple-darwin/release/bundle -type f \
-            \( -name '*.dmg' -o -name '*.app' -o -name '*.tar.gz' \) \
-            -exec cp {} /tmp/artifacts/ \;
-          ls -la /tmp/artifacts/
+          echo "--- dist/ contents ---"
+          ls -la dist/ | head -20
+          echo "--- dist/index.html ---"
+          head -5 dist/index.html || echo "No index.html found!"
+
+      - name: Build Tauri app (macOS arm64)
+        run: |
+          cd src/main
+          npx tauri build --target aarch64-apple-darwin 2>&1 | tee /tmp/tauri-build.log
+          echo "--- Build log tail ---"
+          tail -50 /tmp/tauri-build.log
+
+      - name: List bundle output
+        run: |
+          echo "--- Searching for bundle artifacts ---"
+          find src/main/target/aarch64-apple-darwin/release/bundle -type f 2>/dev/null || echo "No bundle directory found"
+          echo "--- Searching for any .dmg ---"
+          find src/main/target -name '*.dmg' 2>/dev/null | head -20
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-artifacts
-          path: /tmp/artifacts/
+          path: src/main/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
 
   # -- Linux -------------------------------------------------------------
   release-linux:
@@ -182,26 +199,35 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: './src/main'
-
-      - name: Stage and upload artifacts
+      - name: Verify frontend dist
         run: |
-          mkdir -p /tmp/artifacts
-          find src/main/target/release/bundle -type f \
-            \( -name '*.deb' -o -name '*.AppImage' \) \
-            -exec cp {} /tmp/artifacts/ \;
-          ls -la /tmp/artifacts/
+          echo "--- dist/ contents ---"
+          ls -la dist/ | head -20
+          echo "--- dist/index.html ---"
+          head -5 dist/index.html || echo "No index.html found!"
+
+      - name: Build Tauri app (Linux)
+        run: |
+          cd src/main
+          npx tauri build 2>&1 | tee /tmp/tauri-build.log
+          echo "--- Build log tail ---"
+          tail -50 /tmp/tauri-build.log
+
+      - name: List bundle output
+        run: |
+          echo "--- Searching for bundle artifacts ---"
+          find src/main/target/release/bundle -type f 2>/dev/null || echo "No bundle directory found"
+          echo "--- Searching for any .deb/.AppImage ---"
+          find src/main/target -name '*.deb' -o -name '*.AppImage' 2>/dev/null | head -20
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-artifacts
-          path: /tmp/artifacts/
+          path: |
+            src/main/target/release/bundle/deb/*.deb
+            src/main/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
 
   # -- Create Draft Release ------------------------------------------------
   create-release:
