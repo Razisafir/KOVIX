@@ -2123,10 +2123,12 @@ if __name__ == "__main__":
     print(f"🚀 Construct Agent Backend starting on port {PORT}")
     print(f"📁 Data directory: {DATA_DIR}")
     print(f"📝 Log level: {LOG_LEVEL}")
+    # Pass the app object directly instead of "app:app" string form.
+    # String import form fails when running as a PyInstaller bundle
+    # because the module is loaded as __main__, not "app".
     uvicorn.run(
-        "app:app",
+        app,
         host="127.0.0.1",
         port=PORT,
-        reload=False,
         log_level=LOG_LEVEL,
     )
