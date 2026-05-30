@@ -226,7 +226,7 @@ jobs:
           name: construct-windows-exe
           path: src/main/target/release/bundle/nsis/*.exe
 
-  # -- macOS ---------------------------------------------------------------
+  # -- macOS (Apple Silicon / arm64 only) -----------------------------------
   build-macos:
     needs: [test-python-unit, test-rust, test-frontend, test-e2e-mock]
     runs-on: macos-latest
@@ -242,7 +242,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-apple-darwin,aarch64-apple-darwin
+          targets: aarch64-apple-darwin
 
       - name: Install npm dependencies
         run: npm ci
@@ -250,35 +250,12 @@ jobs:
       - name: Build frontend (vite)
         run: npm run build
 
-      - name: Create placeholder sidecar binary (arm64)
+      - name: Create placeholder sidecar binary
         shell: bash
         run: |
           mkdir -p src/main/bin
-          # Create a minimal Mach-O header so lipo doesn't fail
-          # This is a 4-byte placeholder that represents a valid ARM64 Mach-O magic number
-          printf '\xcf\xfa\xed\xfe' > src/main/bin/agent-backend-aarch64-apple-darwin
+          touch src/main/bin/agent-backend-aarch64-apple-darwin
           echo "Created placeholder sidecar for arm64"
-
-      - name: Create placeholder sidecar binary (x86_64)
-        shell: bash
-        run: |
-          # Minimal x86_64 Mach-O magic number
-          printf '\xfe\xed\xfa\xce' > src/main/bin/agent-backend-x86_64-apple-darwin
-          echo "Created placeholder sidecar for x86_64"
-
-      - name: Create universal placeholder sidecar
-        shell: bash
-        run: |
-          # Use lipo to create a universal binary from the two architecture slices
-          lipo -create \
-            src/main/bin/agent-backend-aarch64-apple-darwin \
-            src/main/bin/agent-backend-x86_64-apple-darwin \
-            -output src/main/bin/agent-backend-universal-apple-darwin 2>/dev/null || {
-            # Fallback: if lipo fails, just copy the arm64 binary
-            cp src/main/bin/agent-backend-aarch64-apple-darwin src/main/bin/agent-backend-universal-apple-darwin
-            echo "::warning::lipo failed; using arm64-only placeholder for universal"
-          }
-          echo "Created universal placeholder sidecar"
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -286,13 +263,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: './src/main'
-          args: '--target universal-apple-darwin'
+          args: '--target aarch64-apple-darwin'
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: construct-macos-dmg
-          path: src/main/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          path: src/main/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
 
   # -- Linux ---------------------------------------------------------------
   build-linux:
