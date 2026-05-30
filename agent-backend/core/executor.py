@@ -21,6 +21,7 @@ from typing import List, Optional, Dict, Any
 
 from core.llm_service import LLMService, Message, assemble_messages
 from core.modes import get_mode_config, AgentMode, ModeConfig
+from tools.file_tools import set_base_dir
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +276,12 @@ class AgentExecutor:
                 len(self._filtered_tool_names),
             )
 
+        # Normalize project_path: expand ~, resolve to absolute, create if needed
+        if project_path == ".":
+            project_path = os.path.expanduser("~/construct-projects/default")
+        project_path = os.path.abspath(os.path.expanduser(project_path))
+        os.makedirs(project_path, exist_ok=True)
+
         session = AgentSession(
             id=str(uuid.uuid4())[:8],
             goal=goal,
@@ -282,7 +289,14 @@ class AgentExecutor:
             mode=self.mode,
         )
         self.sessions[session.id] = session
-        logger.info("Starting session %s [%s mode]: %s", session.id, self.mode, goal)
+
+        # Set file tools sandbox to the session's project directory
+        set_base_dir(project_path)
+
+        logger.info(
+            "Starting session %s [%s mode]: %s (project_path=%s)",
+            session.id, self.mode, goal, project_path,
+        )
 
         # Kick off execution in the background
         import asyncio
@@ -531,25 +545,39 @@ class AgentExecutor:
                         except json.JSONDecodeError:
                             args = {}
 
-                        tool_result = self.tools.execute_tool(tool_name, args)
+                        # Resolve relative path arguments against session.project_path
+                        resolved_args = dict(args)
+                        file_path_tools = {
+                            'write_file', 'read_file', 'list_directory', 'search_files',
+                            'parse_ast', 'find_references', 'refactor_rename', 'extract_function',
+                            'convert_document', 'extract_document_structure',
+                        }
+                        if tool_name in file_path_tools:
+                            for key in ('file_path', 'dir_path', 'path'):
+                                if key in resolved_args and resolved_args[key] is not None:
+                                    val = resolved_args[key]
+                                    if not os.path.isabs(val):
+                                        resolved_args[key] = os.path.join(session.project_path, val)
+
+                        tool_result = self.tools.execute_tool(tool_name, resolved_args)
                         accumulated_results.append(
                             {
                                 "tool": tool_name,
-                                "arguments": args,
+                                "arguments": resolved_args,
                                 "result": tool_result,
                             }
                         )
                         task.tool_calls.append(
                             {
                                 "tool": tool_name,
-                                "arguments": args,
+                                "arguments": resolved_args,
                                 "result": tool_result,
                             }
                         )
                         self._emit(
                             session,
                             "tool_call",
-                            f"{tool_name}({', '.join(f'{k}={v}' for k, v in args.items())})",
+                            f"{tool_name}({', '.join(f'{k}={v}' for k, v in resolved_args.items())})",
                         )
                     continue
 
@@ -631,18 +659,32 @@ class AgentExecutor:
                 session, "tool_call", f"Using {tool_name}: {reasoning[:100]}"
             )
 
-            tool_result = self.tools.execute_tool(tool_name, arguments)
+            # Resolve relative path arguments against session.project_path
+            resolved_args = dict(arguments)  # Copy to avoid mutating original
+            file_path_tools = {
+                'write_file', 'read_file', 'list_directory', 'search_files',
+                'parse_ast', 'find_references', 'refactor_rename', 'extract_function',
+                'convert_document', 'extract_document_structure',
+            }
+            if tool_name in file_path_tools:
+                for key in ('file_path', 'dir_path', 'path'):
+                    if key in resolved_args and resolved_args[key] is not None:
+                        val = resolved_args[key]
+                        if not os.path.isabs(val):
+                            resolved_args[key] = os.path.join(session.project_path, val)
+
+            tool_result = self.tools.execute_tool(tool_name, resolved_args)
             accumulated_results.append(
                 {
                     "tool": tool_name,
-                    "arguments": arguments,
+                    "arguments": resolved_args,
                     "result": tool_result,
                 }
             )
             task.tool_calls.append(
                 {
                     "tool": tool_name,
-                    "arguments": arguments,
+                    "arguments": resolved_args,
                     "result": tool_result,
                 }
             )

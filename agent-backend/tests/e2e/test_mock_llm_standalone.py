@@ -64,7 +64,7 @@ async def test_mock_provider():
     ]
     action1 = json.loads(await mock.complete(act_msgs))
     check("act 1: write_file tool", action1.get("tool") == "write_file")
-    check("act 1: correct filename", action1["arguments"]["path"] == "hello_world.py")
+    check("act 1: correct filename", action1["arguments"]["file_path"] == "hello_world.py")
 
     action2 = json.loads(await mock.complete(act_msgs))
     check("act 2: done signal", action2.get("done") is True)
@@ -176,7 +176,7 @@ async def test_full_react_loop():
     check("act: write_file tool", action.get("tool") == "write_file")
 
     # Execute — write to test dir within project
-    file_name = os.path.basename(action["arguments"]["path"])
+    file_name = os.path.basename(action["arguments"]["file_path"])
     full_path = os.path.join(test_dir, file_name)
     result = write_file(full_path, action["arguments"]["content"])
     check("file written", result.get("success") is True, f"error: {result.get('error')}")

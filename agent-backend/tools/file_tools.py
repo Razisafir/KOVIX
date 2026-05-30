@@ -21,10 +21,39 @@ logger = logging.getLogger(__name__)
 
 # Base directory for all file operations — resolved at import time.
 # All file paths are validated to be within this directory tree.
+# Can be overridden per-session via set_base_dir().
 BASE_DIR: str = os.path.abspath(os.getcwd())
 
 
-def _resolve_and_validate(path: str, must_exist: bool = False) -> str:
+def set_base_dir(new_base: str) -> str:
+    """
+    Set the base directory for file operation validation.
+
+    This should be called by the executor when starting a new session,
+    so that file tools resolve and validate paths against the session's
+    project directory rather than the CWD at import time.
+
+    Parameters
+    ----------
+    new_base:
+        The new base directory (typically ``session.project_path``).
+        Must be an absolute path.  Relative paths are resolved against
+        the current ``BASE_DIR``.
+
+    Returns
+    -------
+    str
+        The previous ``BASE_DIR`` value (for restoration if needed).
+    """
+    global BASE_DIR
+    old = BASE_DIR
+    expanded = os.path.expanduser(new_base)
+    BASE_DIR = os.path.abspath(expanded)
+    logger.info("BASE_DIR changed: %s -> %s", old, BASE_DIR)
+    return old
+
+
+def _resolve_and_validate(path: str, must_exist: bool = False, base_dir: Optional[str] = None) -> str:
     """
     Resolve *path* to an absolute path and validate it is within *BASE_DIR*.
 
@@ -37,6 +66,9 @@ def _resolve_and_validate(path: str, must_exist: bool = False) -> str:
         Absolute or relative file path.
     must_exist:
         If *True*, also verify the path exists on disk.
+    base_dir:
+        Override the module-level ``BASE_DIR`` for this call.  If *None*,
+        the module-level ``BASE_DIR`` is used.
 
     Returns
     -------
@@ -50,35 +82,39 @@ def _resolve_and_validate(path: str, must_exist: bool = False) -> str:
     FileNotFoundError
         If *must_exist* is *True* and the path does not exist.
     """
+    effective_base = base_dir if base_dir is not None else BASE_DIR
     expanded = os.path.expanduser(path)
+    # For relative paths, resolve against effective_base instead of CWD
+    if not os.path.isabs(expanded):
+        expanded = os.path.join(effective_base, expanded)
     # Resolve symlinks and ``..`` segments to get the real path
     resolved = os.path.realpath(expanded)
     abs_path = os.path.abspath(resolved)
 
     # Check for common traversal indicators in the original input
     if ".." in os.path.normpath(expanded).split(os.sep):
-        # Allow ``..`` only if the resolved path stays within BASE_DIR
+        # Allow ``..`` only if the resolved path stays within effective_base
         try:
-            os.path.commonpath([BASE_DIR, abs_path])
+            os.path.commonpath([effective_base, abs_path])
         except ValueError:
             raise ValueError(
                 f"Path traversal blocked: '{path}' resolves outside "
-                f"the allowed directory ({BASE_DIR})"
+                f"the allowed directory ({effective_base})"
             )
 
-    # Ensure the resolved path is under BASE_DIR
+    # Ensure the resolved path is under effective_base
     try:
-        common = os.path.commonpath([BASE_DIR, abs_path])
+        common = os.path.commonpath([effective_base, abs_path])
     except ValueError:
         raise ValueError(
             f"Path traversal blocked: '{path}' resolves outside "
-            f"the allowed directory ({BASE_DIR})"
+            f"the allowed directory ({effective_base})"
         )
 
-    if common != BASE_DIR:
+    if common != effective_base:
         raise ValueError(
             f"Path traversal blocked: '{path}' resolves to '{abs_path}' "
-            f"which is outside the allowed directory ({BASE_DIR})"
+            f"which is outside the allowed directory ({effective_base})"
         )
 
     if must_exist and not os.path.exists(abs_path):

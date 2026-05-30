@@ -187,8 +187,8 @@ class MockLLMProvider:
                     {
                         "tool": "write_file",
                         "arguments": {
-                            "path": filename,
-                            "content": 'print("Hello, Construct!")',
+                            "file_path": filename,
+                            "content": 'print("Hello from Construct!")',
                         },
                         "reasoning": f"Creating {filename} with the required content",
                     }
@@ -203,7 +203,7 @@ class MockLLMProvider:
                 return json.dumps(
                     {
                         "tool": "read_file",
-                        "arguments": {"path": filename},
+                        "arguments": {"file_path": filename},
                         "reasoning": f"Reading {filename} to find the bug",
                     }
                 )
@@ -212,7 +212,7 @@ class MockLLMProvider:
                     {
                         "tool": "write_file",
                         "arguments": {
-                            "path": filename,
+                            "file_path": filename,
                             "content": 'print("Hello")\nprint("World")  # fixed\n',
                         },
                         "reasoning": "Fixing the typo",
@@ -228,7 +228,7 @@ class MockLLMProvider:
                 return json.dumps(
                     {
                         "tool": "read_file",
-                        "arguments": {"path": filename},
+                        "arguments": {"file_path": filename},
                         "reasoning": f"Reading {filename} before refactoring",
                     }
                 )
@@ -237,7 +237,7 @@ class MockLLMProvider:
                     {
                         "tool": "write_file",
                         "arguments": {
-                            "path": filename,
+                            "file_path": filename,
                             "content": "# Refactored\ndef main():\n    print('Hello')\n",
                         },
                         "reasoning": "Applying refactoring changes",
@@ -253,7 +253,7 @@ class MockLLMProvider:
             return json.dumps(
                 {
                     "tool": "write_file",
-                    "arguments": {"path": filename, "content": "Hello"},
+                    "arguments": {"file_path": filename, "content": "Hello"},
                     "reasoning": "Writing output file",
                 }
             )
