@@ -55,23 +55,31 @@ jobs:
         run: |
           echo "--- dist/ contents ---"
           ls -la dist/ | head -20
-          echo "--- dist/index.html ---"
-          head -5 dist/index.html || echo "No index.html found!"
+
+      - name: Show tauri CLI version
+        shell: bash
+        run: npx tauri --version
+
+      - name: Show tauri info
+        shell: bash
+        run: npx tauri info 2>&1 || true
 
       - name: Build Tauri app (Windows)
         shell: bash
         run: |
+          set -o pipefail
           cd src/main
-          npx tauri build 2>&1 | tee /tmp/tauri-build.log
-          echo "--- Build log tail ---"
-          tail -50 /tmp/tauri-build.log
+          npx tauri build --verbose 2>&1
+          echo "=== Exit code: $? ==="
 
-      - name: List bundle output
+      - name: List ALL build output
         shell: bash
         run: |
-          echo "--- Searching for bundle artifacts ---"
-          find src/main/target/release/bundle -type f 2>/dev/null || echo "No bundle directory found"
-          echo "--- Searching for any .msi/.exe ---"
+          echo "--- Full target directory listing ---"
+          find src/main/target/release -maxdepth 1 -type f 2>/dev/null | head -20
+          echo "--- Bundle directory ---"
+          find src/main/target/release/bundle -type f 2>/dev/null || echo "No bundle directory"
+          echo "--- Any .msi/.exe in target ---"
           find src/main/target -name '*.msi' -o -name '*.exe' 2>/dev/null | head -20
 
       - name: Upload Windows artifacts
@@ -129,21 +137,27 @@ jobs:
         run: |
           echo "--- dist/ contents ---"
           ls -la dist/ | head -20
-          echo "--- dist/index.html ---"
-          head -5 dist/index.html || echo "No index.html found!"
+
+      - name: Show tauri CLI version
+        run: npx tauri --version
+
+      - name: Show tauri info
+        run: npx tauri info 2>&1 || true
 
       - name: Build Tauri app (macOS arm64)
         run: |
+          set -o pipefail
           cd src/main
-          npx tauri build --target aarch64-apple-darwin 2>&1 | tee /tmp/tauri-build.log
-          echo "--- Build log tail ---"
-          tail -50 /tmp/tauri-build.log
+          npx tauri build --verbose --target aarch64-apple-darwin 2>&1
+          echo "=== Exit code: $? ==="
 
-      - name: List bundle output
+      - name: List ALL build output
         run: |
-          echo "--- Searching for bundle artifacts ---"
-          find src/main/target/aarch64-apple-darwin/release/bundle -type f 2>/dev/null || echo "No bundle directory found"
-          echo "--- Searching for any .dmg ---"
+          echo "--- Full target directory listing ---"
+          find src/main/target/aarch64-apple-darwin/release -maxdepth 1 -type f 2>/dev/null | head -20
+          echo "--- Bundle directory ---"
+          find src/main/target/aarch64-apple-darwin/release/bundle -type f 2>/dev/null || echo "No bundle directory"
+          echo "--- Any .dmg in target ---"
           find src/main/target -name '*.dmg' 2>/dev/null | head -20
 
       - name: Upload macOS artifacts
@@ -203,21 +217,27 @@ jobs:
         run: |
           echo "--- dist/ contents ---"
           ls -la dist/ | head -20
-          echo "--- dist/index.html ---"
-          head -5 dist/index.html || echo "No index.html found!"
+
+      - name: Show tauri CLI version
+        run: npx tauri --version
+
+      - name: Show tauri info
+        run: npx tauri info 2>&1 || true
 
       - name: Build Tauri app (Linux)
         run: |
+          set -o pipefail
           cd src/main
-          npx tauri build 2>&1 | tee /tmp/tauri-build.log
-          echo "--- Build log tail ---"
-          tail -50 /tmp/tauri-build.log
+          npx tauri build --verbose 2>&1
+          echo "=== Exit code: $? ==="
 
-      - name: List bundle output
+      - name: List ALL build output
         run: |
-          echo "--- Searching for bundle artifacts ---"
-          find src/main/target/release/bundle -type f 2>/dev/null || echo "No bundle directory found"
-          echo "--- Searching for any .deb/.AppImage ---"
+          echo "--- Full target directory listing ---"
+          find src/main/target/release -maxdepth 1 -type f 2>/dev/null | head -20
+          echo "--- Bundle directory ---"
+          find src/main/target/release/bundle -type f 2>/dev/null || echo "No bundle directory"
+          echo "--- Any .deb/.AppImage in target ---"
           find src/main/target -name '*.deb' -o -name '*.AppImage' 2>/dev/null | head -20
 
       - name: Upload Linux artifacts
