@@ -547,6 +547,12 @@ class AgentExecutor:
 
                         # Resolve relative path arguments against session.project_path
                         resolved_args = dict(args)
+
+                        # Strip LLM metadata keys that small models sometimes
+                        # leak into the arguments dict.  These are NOT tool parameters.
+                        for _key in ("tool", "reasoning", "name", "id", "arguments"):
+                            resolved_args.pop(_key, None)
+
                         file_path_tools = {
                             'write_file', 'read_file', 'list_directory', 'search_files',
                             'parse_ast', 'find_references', 'refactor_rename', 'extract_function',
@@ -661,6 +667,12 @@ class AgentExecutor:
 
             # Resolve relative path arguments against session.project_path
             resolved_args = dict(arguments)  # Copy to avoid mutating original
+
+            # Strip LLM metadata keys that small models (llama3.2:1b) sometimes
+            # leak into the arguments dict.  These are NOT tool parameters.
+            for _key in ("tool", "reasoning", "name", "id", "arguments"):
+                resolved_args.pop(_key, None)
+
             file_path_tools = {
                 'write_file', 'read_file', 'list_directory', 'search_files',
                 'parse_ast', 'find_references', 'refactor_rename', 'extract_function',
