@@ -38,6 +38,10 @@ interface AppState {
   activeSidebarTab: string;
   setActiveSidebarTab: (tab: string) => void;
 
+  // Agent Mode (shared state for Command Palette + AgentPanel)
+  agentMode: "code" | "architect" | "debug" | "review" | "security" | "devops";
+  setAgentMode: (mode: "code" | "architect" | "debug" | "review" | "security" | "devops") => void;
+
   // Editor
   editorTheme: "dark" | "light";
   editorFontSize: number;
@@ -153,6 +157,10 @@ const useAppStore = create<AppState>((set) => ({
   // Sidebar
   activeSidebarTab: "files",
   setActiveSidebarTab: (tab) => set({ activeSidebarTab: tab }),
+
+  // Agent Mode
+  agentMode: "code" as const,
+  setAgentMode: (mode) => set({ agentMode: mode }),
 
   // Editor
   editorTheme: "dark",

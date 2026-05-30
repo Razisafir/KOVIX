@@ -3,8 +3,9 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { TerminalOutput } from "./TerminalOutput";
 import type { LogEntry } from "./TerminalOutput";
-import AgentModeSelector, { type AgentMode } from "./AgentModeSelector";
+import AgentModeSelector from "./AgentModeSelector";
 import InlineDiff, { type PendingChange } from "./InlineDiff";
+import useAppStore from "../stores/useAppStore";
 
 /* ─────────────────────── types ─────────────────────── */
 
@@ -185,8 +186,30 @@ function AgentPanel() {
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const [thinkingOpen, setThinkingOpen] = useState(true);
   const [fileInput, setFileInput] = useState("");
-  const [agentMode, setAgentMode] = useState<AgentMode>("code");
+  const agentMode = useAppStore((s) => s.agentMode);
+  const setAgentMode = useAppStore((s) => s.setAgentMode);
   const [viewMode, setViewMode] = useState<"terminal" | "diff">("terminal");
+
+  // Ref for command palette agent actions (avoids use-before-declaration)
+  const agentActionRef = useRef<{ start: () => void; stop: () => void; pause: () => void; resume: () => void }>({
+    start: () => {},
+    stop: () => {},
+    pause: () => {},
+    resume: () => {},
+  });
+
+  // Listen for command palette agent actions
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.action === "start") agentActionRef.current.start();
+      else if (detail?.action === "stop") agentActionRef.current.stop();
+      else if (detail?.action === "pause") agentActionRef.current.pause();
+      else if (detail?.action === "resume") agentActionRef.current.resume();
+    };
+    window.addEventListener("construct:agent-action", handler);
+    return () => window.removeEventListener("construct:agent-action", handler);
+  }, []);
 
   // Listen for agent events from Rust backend
   useEffect(() => {
@@ -304,7 +327,7 @@ function AgentPanel() {
         ],
       }));
     }
-  }, [state.goal]);
+  }, [state.goal, agentMode]);
 
   const pauseAgent = useCallback(async () => {
     if (!sessionId) return;
@@ -324,6 +347,9 @@ function AgentPanel() {
     setState((prev) => ({ ...prev, status: "stopped" }));
     setSessionId(null);
   }, [sessionId]);
+
+  // Keep ref in sync for command palette agent actions
+  agentActionRef.current = { start: startAgent, stop: stopAgent, pause: pauseAgent, resume: resumeAgent };
 
   const handleCommand = useCallback((cmd: string) => {
     setState((prev) => ({

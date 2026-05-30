@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState, useCallback, useEffect } from "react";
+import { Command } from "lucide-react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import OnboardingModal from "./components/OnboardingModal";
 import Sidebar from "./components/Sidebar";
@@ -9,6 +10,8 @@ import {
   useKeyboardShortcuts,
   createConstructShortcuts,
 } from "./hooks/useKeyboardShortcuts";
+import { useCommandPalette } from "./hooks/useCommandPalette";
+import { registerDefaultCommands } from "./commands/defaultCommands";
 import useAppStore from "./stores/useAppStore";
 
 const Editor = lazy(() => import("./components/Editor"));
@@ -222,15 +225,19 @@ function AppRoot() {
   // ── Settings panel state ──
   const [showSettings, setShowSettings] = useState(false);
 
-  // ── Command Palette state ──
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  // ── Command Palette (using new hook) ──
+  const { isOpen: showCommandPalette, open: openCommandPalette, close: closeCommandPalette } = useCommandPalette();
 
-  const openCommandPalette = useCallback(() => {
-    setShowCommandPalette(true);
+  // ── Register default commands on mount ──
+  useEffect(() => {
+    registerDefaultCommands();
   }, []);
 
-  const closeCommandPalette = useCallback(() => {
-    setShowCommandPalette(false);
+  // ── Listen for settings open event from command palette ──
+  useEffect(() => {
+    const handler = () => setShowSettings(true);
+    window.addEventListener("construct:open-settings", handler);
+    return () => window.removeEventListener("construct:open-settings", handler);
   }, []);
 
   const openSettings = useCallback(() => setShowSettings(true), []);
@@ -297,16 +304,24 @@ function AppRoot() {
       toggleSidebar();
     },
     toggleAgentPanel: () => {
-      console.log("[shortcut] toggle agent panel");
+      const store = useAppStore.getState();
+      if (!store.panelVisible) store.togglePanel();
+      window.dispatchEvent(new CustomEvent("construct:panel-tab", { detail: { tab: "agent" } }));
     },
     toggleMemoryPanel: () => {
-      console.log("[shortcut] toggle memory panel");
+      const store = useAppStore.getState();
+      if (!store.panelVisible) store.togglePanel();
+      window.dispatchEvent(new CustomEvent("construct:panel-tab", { detail: { tab: "memory" } }));
     },
     toggleTerminal: () => {
       togglePanel();
     },
     fullscreen: () => {
-      console.log("[shortcut] fullscreen");
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        document.documentElement.requestFullscreen();
+      }
     },
 
     // Agent / Action
@@ -320,27 +335,12 @@ function AppRoot() {
 
   useKeyboardShortcuts(shortcuts, true);
 
-  // ── Command palette handler ──
+  // ── Command palette handler (backward compat logging) ──
   const handleCommandSelect = useCallback(
     (cmd: PaletteCommand) => {
       console.log(`[command palette] selected: ${cmd.id} — ${cmd.label}`);
-
-      // Wire up known commands
-      switch (cmd.id) {
-        case "toggle-sidebar":
-          toggleSidebar();
-          break;
-        case "toggle-terminal":
-          togglePanel();
-          break;
-        case "open-settings":
-          setShowSettings(true);
-          break;
-        default:
-          break;
-      }
     },
-    [toggleSidebar, togglePanel]
+    []
   );
 
   // ── Splash Screen ──
@@ -390,6 +390,53 @@ function AppRoot() {
         >
           Construct
         </span>
+
+        {/* Command Palette Trigger */}
+        <button
+          onClick={openCommandPalette}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginLeft: 16,
+            height: 20,
+            padding: "0 8px",
+            backgroundColor: C.s1,
+            border: `1px solid ${C.border}`,
+            borderRadius: 3,
+            cursor: "pointer",
+            fontFamily: '"Geist Mono", "JetBrains Mono", monospace',
+            fontSize: 10,
+            color: "#6b6b73",
+            outline: "none",
+            transition: "background-color 0.1s, color 0.1s",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.backgroundColor = "#1a1a24";
+            (e.currentTarget as HTMLElement).style.color = "#94949c";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.backgroundColor = C.s1;
+            (e.currentTarget as HTMLElement).style.color = "#6b6b73";
+          }}
+        >
+          <Command size={11} />
+          <span>Command Palette</span>
+          <kbd
+            style={{
+              fontSize: 8,
+              padding: "1px 4px",
+              backgroundColor: "#0c0c10",
+              borderRadius: 2,
+              border: "1px solid rgba(255,255,255,0.04)",
+              fontFamily: '"Geist Mono", "JetBrains Mono", monospace',
+              color: "#4a4a52",
+            }}
+          >
+            Ctrl+Shift+P
+          </kbd>
+        </button>
+
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: "#6b6b73" }}>v0.1.0-beta</span>
       </div>
