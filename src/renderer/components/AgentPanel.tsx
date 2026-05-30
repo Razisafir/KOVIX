@@ -364,7 +364,7 @@ function AgentPanel() {
     try {
       const sid = await invoke<string>("start_agent", {
         goal: state.goal,
-        projectPath: ".",
+        projectPath: "~/construct-projects/default",
         mode: agentMode,
       });
       setSessionId(sid);

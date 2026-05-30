@@ -225,16 +225,18 @@ pub fn start_agent(
 
     tauri::async_runtime::spawn(async move {
         // 1. Start the agent session on the Python backend
+        // POST /agent/start — the REAL executor (not the /api/ stub)
+        // The real endpoint expects {goal, project_path, mode} and returns
+        // {session_id, goal, status, mode, message} with the Python-generated ID.
         let client = reqwest::Client::new();
         let start_payload = serde_json::json!({
-            "session_id": sid,
             "goal": goal_clone,
             "project_path": path,
             "mode": mode_for_backend,
         });
 
-        match client
-            .post(&format!("{}/api/agent/start", backend_url(&app)))
+        let real_session_id = match client
+            .post(&format!("{}/agent/start", backend_url(&app)))
             .json(&start_payload)
             .send()
             .await
@@ -245,15 +247,48 @@ pub fn start_agent(
                     emit_output(&app, &sid, "error", &format!("Backend failed to start agent: {}", err_text));
                     return;
                 }
+                // Parse the response to get the Python-generated session_id
+                match resp.json::<serde_json::Value>().await {
+                    Ok(body) => {
+                        body.get("session_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(&sid)
+                            .to_string()
+                    }
+                    Err(_) => sid.clone(),
+                }
             }
             Err(e) => {
                 emit_output(&app, &sid, "error", &format!("Cannot connect to Python backend at :8000: {}. Is the backend running?", e));
                 return;
             }
+        };
+
+        // Update the local session with the real session_id from Python
+        let real_sid = real_session_id.clone();
+        {
+            let mut sessions = sessions_for_task.lock();
+            if let Some(session) = sessions.remove(&sid) {
+                let mut real_session = session;
+                real_session.id = real_sid.clone();
+                sessions.insert(real_sid.clone(), real_session);
+            }
         }
 
+        // Emit an event to the frontend with the real session_id so it can
+        // update its listener from the temporary Rust ID to the real one.
+        let _ = app.emit(
+            &format!("agent:{}", sid),
+            AgentOutputEvent {
+                session_id: real_sid.clone(),
+                event_type: "session_id".to_string(),
+                content: format!("Session started with ID: {}", real_sid),
+                timestamp: Utc::now().timestamp(),
+            },
+        );
+
         // 2. Poll for events from the Python backend
-        let mut last_event_id: i64 = 0;
+        let mut events_seen: usize = 0;
         let mut consecutive_errors = 0u32;
         const MAX_CONSECUTIVE_ERRORS: u32 = 10;
         const POLL_INTERVAL_MS: u64 = 500;
@@ -262,7 +297,7 @@ pub fn start_agent(
             // Check if session was stopped/paused
             let should_stop = {
                 let sessions_guard = sessions_for_task.lock();
-                if let Some(session) = sessions_guard.get(&sid) {
+                if let Some(session) = sessions_guard.get(&real_sid) {
                     if matches!(session.status, AgentStatus::Failed) {
                         // Send stop signal to backend
                         true
@@ -276,17 +311,17 @@ pub fn start_agent(
 
             if should_stop {
                 let _ = client
-                    .post(&format!("{}/api/agent/{}/stop", backend_url(&app), sid))
+                    .post(&format!("{}/agent/{}/stop", backend_url(&app), real_sid))
                     .send()
                     .await;
                 break;
             }
 
-            // Poll events from backend
+            // Poll events from the REAL executor via /agent/{sid}/output
             match client
                 .get(&format!(
-                    "{}/api/agent/{}/events?after={}",
-                    backend_url(&app), sid, last_event_id
+                    "{}/agent/{}/output?since={}",
+                    backend_url(&app), real_sid, events_seen
                 ))
                 .timeout(std::time::Duration::from_secs(5))
                 .send()
@@ -295,14 +330,30 @@ pub fn start_agent(
                 Ok(resp) => {
                     consecutive_errors = 0;
                     if resp.status().is_success() {
-                        if let Ok(events) = resp.json::<Vec<AgentOutputEvent>>().await {
-                            for event in events {
-                                last_event_id = event.timestamp;
+                        // Response format: {"session_id": str, "events": [...], "has_more": bool}
+                        if let Ok(body) = resp.json::<serde_json::Value>().await {
+                            if let Some(events_arr) = body.get("events").and_then(|v| v.as_array()) {
+                                for event_val in events_arr {
+                                    let event = AgentOutputEvent {
+                                        session_id: real_sid.clone(),
+                                        event_type: event_val.get("type")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("unknown")
+                                            .to_string(),
+                                        content: event_val.get("content")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("")
+                                            .to_string(),
+                                        timestamp: event_val.get("timestamp")
+                                            .and_then(|v| v.as_f64())
+                                            .unwrap_or(0.0) as i64,
+                                    };
+                                    events_seen += 1;
 
                                 // Update session state
                                 {
                                     let mut sessions = sessions_for_task.lock();
-                                    if let Some(session) = sessions.get_mut(&sid) {
+                                    if let Some(session) = sessions.get_mut(&real_sid) {
                                         session.output_log.push(event.clone());
                                         session.updated_at = Utc::now().timestamp();
 
@@ -342,7 +393,7 @@ pub fn start_agent(
                                     }
                                 }
 
-                                let _ = app.emit(&format!("agent:{}", sid), event);
+                                let _ = app.emit(&format!("agent:{}", sid), event.clone());
                             }
                         }
                     }
@@ -359,7 +410,7 @@ pub fn start_agent(
             // Check if session completed
             let is_done = {
                 let sessions = sessions_for_task.lock();
-                if let Some(session) = sessions.get(&sid) {
+                if let Some(session) = sessions.get(&real_sid) {
                     matches!(session.status, AgentStatus::Completed | AgentStatus::Failed)
                 } else {
                     true

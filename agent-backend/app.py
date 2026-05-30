@@ -572,15 +572,8 @@ class ThinkingModeResponse(BaseModel):
 
 
 # ===========================================================================
-# Pydantic request / response models — Agent Session (standalone)
+# Pydantic request / response models — Agent Event
 # ===========================================================================
-
-class AgentStartRequest(BaseModel):
-    session_id: str
-    goal: str
-    project_path: str = "."
-    mode: str = "code"  # "code" | "architect" | "debug" | "review" | "security" | "devops"
-
 
 class AgentEventResponse(BaseModel):
     session_id: str
@@ -932,26 +925,30 @@ async def agent_stop(
 @app.get("/agent/{session_id}/output", response_model=OutputResponse)
 async def agent_output(
     session_id: str = Path(..., description="The session ID"),
+    since: int = 0,
 ) -> dict:
     """
     Get new output events for a session (since-last-check semantics).
 
     Each call returns only events that have not been returned before.
     Poll this endpoint to get real-time updates from the agent.
-    """
-    store = _get_session_store()
-    events = store.get_session_output(session_id)
 
-    # Also check the executor's session
+    The ``since`` parameter is the index of the last event already seen.
+    Events starting from that index are returned.
+    """
     executor = _get_executor()
     session = executor.get_session(session_id)
-    if not session and not events:
+    if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    # Read directly from the executor's output_log (real events)
+    all_events = session.output_log
+    new_events = all_events[since:] if since > 0 else all_events
 
     return {
         "session_id": session_id,
-        "events": events,
-        "has_more": len(events) > 0,
+        "events": new_events,
+        "has_more": len(new_events) > 0,
     }
 
 
@@ -1359,272 +1356,6 @@ async def autonomous_resources() -> dict:
     """Return current system resource usage."""
     _, _, _, resources, _ = _get_autonomous_services()
     return resources.check_resources()
-
-
-# ===========================================================================
-# In-memory agent session store (replaced by proper DB in production)
-# ===========================================================================
-
-# session_id -> { "status": str, "events": List[dict], "task": asyncio.Task|None }
-_agent_sessions: Dict[str, Any] = {}
-
-
-# ===========================================================================
-# Agent Session Endpoints
-# ===========================================================================
-
-@app.post("/api/agent/start")
-async def agent_start(req: AgentStartRequest):
-    """Start a new agent session with the given goal."""
-    if req.session_id in _agent_sessions:
-        raise HTTPException(status_code=409, detail="Session already exists")
-
-    event_queue: asyncio.Queue = asyncio.Queue()
-    _agent_sessions[req.session_id] = {
-        "status": "running",
-        "events": [],
-        "event_queue": event_queue,
-        "task": None,
-        "goal": req.goal,
-        "project_path": req.project_path,
-        "mode": req.mode,
-        "created_at": time.time(),
-    }
-
-    # Start the background execution task
-    task = asyncio.create_task(
-        execute_agent_session(req.session_id, req.goal, req.mode, req.project_path)
-    )
-    _agent_sessions[req.session_id]["task"] = task
-
-    # Add initial event
-    _add_event(req.session_id, "thought", f"Starting agent session for goal: {req.goal}")
-
-    return {"session_id": req.session_id, "status": "started"}
-
-
-@app.get("/api/agent/{session_id}/events")
-async def agent_get_events(session_id: str, after: int = 0):
-    """Get events for a session that occurred after the given timestamp."""
-    session = _agent_sessions.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    events = [e for e in session["events"] if e["timestamp"] > after]
-    return events
-
-
-@app.get("/api/agent/{session_id}/status")
-async def agent_get_status(session_id: str):
-    """Get the current status of an agent session."""
-    session = _agent_sessions.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    return {
-        "session_id": session_id,
-        "status": session["status"],
-        "goal": session.get("goal", ""),
-        "project_path": session.get("project_path", ""),
-        "mode": session.get("mode", ""),
-        "event_count": len(session["events"]),
-        "created_at": session.get("created_at"),
-    }
-
-
-@app.post("/api/agent/{session_id}/pause")
-async def agent_pause(session_id: str):
-    """Pause a running agent session."""
-    session = _agent_sessions.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    if session["status"] != "running":
-        raise HTTPException(status_code=400, detail=f"Cannot pause session in '{session['status']}' state")
-
-    session["status"] = "paused"
-    _add_event(session_id, "thought", "Agent session paused by user")
-    return {"status": "paused"}
-
-
-@app.post("/api/agent/{session_id}/resume")
-async def agent_resume(session_id: str):
-    """Resume a paused agent session."""
-    session = _agent_sessions.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-    if session["status"] != "paused":
-        raise HTTPException(status_code=400, detail=f"Cannot resume session in '{session['status']}' state")
-
-    session["status"] = "running"
-    _add_event(session_id, "thought", "Agent session resumed")
-    return {"status": "running"}
-
-
-@app.post("/api/agent/{session_id}/stop")
-async def agent_stop(session_id: str):
-    """Stop an agent session."""
-    session = _agent_sessions.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    session["status"] = "stopped"
-    _add_event(session_id, "error", "Session stopped by user")
-
-    # Cancel the background task if it's still running
-    if session.get("task") and not session["task"].done():
-        session["task"].cancel()
-        try:
-            await session["task"]
-        except asyncio.CancelledError:
-            pass
-
-    return {"status": "stopped"}
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-def _add_event(session_id: str, event_type: str, content: str):
-    """Add an event to a session's event log."""
-    session = _agent_sessions.get(session_id)
-    if not session:
-        return
-    event = {
-        "session_id": session_id,
-        "type": event_type,
-        "content": content,
-        "timestamp": int(time.time()),
-    }
-    session["events"].append(event)
-
-
-async def execute_agent_session(session_id: str, goal: str, mode: str, project_path: str):
-    """Background task that executes the agent's OODA loop.
-
-    This is a real implementation that:
-    1. Plans the approach
-    2. Loads relevant context from memory
-    3. Decomposes the goal into tasks
-    4. Executes each task using available tools
-    5. Emits events throughout
-    """
-    try:
-        session = _agent_sessions.get(session_id)
-        if not session:
-            return
-
-        _add_event(session_id, "thought", f"Analyzing goal: {goal}")
-        await asyncio.sleep(0.5)
-
-        _add_event(session_id, "thought", f"Project path: {project_path}")
-        await asyncio.sleep(0.3)
-
-        # Step 1: Plan
-        _add_event(session_id, "task_start", "Create execution plan")
-        await asyncio.sleep(0.5)
-
-        # Simple planning — in production this calls the LLM
-        tasks = _decompose_goal(goal)
-        _add_event(session_id, "thought", f"Decomposed into {len(tasks)} tasks")
-        _add_event(session_id, "task_complete", "Create execution plan")
-
-        # Step 2: Execute tasks
-        for i, task in enumerate(tasks):
-            # Check if paused
-            while session["status"] == "paused":
-                await asyncio.sleep(0.5)
-
-            # Check if stopped
-            if session["status"] == "stopped":
-                _add_event(session_id, "error", "Execution halted")
-                return
-
-            _add_event(session_id, "task_start", task)
-            await asyncio.sleep(0.3)
-
-            # Simulate task execution
-            _add_event(session_id, "tool_call", f"execute_task({{task: '{task}'}})")
-            await asyncio.sleep(0.5)
-
-            _add_event(session_id, "tool_result", f"Task '{task}' completed successfully")
-            _add_event(session_id, "task_complete", task)
-            await asyncio.sleep(0.2)
-
-        # Step 3: Complete
-        session["status"] = "completed"
-        _add_event(session_id, "complete", f"All tasks completed for goal: {goal}")
-
-    except asyncio.CancelledError:
-        _add_event(session_id, "error", "Session cancelled")
-        raise
-    except Exception as e:
-        if session_id in _agent_sessions:
-            _agent_sessions[session_id]["status"] = "failed"
-            _add_event(session_id, "error", f"Execution failed: {str(e)}")
-
-
-def _decompose_goal(goal: str) -> list[str]:
-    """Decompose a goal into executable tasks.
-
-    In production this calls the LLM planning service.
-    For now, use keyword-based task generation.
-    """
-    goal_lower = goal.lower()
-    tasks = []
-
-    if any(k in goal_lower for k in ["component", "ui", "page", "screen", "form", "button"]):
-        tasks.extend([
-            "Analyze component requirements",
-            "Create component file structure",
-            "Implement component logic",
-            "Add styling and layout",
-            "Write component tests",
-        ])
-
-    if any(k in goal_lower for k in ["api", "endpoint", "route", "server", "backend"]):
-        tasks.extend([
-            "Design API schema",
-            "Implement endpoint handlers",
-            "Add validation and error handling",
-            "Write API tests",
-        ])
-
-    if any(k in goal_lower for k in ["auth", "login", "signin", "jwt", "session", "oauth"]):
-        tasks.extend([
-            "Set up authentication flow",
-            "Implement token management",
-            "Add protected route middleware",
-            "Write auth tests",
-        ])
-
-    if any(k in goal_lower for k in ["db", "database", "model", "schema", "migration", "table"]):
-        tasks.extend([
-            "Design database schema",
-            "Create migration files",
-            "Implement data access layer",
-            "Add seed data",
-        ])
-
-    if any(k in goal_lower for k in ["test", "spec", "jest", "vitest", "pytest", "cypress"]):
-        tasks.extend([
-            "Set up test framework",
-            "Write unit tests",
-            "Write integration tests",
-            "Configure CI test pipeline",
-        ])
-
-    if not tasks:
-        # Generic fallback
-        tasks = [
-            "Analyze requirements",
-            "Design implementation approach",
-            "Write core implementation",
-            "Add error handling",
-            "Verify and test",
-        ]
-
-    return tasks
 
 
 # ===========================================================================
