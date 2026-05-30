@@ -173,16 +173,17 @@ async def lifespan(app: FastAPI):
 
     from core.llm_service import LLMService
     from tools import ToolRegistry
-    from core.executor import AgentExecutor
+    from core.executor import AgentExecutor, MemoryClient
     from core.agent_session import SessionStore
 
     # Core agent
     _llm_service = LLMService()
     _tool_registry = ToolRegistry()
+    _memory_client = MemoryClient(enabled=True)
     _agent_executor = AgentExecutor(
         llm_service=_llm_service,
         tool_registry=_tool_registry,
-        memory_client=None,
+        memory_client=_memory_client,
     )
     _session_store = SessionStore()
 
@@ -602,6 +603,7 @@ async def health() -> dict:
         "service": "construct-agent-api",
         "version": "0.3.0",
         "llm_providers": providers,
+        "memory": _agent_executor.memory.get_stats() if _agent_executor else {"enabled": False},
         "autonomous": {
             "available": _background_worker is not None,
             "worker_status": worker_status,

@@ -25,6 +25,158 @@ from tools.file_tools import set_base_dir
 
 logger = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Memory client wrapper
+# ---------------------------------------------------------------------------
+
+
+class MemoryClient:
+    """Thin wrapper around the memory.semantic module functions.
+
+    Provides a unified interface for the executor to store and recall
+    memories without coupling to the ChromaDB implementation details.
+    All calls are wrapped in try/except so that memory failures never
+    crash the agent loop.
+    """
+
+    def __init__(self, enabled: bool = True) -> None:
+        self.enabled = enabled
+        self._log = logging.getLogger("memory.client")
+        if enabled:
+            try:
+                from memory.semantic import get_chroma_client  # noqa: F401
+                self._log.info("MemoryClient initialised — ChromaDB backend available")
+            except Exception as exc:
+                self._log.warning("MemoryClient: ChromaDB unavailable (%s), disabling", exc)
+                self.enabled = False
+
+    # -- Store helpers -------------------------------------------------------
+
+    def store_conversation(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+        phase: str = "",
+        **extra_metadata: Any,
+    ) -> Optional[str]:
+        """Store a conversation turn.  Returns the memory ID or None."""
+        if not self.enabled:
+            return None
+        try:
+            from memory.semantic import store_conversation_message
+            metadata: Dict[str, Any] = {"session_id": session_id}
+            if phase:
+                metadata["phase"] = phase
+            metadata.update(extra_metadata)
+            mid = store_conversation_message(
+                role=role, content=content, conversation_id=session_id
+            )
+            self._log.debug(
+                "Stored conversation [%s/%s]: %s…", session_id, phase, content[:80]
+            )
+            return mid
+        except Exception as exc:
+            self._log.warning("Failed to store conversation: %s", exc)
+            return None
+
+    def store_code_event(
+        self,
+        session_id: str,
+        file_path: str,
+        change_type: str,
+        summary: str,
+        diff: Optional[str] = None,
+    ) -> Optional[str]:
+        """Store a code-change event.  Returns the memory ID or None."""
+        if not self.enabled:
+            return None
+        try:
+            from memory.semantic import store_code_event as _store_code_event
+            mid = _store_code_event(
+                file_path=file_path,
+                change_type=change_type,
+                summary=summary,
+                diff=diff,
+            )
+            self._log.debug(
+                "Stored code event [%s] %s: %s", change_type, file_path, summary[:80]
+            )
+            return mid
+        except Exception as exc:
+            self._log.warning("Failed to store code event: %s", exc)
+            return None
+
+    # -- Recall helpers ------------------------------------------------------
+
+    def recall_context(
+        self,
+        query: str,
+        project_path: Optional[str] = None,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Recall relevant past context via semantic search.
+
+        Returns a list of dicts with keys ``text``, ``source``, ``relevance_score``.
+        """
+        if not self.enabled:
+            return []
+        try:
+            from memory.semantic import query_similar
+            results = query_similar(query, n_results=limit)
+            return [
+                {
+                    "text": r.text,
+                    "source": r.source,
+                    "relevance_score": r.relevance_score,
+                }
+                for r in results
+            ]
+        except Exception as exc:
+            self._log.warning("Failed to recall context: %s", exc)
+            return []
+
+    def recall_code_events(
+        self,
+        query: str,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Recall relevant code events via semantic search."""
+        if not self.enabled:
+            return []
+        try:
+            from memory.semantic import query_code_events
+            results = query_code_events(query, n_results=limit)
+            return [
+                {
+                    "text": r.text,
+                    "source": r.source,
+                    "file_path": r.metadata.get("file_path", ""),
+                    "change_type": r.metadata.get("change_type", ""),
+                    "relevance_score": r.relevance_score,
+                }
+                for r in results
+            ]
+        except Exception as exc:
+            self._log.warning("Failed to recall code events: %s", exc)
+            return []
+
+    # -- Stats ---------------------------------------------------------------
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Return memory statistics."""
+        if not self.enabled:
+            return {"enabled": False}
+        try:
+            from memory.semantic import get_collection_stats
+            stats = get_collection_stats()
+            stats["enabled"] = True
+            return stats
+        except Exception as exc:
+            self._log.warning("Failed to get stats: %s", exc)
+            return {"enabled": False, "error": str(exc)}
+
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
@@ -219,7 +371,11 @@ class AgentExecutor:
     ) -> None:
         self.llm = llm_service
         self.tools = tool_registry
-        self.memory = memory_client
+        # Auto-initialise MemoryClient if none provided
+        if memory_client is not None:
+            self.memory = memory_client
+        else:
+            self.memory = MemoryClient(enabled=True)
         self.sessions: Dict[str, AgentSession] = {}
 
         # Mode configuration
@@ -394,15 +550,19 @@ class AgentExecutor:
             context["config_files"] = []
 
         # Query memory for relevant context
-        if self.memory is not None:
+        if self.memory is not None and self.memory.enabled:
             try:
-                from memory.semantic import query_similar
-
-                mem_results = query_similar(session.goal, n_results=3)
+                mem_results = self.memory.recall_context(
+                    query=session.goal,
+                    project_path=session.project_path,
+                    limit=3,
+                )
                 if mem_results:
-                    context["memory"] = [
-                        {"text": r.text, "source": r.source} for r in mem_results
-                    ]
+                    context["memory"] = mem_results
+                    logger.debug(
+                        "Recalled %d memory entries for session %s",
+                        len(mem_results), session.id,
+                    )
             except Exception as exc:
                 logger.debug("Memory query failed (non-critical): %s", exc)
 
@@ -440,13 +600,34 @@ class AgentExecutor:
             f"Files:\n{files_summary}"
         )
 
+        # Recall relevant past context from memory
+        memory_str = ""
+        if self.memory is not None and self.memory.enabled:
+            try:
+                relevant = self.memory.recall_context(
+                    query=goal,
+                    project_path=context.get("project_path"),
+                    limit=5,
+                )
+                if relevant:
+                    memory_str = "\n\nRELEVANT PAST CONTEXT:\n" + "\n".join(
+                        f"- [{m.get('source', '?')}] {m.get('text', '')[:200]}"
+                        for m in relevant
+                    )
+                    logger.info(
+                        "Injected %d memory entries into planning prompt",
+                        len(relevant),
+                    )
+            except Exception as exc:
+                logger.debug("Memory recall failed (non-critical): %s", exc)
+
         # Inject mode-specific system prompt context
         mode_prefix = (
             f"You are in {self.mode_config.name.upper()} mode.\n"
             f"{self.mode_config.system_prompt}\n\n"
         )
         prompt = mode_prefix + PLANNING_PROMPT_TEMPLATE.format(
-            goal=goal, context=context_str
+            goal=goal, context=context_str + memory_str
         )
 
         try:
@@ -817,6 +998,16 @@ class AgentExecutor:
                 + "; ".join(t.description for t in tasks),
             )
 
+            # Store planning phase in memory
+            self.memory.store_conversation(
+                session_id=session.id,
+                role="assistant",
+                content=f"Planned {len(tasks)} tasks for goal: {session.goal}. "
+                        f"Tasks: {'; '.join(t.description for t in tasks)}",
+                phase="planning",
+                mode=session.mode,
+            )
+
             # Phase 3: Execute each task
             for i, task in enumerate(session.tasks):
                 # Check for pause
@@ -832,8 +1023,44 @@ class AgentExecutor:
                 result = await self.act(session, task)
                 task.result = str(result.get("output", ""))[:5000]
 
+                # Store acting phase in memory
+                self.memory.store_conversation(
+                    session_id=session.id,
+                    role="assistant",
+                    content=f"Executed task '{task.description}': {task.result[:300]}",
+                    phase="acting",
+                    task_id=task.id,
+                    task_status=task.status.value,
+                )
+
+                # Store code events for any file modifications in this task
+                for tc in task.tool_calls:
+                    tc_tool = tc.get("tool", "")
+                    tc_args = tc.get("arguments", {})
+                    if tc_tool in ("write_file", "edit_file"):
+                        file_path = tc_args.get("file_path", "unknown")
+                        content_preview = tc_args.get("content", "")[:200]
+                        self.memory.store_code_event(
+                            session_id=session.id,
+                            file_path=file_path,
+                            change_type="create" if tc_tool == "write_file" else "modify",
+                            summary=f"{tc_tool}: {task.description} — "
+                                    f"wrote {len(tc_args.get('content', ''))} bytes to {file_path}",
+                            diff=content_preview,
+                        )
+
                 if result.get("success"):
                     verified = await self.verify(session, task)
+
+                    # Store verification result in memory
+                    self.memory.store_conversation(
+                        session_id=session.id,
+                        role="assistant",
+                        content=f"Verification of '{task.description}': {'passed' if verified else 'failed'}",
+                        phase="verifying",
+                        task_id=task.id,
+                    )
+
                     if verified:
                         task.status = TaskStatus.COMPLETED
                         self._emit(session, "task_complete", task.description)
@@ -865,6 +1092,14 @@ class AgentExecutor:
                 self._emit(
                     session, "complete", "All tasks completed successfully!"
                 )
+                # Store session completion in memory
+                self.memory.store_conversation(
+                    session_id=session.id,
+                    role="assistant",
+                    content=f"Session completed successfully. Goal: {session.goal}. "
+                            f"All {len(session.tasks)} tasks completed.",
+                    phase="completed",
+                )
             elif any_failed:
                 session.status = AgentStatus.WAITING
                 self._emit(
@@ -872,14 +1107,36 @@ class AgentExecutor:
                     "waiting",
                     "Some tasks failed. Waiting for guidance.",
                 )
+                # Store partial failure in memory
+                self.memory.store_conversation(
+                    session_id=session.id,
+                    role="assistant",
+                    content=f"Session partially failed. Goal: {session.goal}. "
+                            f"{sum(1 for t in session.tasks if t.status == TaskStatus.COMPLETED)} "
+                            f"of {len(session.tasks)} tasks completed.",
+                    phase="partial_failure",
+                )
             else:
                 session.status = AgentStatus.COMPLETED
                 self._emit(session, "complete", "Session complete.")
+                self.memory.store_conversation(
+                    session_id=session.id,
+                    role="assistant",
+                    content=f"Session complete. Goal: {session.goal}.",
+                    phase="completed",
+                )
 
         except Exception as exc:
             session.status = AgentStatus.FAILED
             logger.exception("Agent execution failed for session %s", session.id)
             self._emit(session, "error", str(exc))
+            # Store session error in memory
+            self.memory.store_conversation(
+                session_id=session.id,
+                role="assistant",
+                content=f"Session failed with error: {str(exc)[:300]}",
+                phase="error",
+            )
 
     async def _wait_for_resume(self, session: AgentSession) -> None:
         """Wait for a paused session to be resumed."""
