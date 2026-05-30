@@ -745,14 +745,28 @@ class LLMService:
             )
         except Exception as exc:
             logger.warning(
-                "Primary provider %s failed: %s. Falling back to Ollama.",
+                "Primary provider %s failed: %s. Falling back through provider chain.",
                 provider.value,
                 exc,
             )
-            if provider != LLMProvider.OLLAMA:
-                return await self._complete_with_provider(
-                    LLMProvider.OLLAMA, messages, tool_schemas, temperature, max_tokens
-                )
+            # Fallback chain: Ollama → Mock (if available)
+            fallback_providers = [LLMProvider.OLLAMA, LLMProvider.MOCK]
+            for fallback in fallback_providers:
+                if fallback == provider:
+                    continue  # Skip the one that already failed
+                if fallback not in self.configs:
+                    continue  # Skip unavailable providers
+                try:
+                    return await self._complete_with_provider(
+                        fallback, messages, tool_schemas, temperature, max_tokens
+                    )
+                except Exception as fb_exc:
+                    logger.warning(
+                        "Fallback provider %s also failed: %s",
+                        fallback.value,
+                        fb_exc,
+                    )
+                    continue
             raise
 
     async def _complete_with_provider(
