@@ -271,7 +271,7 @@ jobs:
           files: |
             artifacts/windows-artifacts/msi/*.msi
             artifacts/windows-artifacts/nsis/*.exe
-            artifacts/macos-artifacts/dmg/*.dmg
+            artifacts/macos-artifacts/*.dmg
             artifacts/linux-artifacts/deb/*.deb
             artifacts/linux-artifacts/appimage/*.AppImage
           body: |
