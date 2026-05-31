@@ -251,6 +251,7 @@ class AgentSession:
     updated_at: float = field(default_factory=time.time)
     project_path: str = "."
     mode: str = "code"
+    git_branch: Optional[str] = None
 
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the session history for context compression."""
@@ -272,6 +273,7 @@ class AgentSession:
             "updated_at": self.updated_at,
             "project_path": self.project_path,
             "mode": self.mode,
+            "git_branch": self.git_branch,
             "task_summary": {
                 "total": len(self.tasks),
                 "pending": sum(1 for t in self.tasks if t.status == TaskStatus.PENDING),
@@ -480,9 +482,14 @@ class AgentExecutor:
         # Set file tools sandbox to the session's project directory
         set_base_dir(project_path)
 
+        # Git sandboxing — create a feature branch before the session runs.
+        # This ensures the branch name is available on the session object
+        # immediately when it is returned to the caller.
+        await self._create_feature_branch(session)
+
         logger.info(
-            "Starting session %s [%s mode]: %s (project_path=%s)",
-            session.id, self.mode, goal, project_path,
+            "Starting session %s [%s mode]: %s (project_path=%s, git_branch=%s)",
+            session.id, self.mode, goal, project_path, session.git_branch,
         )
 
         # Kick off execution in the background
@@ -1094,9 +1101,6 @@ class AgentExecutor:
         self._active_session_id = session.id
 
         try:
-            # Phase 0: Git sandboxing — create a feature branch
-            await self._create_feature_branch(session)
-
             # Phase 1: Observe
             self._emit(session, "thought", "Observing current project state...")
             context = await self.observe(session)
@@ -1299,8 +1303,9 @@ class AgentExecutor:
         """
         Create a feature branch for the session so the agent works in isolation.
 
-        The branch is named ``construct/<session-id>`` and is created from the
-        current HEAD.  If the project is not a git repo, this is silently skipped.
+        The branch is named ``construct-agent/<session-id>`` and is created from
+        the current HEAD.  If the project is not a git repo, this is silently
+        skipped.  On success, ``session.git_branch`` is set to the branch name.
         """
         try:
             # Check if we're in a git repo
@@ -1310,22 +1315,32 @@ class AgentExecutor:
             if not isinstance(git_result, dict):
                 return
 
-            branch_name = f"construct/{session.id}"
+            branch_name = f"construct-agent/{session.id}"
 
             # Create and checkout the feature branch
-            self.tools.execute_tool(
+            checkout_result = self.tools.execute_tool(
                 "git_checkout",
                 {"target": branch_name, "create": True, "cwd": session.project_path},
             )
-            self._emit(
-                session,
-                "thought",
-                f"Created feature branch: {branch_name}",
-            )
-            logger.info(
-                "Session %s: created feature branch '%s'",
-                session.id, branch_name,
-            )
+
+            # Verify the checkout succeeded
+            if isinstance(checkout_result, dict) and checkout_result.get("success", False):
+                session.git_branch = branch_name
+                self._emit(
+                    session,
+                    "thought",
+                    f"Created feature branch: {branch_name}",
+                )
+                logger.info(
+                    "Session %s: created feature branch '%s'",
+                    session.id, branch_name,
+                )
+            else:
+                error = checkout_result.get("error", "unknown") if isinstance(checkout_result, dict) else "unknown"
+                logger.warning(
+                    "Session %s: git checkout failed (%s). Continuing on current branch.",
+                    session.id, error,
+                )
         except Exception as exc:
             # Non-critical: if git ops fail, continue on current branch
             logger.warning(
