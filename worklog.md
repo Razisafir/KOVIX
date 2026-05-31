@@ -281,3 +281,48 @@ Stage Summary:
   4. ✅ Source and timestamp displayed (mapApiResult extracts from metadata)
 - Key fixes: GET→POST for search, new /memory/recent endpoint, response shape handling
 - Commit: 2ef886e "feat: wire MemoryPanel to real ChromaDB search API"
+---
+Task ID: 4.4
+Agent: Main Agent
+Task: Auto-Updates — Wire Tauri Updater Plugin (Prompt 4.4)
+
+Work Log:
+- Read existing Cargo.toml, tauri.conf.json, lib.rs, and release.yml
+- Added `tauri-plugin-updater = "2"` to Cargo.toml dependencies
+- Configured updater plugin in tauri.conf.json:
+  - plugins.updater.active = true
+  - plugins.updater.endpoints = [GitHub releases latest.json URL]
+  - plugins.updater.dialog = true (shows native update dialog)
+  - plugins.updater.pubkey = generated Ed25519 public key
+- Updated CSP in tauri.conf.json to allow connections to github.com and githubusercontent.com for update checks
+- Added `tauri_plugin_updater::Builder::new().build()` plugin init in lib.rs
+- Added `check_for_updates()` async function in lib.rs:
+  - Uses UpdaterExt to check for updates on startup
+  - Logs update availability, checks version against current
+  - Calls update.download_and_install() when update found (shows dialog due to config)
+  - All errors logged but non-critical — never crashes the app
+- Spawned update check as async task in setup() after system tray init
+- Generated Ed25519 signing keypair for Tauri updater:
+  - Public key: x7rd+A/oSTUixP8A2n4Pe8llDov5Aaj4/QxwdBtpnuQ= (in tauri.conf.json)
+  - Private key: Must be stored as GitHub secret TAURI_PRIVATE_KEY
+- Updated release.yml CI workflow:
+  - Added TAURI_PRIVATE_KEY and TAURI_KEY_PASSWORD env vars to all 3 platform builds
+  - Added signature file collection step (.sig files)
+  - Added latest.json generation in create-release job:
+    - Extracts version from git tag
+    - Collects .sig files from each platform
+    - Builds platforms map with signatures and download URLs
+    - Generates latest.json with version, notes, pub_date, platforms
+  - Added latest.json to release assets
+- Saved signing key reference doc to download/TAURI_SIGNING_KEYS.md
+
+Stage Summary:
+- All 5 success criteria:
+  1. ✅ App checks for updates on startup (check_for_updates in setup)
+  2. ✅ Update dialog shows when new version available (plugins.updater.dialog = true)
+  3. ✅ Update installs automatically after user confirms (download_and_install)
+  4. ✅ Signed releases prevent tampering (Ed25519 signatures, pubkey in config)
+  5. ✅ CI generates signatures automatically (TAURI_PRIVATE_KEY env in build steps)
+- Key files: Cargo.toml (+1 dep), tauri.conf.json (+plugins.updater), lib.rs (+50 lines), release.yml (+118 lines)
+- Commit: 839cfb4 "feat: auto-updater — Tauri plugin, signed releases, update dialog"
+- ⚠️ Action required: Set TAURI_PRIVATE_KEY GitHub secret before next release
