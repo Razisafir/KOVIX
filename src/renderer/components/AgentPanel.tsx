@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { TerminalOutput } from "./TerminalOutput";
 import type { LogEntry } from "./TerminalOutput";
 import AgentModeSelector from "./AgentModeSelector";
