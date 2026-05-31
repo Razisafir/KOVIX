@@ -2,11 +2,13 @@ pub mod commands;
 pub mod db;
 pub mod sidecar;
 pub mod state;
+pub mod terminal;
 pub mod tray;
 
 use commands::agent::AgentState;
 use commands::autonomous::AutonomousManager;
 use sidecar::{spawn_backend, wait_for_backend};
+use terminal::TerminalState;
 use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -84,17 +86,20 @@ pub fn run() {
             // ── 4. Agent state ──────────────────────────────────────────────
             app.manage(AgentState::new());
 
-            // ── 5. Autonomous mode ──────────────────────────────────────────
+            // ── 5. Terminal PTY state ──────────────────────────────────────
+            app.manage(TerminalState::new());
+
+            // ── 6. Autonomous mode ──────────────────────────────────────────
             app.manage(AutonomousManager::new());
 
-            // ── 6. System tray ──────────────────────────────────────────────
+            // ── 7. System tray ──────────────────────────────────────────────
             // Graceful fallback: if tray setup fails, the app still opens
             let app_handle = app.handle();
             if let Err(e) = tray::setup_tray(&app_handle) {
                 log::error!("Failed to set up system tray: {}. Tray icon won't be available.", e);
             }
 
-            // ── 7. Check for updates (deferred 30s so it doesn't block startup) ──
+            // ── 8. Check for updates (deferred 30s so it doesn't block startup) ──
             let update_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 // Wait 30 seconds before checking for updates so the
@@ -139,6 +144,11 @@ pub fn run() {
             commands::autonomous::get_autonomous_status,
             commands::autonomous::set_goal_deadline,
             commands::autonomous::get_agent_log,
+            // -- terminal commands --
+            terminal::spawn_terminal,
+            terminal::terminal_input,
+            terminal::terminal_resize,
+            terminal::kill_terminal,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
