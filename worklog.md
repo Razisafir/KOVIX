@@ -24,3 +24,26 @@ Stage Summary:
 - Cross-session recall verified: Session 2 recalls Session 1 data, Session 3 builds on Session 1 code
 - Files: E2E_TEST_PHASE1.md, tests/e2e_memory_recall.py
 - Commit: 369e3b0 — test: E2E verification — memory recall across sessions
+
+---
+Task ID: 2.2
+Agent: Main Agent
+Task: Fix Thinking Mode — make depth actually change LLM behavior (Prompt 2.2)
+
+Work Log:
+- Examined existing thinking mode implementation — most of it was already wired
+- AgentSession.thinking_mode field already existed (dict with enabled/depth)
+- _call_llm() helper already existed and correctly reads session.thinking_mode
+- _call_llm() already injects chain-of-thought prompt for "deep" and conciseness prompt for "light"
+- All LLM calls (plan, act, verify) already use _call_llm(messages, session=session)
+- Fixed POST /agent/think endpoint: changed from query parameters to ThinkingModeRequest body
+- Added GET /agent/think endpoint to read current thinking mode state
+- Verified all 5 success criteria with automated test
+
+Stage Summary:
+- `/agent/think` stores mode on session (via ThinkingModeRequest body) ✓
+- `_call_llm` reads session.thinking_mode ✓
+- Deep mode adds chain-of-thought prompt ✓
+- Light mode adds conciseness prompt ✓
+- LLM responses differ based on depth setting ✓
+- Commit: 57057b3 — fix: thinking mode — depth changes LLM system prompt, add GET endpoint
