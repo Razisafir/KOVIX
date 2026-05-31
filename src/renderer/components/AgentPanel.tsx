@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { TerminalOutput } from "./TerminalOutput";
 import type { LogEntry } from "./TerminalOutput";
 import AgentModeSelector from "./AgentModeSelector";
@@ -347,7 +348,7 @@ function AgentPanel() {
                   const diffStore = useDiffStore.getState();
                   const activeId = diffStore.activeSessionId;
                   if (activeId) {
-                    invoke<string>("read_file", { filePath })
+                    readTextFile(filePath)
                       .then((oldContent) => {
                         const oldLines = oldContent.split("\n");
                         const fileDiff: FileDiff = {
@@ -392,7 +393,7 @@ function AgentPanel() {
 
                 if (activeId) {
                   // Try to read old content for comparison
-                  invoke<string>("read_file", { filePath })
+                  readTextFile(filePath)
                     .then((oldContent) => {
                       const fileDiff = generateDiff(oldContent, newContent, filePath);
                       diffStore.addFileDiff(activeId, fileDiff);
@@ -715,6 +716,97 @@ function AgentPanel() {
     }));
   }, []);
 
+  // ── Apply accepted diffs to disk ──
+  const applyAcceptedDiffs = useCallback(async () => {
+    const { activeSessionId, sessions } = useDiffStore.getState();
+    if (!activeSessionId) return;
+    const session = sessions.get(activeSessionId);
+    if (!session) return;
+
+    let appliedCount = 0;
+    let errorCount = 0;
+
+    for (const fileDiff of session.fileDiffs) {
+      const acceptedHunks = fileDiff.hunks.filter((h) => h.accepted === true);
+      const rejectedHunks = fileDiff.hunks.filter((h) => h.accepted === false);
+
+      // Skip if no decisions made on this file
+      if (acceptedHunks.length === 0 && rejectedHunks.length === 0) {
+        continue;
+      }
+
+      // Reconstruct final content from accepted hunks applied to oldContent
+      let finalContent = fileDiff.oldContent;
+
+      // Sort accepted hunks by oldStart descending so we apply from bottom to top
+      // This prevents earlier hunks from shifting line numbers of later hunks
+      const sortedAccepted = [...acceptedHunks].sort(
+        (a, b) => b.oldStart - a.oldStart
+      );
+
+      for (const hunk of sortedAccepted) {
+        if (!finalContent && hunk.oldStart <= 1) {
+          // New file — just use new content directly
+          finalContent = hunk.newContent.join("\n");
+        } else {
+          // Apply hunk to existing content
+          const oldLines = finalContent.split("\n");
+          const before = oldLines.slice(0, hunk.oldStart - 1);
+          const after = oldLines.slice(hunk.oldStart - 1 + hunk.oldLines);
+          finalContent = [...before, ...hunk.newContent, ...after].join("\n");
+        }
+      }
+
+      // Write to disk using Tauri FS plugin
+      try {
+        await writeTextFile(fileDiff.filePath, finalContent);
+        appliedCount++;
+
+        setState((prev) => ({
+          ...prev,
+          logs: [
+            ...prev.logs,
+            {
+              timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
+              level: "OK",
+              message: `applied ${acceptedHunks.length} hunks to ${fileDiff.filePath}`,
+              source: "diff",
+            },
+          ],
+        }));
+      } catch (err) {
+        errorCount++;
+        setState((prev) => ({
+          ...prev,
+          logs: [
+            ...prev.logs,
+            {
+              timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
+              level: "ERR",
+              message: `failed to write ${fileDiff.filePath}: ${err}`,
+              source: "diff",
+            },
+          ],
+        }));
+      }
+    }
+
+    if (appliedCount > 0 || errorCount > 0) {
+      setState((prev) => ({
+        ...prev,
+        logs: [
+          ...prev.logs,
+          {
+            timestamp: new Date().toLocaleTimeString("en-US", { hour12: false }),
+            level: errorCount > 0 ? "WRN" : "OK",
+            message: `apply complete: ${appliedCount} files written, ${errorCount} errors`,
+            source: "diff",
+          },
+        ],
+      }));
+    }
+  }, []);
+
   // Count of still-pending hunks across all files
   const pendingCount = useDiffStore((s) => s.getPendingCount());
 
@@ -884,13 +976,45 @@ function AgentPanel() {
       {/* ── MAIN CONTENT: Terminal or InlineDiff ── */}
       <div className="flex-1 min-h-0">
         {viewMode === "diff" && pendingCount > 0 ? (
-          <InlineDiff
-            changes={pendingChanges}
-            onAccept={handleAcceptChange}
-            onReject={handleRejectChange}
-            onAcceptAll={handleAcceptAll}
-            onRejectAll={handleRejectAll}
-          />
+          <div className="flex flex-col h-full">
+            {/* Apply/Reject toolbar for accepted diffs */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.04]" style={{ backgroundColor: C.s1 }}>
+              <button
+                onClick={applyAcceptedDiffs}
+                className="px-3 py-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.06em] cursor-pointer border-none"
+                style={{
+                  fontFamily: 'inherit',
+                  backgroundColor: "#22c55e",
+                  color: "#fff",
+                }}
+              >
+                Apply Accepted Changes
+              </button>
+              <button
+                onClick={handleRejectAll}
+                className="px-3 py-1.5 rounded text-[10px] font-semibold uppercase tracking-[0.06em] cursor-pointer border-none"
+                style={{
+                  fontFamily: 'inherit',
+                  backgroundColor: "#ef4444",
+                  color: "#fff",
+                }}
+              >
+                Reject All
+              </button>
+              <span className="text-[9px] ml-auto" style={{ color: C.t3, fontFamily: '"Geist Mono", monospace' }}>
+                {pendingCount} pending · accept hunks then click Apply
+              </span>
+            </div>
+            <div className="flex-1 min-h-0">
+              <InlineDiff
+                changes={pendingChanges}
+                onAccept={handleAcceptChange}
+                onReject={handleRejectChange}
+                onAcceptAll={handleAcceptAll}
+                onRejectAll={handleRejectAll}
+              />
+            </div>
+          </div>
         ) : (
           <TerminalOutput
             logs={state.logs}

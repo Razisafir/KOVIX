@@ -7,6 +7,10 @@
     "fs:default",
     "fs:allow-app-read",
     "fs:allow-app-write",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-exists",
+    "fs:allow-mkdir",
     "dialog:default",
     "shell:default",
     {
