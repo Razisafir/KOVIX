@@ -478,3 +478,25 @@ Stage Summary:
 - Windows installer: Construct_0.1.0_x64-setup.exe (339.2 MB)
 - All CI checks passed
 - Fixed critical Rust build error that was blocking all platform builds
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix app not opening after install on Windows — diagnose and fix startup crash
+
+Work Log:
+- Diagnosed root cause: tauri.conf.json had `"visible": false` — window starts hidden, no code to show it
+- Found secondary issues: CSP blocks localhost API calls, .expect() panics crash app silently, updater blocks startup
+- Fixed tauri.conf.json: visible=true, added http://127.0.0.1:* and http://localhost:* to CSP connect-src
+- Rewrote lib.rs setup(): replaced .expect() with graceful fallbacks, deferred updater 30s, made DB init fall back to in-memory
+- Made db::INIT_SQL pub for fallback path access
+- Fixed App.tsx SplashScreen: health check now tries multiple ports and listens for backend:ready event
+- Committed as "fix(startup): window visible on launch, CSP allows backend, graceful error handling"
+- Pushed to main, created tag v0.1.0-beta.5, created GitHub Release
+- CI: all tests passed, Windows build succeeded, macOS succeeded, Linux sidecar failed (PyInstaller issue, not blocking)
+- Release assets: Construct_0.1.0_x64-setup.exe (339.2 MB) available
+
+Stage Summary:
+- v0.1.0-beta.5 release live at https://github.com/Razisafir/construct-ai-agent/releases/tag/v0.1.0-beta.5
+- Windows installer ready with all startup fixes
+- Linux build has a PyInstaller sidecar issue (separate from this fix)
