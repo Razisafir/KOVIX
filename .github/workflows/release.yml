@@ -66,6 +66,9 @@ jobs:
 
       - name: Build Tauri app (Windows)
         shell: bash
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         run: |
           set -o pipefail
           cd src/main
@@ -81,6 +84,8 @@ jobs:
           find src/main/target/release/bundle -type f 2>/dev/null || echo "No bundle directory"
           echo "--- Any .msi/.exe in target ---"
           find src/main/target -name '*.msi' -o -name '*.exe' 2>/dev/null | head -20
+          echo "--- Signature files ---"
+          find src/main/target -name '*.sig' 2>/dev/null | head -20
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -145,6 +150,9 @@ jobs:
         run: npx tauri info 2>&1 || true
 
       - name: Build Tauri app (macOS arm64)
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         run: |
           set -o pipefail
           cd src/main
@@ -159,6 +167,8 @@ jobs:
           find src/main/target/aarch64-apple-darwin/release/bundle -type f 2>/dev/null || echo "No bundle directory"
           echo "--- Any .dmg in target ---"
           find src/main/target -name '*.dmg' 2>/dev/null | head -20
+          echo "--- Signature files ---"
+          find src/main/target -name '*.sig' 2>/dev/null | head -20
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -225,6 +235,9 @@ jobs:
         run: npx tauri info 2>&1 || true
 
       - name: Build Tauri app (Linux)
+        env:
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         run: |
           set -o pipefail
           cd src/main
@@ -239,6 +252,8 @@ jobs:
           find src/main/target/release/bundle -type f 2>/dev/null || echo "No bundle directory"
           echo "--- Any .deb/.AppImage in target ---"
           find src/main/target -name '*.deb' -o -name '*.AppImage' 2>/dev/null | head -20
+          echo "--- Signature files ---"
+          find src/main/target -name '*.sig' 2>/dev/null | head -20
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -249,7 +264,7 @@ jobs:
             src/main/target/release/bundle/appimage/
           if-no-files-found: error
 
-  # -- Create Draft Release ------------------------------------------------
+  # -- Create Draft Release + latest.json ---------------------------------
   create-release:
     needs: [release-windows, release-macos, release-linux]
     runs-on: ubuntu-latest
@@ -263,6 +278,106 @@ jobs:
       - name: List all artifacts
         run: find artifacts -type f | head -30
 
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Collect signatures
+        id: signatures
+        run: |
+          echo "--- Finding signature files ---"
+          find artifacts -name '*.sig' -type f | head -20
+
+          # Windows NSIS .exe.sig
+          EXE_SIG=""
+          EXE_SIG_FILE=$(find artifacts -name '*.exe.sig' -type f | head -1)
+          if [ -n "$EXE_SIG_FILE" ]; then
+            EXE_SIG=$(cat "$EXE_SIG_FILE")
+          fi
+
+          # Windows MSI .msi.sig
+          MSI_SIG=""
+          MSI_SIG_FILE=$(find artifacts -name '*.msi.sig' -type f | head -1)
+          if [ -n "$MSI_SIG_FILE" ]; then
+            MSI_SIG=$(cat "$MSI_SIG_FILE")
+          fi
+
+          # macOS .dmg.sig
+          DMG_SIG=""
+          DMG_SIG_FILE=$(find artifacts -name '*.dmg.sig' -type f | head -1)
+          if [ -n "$DMG_SIG_FILE" ]; then
+            DMG_SIG=$(cat "$DMG_SIG_FILE")
+          fi
+
+          # Linux .AppImage.sig
+          APPIMAGE_SIG=""
+          APPIMAGE_SIG_FILE=$(find artifacts -name '*.AppImage.sig' -type f | head -1)
+          if [ -n "$APPIMAGE_SIG_FILE" ]; then
+            APPIMAGE_SIG=$(cat "$APPIMAGE_SIG_FILE")
+          fi
+
+          # Write outputs
+          echo "exe_sig=${EXE_SIG}" >> "$GITHUB_OUTPUT"
+          echo "msi_sig=${MSI_SIG}" >> "$GITHUB_OUTPUT"
+          echo "dmg_sig=${DMG_SIG}" >> "$GITHUB_OUTPUT"
+          echo "appimage_sig=${APPIMAGE_SIG}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate latest.json
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          EXE_SIG: ${{ steps.signatures.outputs.exe_sig }}
+          MSI_SIG: ${{ steps.signatures.outputs.msi_sig }}
+          DMG_SIG: ${{ steps.signatures.outputs.dmg_sig }}
+          APPIMAGE_SIG: ${{ steps.signatures.outputs.appimage_sig }}
+        run: |
+          REPO="Razisafir/construct-ai-agent"
+          BASE_URL="https://github.com/${REPO}/releases/download/v${VERSION}"
+
+          # Find actual filenames
+          EXE_NAME=$(find artifacts -name '*.exe' ! -name '*.sig' -type f -exec basename {} \; | head -1)
+          MSI_NAME=$(find artifacts -name '*.msi' ! -name '*.sig' -type f -exec basename {} \; | head -1)
+          DMG_NAME=$(find artifacts -name '*.dmg' ! -name '*.sig' -type f -exec basename {} \; | head -1)
+          APPIMAGE_NAME=$(find artifacts -name '*.AppImage' ! -name '*.sig' -type f -exec basename {} \; | head -1)
+
+          # Build platforms object
+          PLATFORMS="{}"
+
+          if [ -n "$EXE_NAME" ]; then
+            PLATFORMS=$(echo "$PLATFORMS" | jq --arg url "${BASE_URL}/${EXE_NAME}" --arg sig "$EXE_SIG" \
+              '. + {"windows-x86_64": {"signature": $sig, "url": $url}}')
+          fi
+
+          if [ -n "$MSI_NAME" ]; then
+            PLATFORMS=$(echo "$PLATFORMS" | jq --arg url "${BASE_URL}/${MSI_NAME}" --arg sig "$MSI_SIG" \
+              '. + {"windows-x86_64-msi": {"signature": $sig, "url": $url}}')
+          fi
+
+          if [ -n "$DMG_NAME" ]; then
+            PLATFORMS=$(echo "$PLATFORMS" | jq --arg url "${BASE_URL}/${DMG_NAME}" --arg sig "$DMG_SIG" \
+              '. + {"darwin-aarch64": {"signature": $sig, "url": $url}}')
+          fi
+
+          if [ -n "$APPIMAGE_NAME" ]; then
+            PLATFORMS=$(echo "$PLATFORMS" | jq --arg url "${BASE_URL}/${APPIMAGE_NAME}" --arg sig "$APPIMAGE_SIG" \
+              '. + {"linux-x86_64": {"signature": $sig, "url": $url}}')
+          fi
+
+          # Generate latest.json
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "Construct AI Agent v${VERSION}" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson platforms "$PLATFORMS" \
+            '{
+              version: $version,
+              notes: $notes,
+              pub_date: $pub_date,
+              platforms: $platforms
+            }' > latest.json
+
+          echo "--- latest.json ---"
+          cat latest.json
+
       - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
@@ -274,6 +389,7 @@ jobs:
             artifacts/macos-artifacts/*.dmg
             artifacts/linux-artifacts/deb/*.deb
             artifacts/linux-artifacts/appimage/*.AppImage
+            latest.json
           body: |
             Construct AI Agent desktop app release.
             See the assets below for downloadable installers.

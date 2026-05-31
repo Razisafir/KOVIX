@@ -15,6 +15,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_log::Builder::new().build())
         .setup(|app| {
             // ── 1. Spawn Python backend sidecar ─────────────────────────────
@@ -62,6 +63,12 @@ pub fn run() {
             let app_handle = app.handle();
             tray::setup_tray(&app_handle).expect("failed to set up system tray");
 
+            // ── 7. Check for updates ────────────────────────────────────────
+            let update_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                check_for_updates(update_handle).await;
+            });
+
             #[cfg(debug_assertions)]
             {
                 let window = app.get_webview_window("main").unwrap();
@@ -100,6 +107,49 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Check for app updates on startup using the Tauri updater plugin.
+///
+/// If an update is available, the built-in dialog will prompt the user
+/// (configured via `plugins.updater.dialog: true` in tauri.conf.json).
+/// If the user accepts, the update is downloaded and installed automatically.
+/// Errors are logged but never crash the app — updater failures are non-critical.
+async fn check_for_updates(app_handle: tauri::AppHandle) {
+    use tauri_plugin_updater::UpdaterExt;
+
+    match app_handle.updater() {
+        Ok(updater) => match updater.check().await {
+            Ok(Some(update)) => {
+                log::info!(
+                    "Update available: {} (current: {})",
+                    update.version,
+                    app_handle.config().version.as_deref().unwrap_or("unknown")
+                );
+                // The dialog plugin handles user confirmation when
+                // plugins.updater.dialog is true in tauri.conf.json.
+                // download_and_install will show the dialog, download,
+                // and restart the app after the user confirms.
+                match update.download_and_install().await {
+                    Ok(()) => {
+                        log::info!("Update installed successfully — app will restart");
+                    }
+                    Err(e) => {
+                        log::warn!("Update download/install failed: {}", e);
+                    }
+                }
+            }
+            Ok(None) => {
+                log::info!("App is up to date");
+            }
+            Err(e) => {
+                log::warn!("Update check failed: {}", e);
+            }
+        },
+        Err(e) => {
+            log::warn!("Failed to initialise updater: {}", e);
+        }
+    }
 }
 
 /// Simple greeting command for frontend-Rust communication testing.
