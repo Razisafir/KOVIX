@@ -16,7 +16,7 @@ function StatusBar() {
 
   // Track cursor position from Monaco via custom events
   const [cursor, setCursor] = useState<CursorPosition>({ line: 1, column: 1 });
-  const [activeFileName, setActiveFileName] = useState("main.py");
+  const [activeFileName] = useState("main.py");
   const [language] = useState("Python");
   const [pendingChanges] = useState(0);
 

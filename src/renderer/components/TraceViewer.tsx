@@ -52,7 +52,7 @@ export const TraceViewer: React.FC<TraceViewerProps> = ({ sessionId, apiUrl = 'h
   const fetchTraces = useCallback(async () => {
     try {
       setLoading(true);
-      const [traceRes, hallRes, statsRes] = await Promise.all([
+      const [traceRes, hallRes, _statsRes] = await Promise.all([
         fetch(`${apiUrl}/telemetry/session/${sessionId}`),
         fetch(`${apiUrl}/telemetry/session/${sessionId}/hallucinations`),
         fetch(`${apiUrl}/telemetry/session/${sessionId}/latency`),
@@ -182,7 +182,7 @@ export const TraceViewer: React.FC<TraceViewerProps> = ({ sessionId, apiUrl = 'h
                 <div className="flex-1 h-px bg-[#1a1a1f]" />
               </div>
 
-              {spans.map((span) => {
+              {(spans as TraceSpan[]).map((span: TraceSpan) => {
                 const config = kindConfig[span.kind] || { icon: '?', color: '#8888a0', label: span.kind };
                 const isSelected = selectedSpan?.span_id === span.span_id;
 

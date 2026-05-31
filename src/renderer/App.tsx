@@ -1,5 +1,4 @@
 import { lazy, Suspense, useState, useCallback, useEffect } from "react";
-import { Command } from "lucide-react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import OnboardingModal from "./components/OnboardingModal";
 import StatusBar from "./components/StatusBar";

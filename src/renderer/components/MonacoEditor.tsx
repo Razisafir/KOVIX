@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useMemo } from "react";
-import Editor, { OnMount } from "@monaco-editor/react";
+import Editor, { DiffEditor, OnMount } from "@monaco-editor/react";
 import type * as monaco from "monaco-editor";
 
 /* ─────────────────────── Language Detection ─────────────────────── */
@@ -324,7 +324,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     modifiedContent !== undefined
   ) {
     return (
-      <Editor
+      <DiffEditor
         height="100%"
         language={detectedLanguage}
         original={originalContent}
