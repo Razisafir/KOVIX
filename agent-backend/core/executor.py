@@ -1194,6 +1194,10 @@ class AgentExecutor:
                         task_id=task.id,
                     )
 
+                    # Record verification in session messages (for context compression)
+                    session.add_message("assistant",
+                        f"Verification of '{task.description}': {'passed' if verified else 'failed'}")
+
                     if verified:
                         task.status = TaskStatus.COMPLETED
                         self._emit(session, "task_complete", task.description)
@@ -1225,6 +1229,9 @@ class AgentExecutor:
                 self._emit(
                     session, "complete", "All tasks completed successfully!"
                 )
+                # Record completion in session messages (for context compression)
+                session.add_message("assistant",
+                    f"All tasks completed successfully. Goal: {session.goal}")
                 # Store session completion in memory
                 self.memory.store_conversation(
                     session_id=session.id,
@@ -1240,6 +1247,11 @@ class AgentExecutor:
                     "waiting",
                     "Some tasks failed. Waiting for guidance.",
                 )
+                # Record partial failure in session messages (for context compression)
+                completed_count = sum(1 for t in session.tasks if t.status == TaskStatus.COMPLETED)
+                session.add_message("assistant",
+                    f"Partial completion: {completed_count} of {len(session.tasks)} "
+                    f"tasks completed. Waiting for guidance.")
                 # Store partial failure in memory
                 self.memory.store_conversation(
                     session_id=session.id,
@@ -1263,6 +1275,8 @@ class AgentExecutor:
             session.status = AgentStatus.FAILED
             logger.exception("Agent execution failed for session %s", session.id)
             self._emit(session, "error", str(exc))
+            # Record error in session messages (for context compression)
+            session.add_message("assistant", f"Error: {str(exc)[:300]}")
             # Store session error in memory
             self.memory.store_conversation(
                 session_id=session.id,

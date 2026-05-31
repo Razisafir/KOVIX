@@ -1657,26 +1657,42 @@ async def compact_context(req: CompactContextRequest) -> dict:
                 "tokens_saved": 0,
             }
 
+        # Calculate current token estimate
+        total_chars = sum(len(m.get("content", "")) for m in session.messages)
+        estimated_tokens = total_chars // 4  # Rough: ~4 chars per token
+
         # Strategy-based compaction
         if req.strategy == "summary" and original_count > 10:
             # Summarize older messages, keep recent ones verbatim
-            from core.llm_service import Message, assemble_messages
-            half = original_count // 2
-            older = session.messages[:half]
-            summary_prompt = (
-                "Summarize the following conversation concisely, "
-                "preserving key decisions, context, and action items:\n\n"
-                + "\n".join(f"{m.get('role', '?')}: {m.get('content', '')[:500]}" for m in older)
-            )
-            summary_messages = assemble_messages(user_prompt=summary_prompt)
-            summary = await _llm_service.complete(summary_messages)
-            # Replace older messages with a single summary dict
-            summary_dict = {
-                "role": "system",
-                "content": f"[Context Summary] {summary}",
-                "timestamp": str(time.time()),
-            }
-            session.messages = [summary_dict] + session.messages[half:]
+            if _llm_service is None:
+                # LLM not available — fall back to truncate instead of crashing
+                logger.warning("LLM service unavailable for summary compaction, falling back to truncate")
+                keep_count = max(10, req.max_tokens // 200)
+                session.messages = session.messages[-keep_count:]
+            else:
+                from core.llm_service import Message, assemble_messages
+                half = original_count // 2
+                older = session.messages[:half]
+                summary_prompt = (
+                    "Summarize the following conversation concisely, "
+                    "preserving key decisions, context, and action items:\n\n"
+                    + "\n".join(f"{m.get('role', '?')}: {m.get('content', '')[:500]}" for m in older)
+                )
+                summary_messages = assemble_messages(user_prompt=summary_prompt)
+                try:
+                    summary = await _llm_service.complete(summary_messages)
+                except Exception as llm_exc:
+                    logger.warning("LLM summary failed (%s), falling back to truncate", llm_exc)
+                    keep_count = max(10, req.max_tokens // 200)
+                    session.messages = session.messages[-keep_count:]
+                else:
+                    # Replace older messages with a single summary dict
+                    summary_dict = {
+                        "role": "system",
+                        "content": f"[Context Summary] {summary}",
+                        "timestamp": str(time.time()),
+                    }
+                    session.messages = [summary_dict] + session.messages[half:]
 
         elif req.strategy == "truncate" and original_count > 20:
             # Keep only the N most recent messages
@@ -1700,7 +1716,9 @@ async def compact_context(req: CompactContextRequest) -> dict:
             session.messages = session.messages[-10:]
 
         compacted_count = len(session.messages)
-        tokens_saved = max(0, (original_count - compacted_count) * 100)
+        new_total_chars = sum(len(m.get("content", "")) for m in session.messages)
+        new_estimated_tokens = new_total_chars // 4
+        tokens_saved = max(0, estimated_tokens - new_estimated_tokens)
 
         return {
             "session_id": req.session_id,
@@ -1726,7 +1744,9 @@ async def get_context_stats(session_id: str) -> dict:
             raise HTTPException(status_code=404, detail="Session not found")
 
         msg_count = len(session.messages)
-        estimated_tokens = msg_count * 150  # rough estimate
+        # Better token estimation: ~4 chars per token instead of flat 150/msg
+        total_chars = sum(len(m.get("content", "")) for m in session.messages)
+        estimated_tokens = total_chars // 4 if total_chars > 0 else msg_count * 150
         max_context = 8192  # typical context window
 
         return {
