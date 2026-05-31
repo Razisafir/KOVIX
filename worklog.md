@@ -199,3 +199,27 @@ Stage Summary:
   3. ✅ Call MCP tools through ToolRegistry — execute_tool works for mcp_fs_* tools
   4. ✅ Agent can use MCP tools in ReAct loop — schemas appear in get_tool_schemas()
   5. ✅ At least one MCP server verified end-to-end — write + read + list_directory
+---
+Task ID: 4.1
+Agent: Main Agent
+Task: Expand Safety Monitor — Add 3+ New Safety Rules (Reach 44+)
+
+Work Log:
+- Analyzed current safety.py: 40 patterns across 3 categories (9 destructive + 11 architecture + 20 auth_code)
+- Added CODE_SECURITY_PATTERNS list with 5 new structured rules:
+  - #42 path_traversal: detects ../ and ..\ sequences (critical, file_security)
+  - #43 sql_injection: detects raw SQL with string interpolation (critical, injection)
+  - #44 hardcoded_secret: detects credential assignments to string literals (high, secrets)
+  - #45 unsafe_deserialization: detects pickle.loads, yaml.load, eval() (high, injection)
+  - #46 command_injection: detects shell metacharacters + dangerous commands (critical, injection)
+- Added check_code_security() async method integrated into main check() flow
+- Added check_code_security_text() sync method for scanning individual text strings
+- Updated get_stats() to include pattern_counts breakdown
+- Updated README from "41 regex patterns" to "45 regex patterns"
+- Verified all 45 patterns work correctly (5 new + 40 existing)
+- Confirmed existing checks (destructive, auth_code) still pass
+
+Stage Summary:
+- Commit: bcdd5a5 "feat: expand safety monitor to 45 patterns — path traversal, SQL injection, secrets, deserialization, command injection"
+- 45 total regex patterns (9 destructive + 11 architecture + 20 auth_code + 5 code_security)
+- All success criteria met: 45+ patterns ✓, path traversal added ✓, README updated to 45 ✓, existing tests pass ✓
