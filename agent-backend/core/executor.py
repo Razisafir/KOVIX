@@ -252,6 +252,37 @@ class AgentSession:
     project_path: str = "."
     mode: str = "code"
     git_branch: Optional[str] = None
+    trace_id: Optional[str] = None  # Telemetry trace correlation ID
+
+    # Shadow filesystem — in-memory staging for agent file ops
+    shadow_fs: Any = field(default=None, repr=False)
+
+    # Telemetry recorder for this session
+    _telemetry_recorder: Any = field(default=None, repr=False)
+
+    def init_shadow_fs(self, project_path: str) -> None:
+        """Initialise the shadow filesystem for this session."""
+        try:
+            from core.shadow_fs import ShadowFileSystem
+            self.shadow_fs = ShadowFileSystem(project_path)
+            logger.info("Shadow FS initialised for session %s", self.id)
+        except Exception as exc:
+            logger.warning("Failed to init shadow FS: %s — using direct disk", exc)
+            self.shadow_fs = None
+
+    def init_telemetry(self) -> None:
+        """Initialise telemetry recording for this session."""
+        try:
+            from core.telemetry import TelemetryStore, TelemetryRecorder
+            store = TelemetryStore()
+            self.trace_id = str(uuid.uuid4())
+            self._telemetry_recorder = TelemetryRecorder(
+                store=store, session_id=self.id, trace_id=self.trace_id,
+            )
+            logger.info("Telemetry recorder initialised for session %s (trace=%s)", self.id, self.trace_id)
+        except Exception as exc:
+            logger.warning("Failed to init telemetry: %s", exc)
+            self._telemetry_recorder = None
 
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the session history for context compression."""
@@ -263,7 +294,7 @@ class AgentSession:
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to a plain dictionary."""
-        return {
+        result = {
             "id": self.id,
             "goal": self.goal,
             "status": self.status.value,
@@ -274,6 +305,7 @@ class AgentSession:
             "project_path": self.project_path,
             "mode": self.mode,
             "git_branch": self.git_branch,
+            "trace_id": self.trace_id,
             "task_summary": {
                 "total": len(self.tasks),
                 "pending": sum(1 for t in self.tasks if t.status == TaskStatus.PENDING),
@@ -286,6 +318,13 @@ class AgentSession:
                 "failed": sum(1 for t in self.tasks if t.status == TaskStatus.FAILED),
             },
         }
+        # Add shadow FS stats if available
+        if self.shadow_fs is not None:
+            try:
+                result["shadow_stats"] = self.shadow_fs.get_stats()
+            except Exception:
+                pass
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -405,6 +444,20 @@ class AgentExecutor:
             "git_commit", "git_checkout", "git_reset", "git_branch",
         }
 
+        # Shadow filesystem tool intercept mapping — when a session has
+        # an active shadow_fs, these tool names are rerouted to the
+        # ShadowFileTools wrapper instead of hitting disk directly.
+        self._shadow_tool_map: Dict[str, str] = {
+            "write_file": "write_file",
+            "read_file": "read_file",
+            "delete_file": "delete_file",
+            "list_directory": "list_directory",
+            "search_files": "search_files",
+        }
+
+        # SandboxManager for isolated command execution
+        self._sandbox_manager: Any = None
+
         # Mode configuration
         self.mode_config = get_mode_config(mode)
         self.mode = self.mode_config.name
@@ -482,6 +535,13 @@ class AgentExecutor:
         # Set file tools sandbox to the session's project directory
         set_base_dir(project_path)
 
+        # Initialise shadow filesystem — agent writes go to in-memory
+        # staging layer, user must accept/reject before hitting disk.
+        session.init_shadow_fs(project_path)
+
+        # Initialise telemetry recorder for this session
+        session.init_telemetry()
+
         # Git sandboxing — create a feature branch before the session runs.
         # This ensures the branch name is available on the session object
         # immediately when it is returned to the caller.
@@ -505,6 +565,163 @@ class AgentExecutor:
     def list_sessions(self) -> List[AgentSession]:
         """List all sessions."""
         return list(self.sessions.values())
+
+    # -- Shadow + Sandbox integration ----------------------------------------
+
+    def _execute_tool_safe(
+        self,
+        session: AgentSession,
+        tool_name: str,
+        arguments: Dict[str, Any],
+    ) -> Any:
+        """Execute a tool with shadow FS and sandbox interception.
+
+        When the session has an active shadow filesystem, file operations
+        (write_file, read_file, delete_file, list_directory, search_files)
+        are routed through the ShadowFileTools wrapper instead of hitting
+        disk directly.
+
+        When the session has an active sandbox, shell commands
+        (execute_command, run_test) are routed through the
+        SandboxedCommandTools wrapper.
+
+        All other tools fall through to the standard ToolRegistry.
+        """
+        # --- Shadow FS interception -----------------------------------------
+        if session.shadow_fs is not None and tool_name in self._shadow_tool_map:
+            try:
+                from tools.shadow_wrappers import ShadowFileTools
+                shadow_tools = ShadowFileTools(session.shadow_fs)
+                handler = getattr(shadow_tools, tool_name, None)
+                if handler is not None:
+                    # Build kwargs from the arguments dict
+                    import inspect as _inspect
+                    sig = _inspect.signature(handler)
+                    kwargs: Dict[str, Any] = {}
+                    for param_name in sig.parameters:
+                        if param_name in arguments:
+                            kwargs[param_name] = arguments[param_name]
+                    result = handler(**kwargs)
+                    # Normalize non-dict returns
+                    if not isinstance(result, dict):
+                        result = {"success": True, "output": result, "shadowed": True}
+                    else:
+                        result["shadowed"] = True
+                    logger.debug(
+                        "Shadow FS intercepted tool '%s' for session %s",
+                        tool_name, session.id,
+                    )
+                    return result
+            except Exception as exc:
+                logger.warning(
+                    "Shadow FS interception failed for '%s', falling back to direct: %s",
+                    tool_name, exc,
+                )
+
+        # --- Sandbox interception -------------------------------------------
+        if tool_name in ("execute_command", "run_test") and self._sandbox_manager is not None:
+            try:
+                from tools.sandboxed_commands import SandboxedCommandTools
+                sandbox_tools = SandboxedCommandTools(self._sandbox_manager, session.id)
+                handler = getattr(sandbox_tools, tool_name, None)
+                if handler is not None:
+                    import inspect as _inspect
+                    sig = _inspect.signature(handler)
+                    kwargs: Dict[str, Any] = {}
+                    for param_name in sig.parameters:
+                        if param_name in arguments:
+                            kwargs[param_name] = arguments[param_name]
+                    result = handler(**kwargs)
+                    if not isinstance(result, dict):
+                        result = {"success": True, "output": result}
+                    logger.debug(
+                        "Sandbox intercepted tool '%s' for session %s",
+                        tool_name, session.id,
+                    )
+                    return result
+            except Exception as exc:
+                logger.warning(
+                    "Sandbox interception failed for '%s', falling back to direct: %s",
+                    tool_name, exc,
+                )
+
+        # --- Default: standard tool registry --------------------------------
+        return self.tools.execute_tool(tool_name, arguments)
+
+    def _init_sandbox(self, session: AgentSession) -> None:
+        """Initialise the sandbox manager and create a sandbox for the session.
+
+        The sandbox provides isolated command execution.  Docker is preferred;
+        a process-based fallback is used when Docker is unavailable.
+        """
+        try:
+            from core.sandbox import SandboxManager
+            if self._sandbox_manager is None:
+                self._sandbox_manager = SandboxManager()
+            sandbox = self._sandbox_manager.create_for_session(
+                session.id, session.project_path,
+            )
+            mode = type(sandbox).__name__
+            logger.info(
+                "Sandbox initialised for session %s: %s",
+                session.id, mode,
+            )
+        except Exception as exc:
+            logger.warning("Sandbox initialisation failed: %s", exc)
+            self._sandbox_manager = None
+
+    # -- Telemetry helpers -----------------------------------------------------
+
+    def _tel_record(
+        self,
+        session: AgentSession,
+        kind: str,
+        iteration: int,
+        name: str,
+        parent_id: Optional[str] = None,
+        input_data: Optional[str] = None,
+        **attrs: Any,
+    ) -> Optional[Any]:
+        """Start a telemetry span for recording.
+
+        Returns the open span object (or None if telemetry is disabled).
+        Call :meth:`_tel_end` to close and persist the span.
+        """
+        if session._telemetry_recorder is None:
+            return None
+        try:
+            span = session._telemetry_recorder.start_span(
+                kind=kind,
+                name=name,
+                parent_id=parent_id,
+                iteration=iteration,
+                input_data=input_data,
+                attributes=attrs or {},
+            )
+            return span
+        except Exception as exc:
+            logger.debug("Telemetry record failed: %s", exc)
+            return None
+
+    def _tel_end(
+        self,
+        session: AgentSession,
+        span: Optional[Any],
+        output_data: Optional[str] = None,
+        status: str = "ok",
+    ) -> None:
+        """Close and persist a telemetry span.
+
+        If *span* is None (telemetry disabled or start failed), this is a no-op.
+        """
+        if span is None or session._telemetry_recorder is None:
+            return
+        try:
+            session._telemetry_recorder.end_span(
+                span, output_data=output_data, status=status,
+            )
+        except Exception as exc:
+            logger.debug("Telemetry end failed: %s", exc)
 
     # -- Phase 1: Observe ---------------------------------------------------
 
@@ -847,7 +1064,7 @@ class AgentExecutor:
                                     if not os.path.isabs(val):
                                         resolved_args[key] = os.path.join(session.project_path, val)
 
-                        tool_result = self.tools.execute_tool(tool_name, resolved_args)
+                        tool_result = self._execute_tool_safe(session, tool_name, resolved_args)
                         accumulated_results.append(
                             {
                                 "tool": tool_name,
@@ -986,7 +1203,7 @@ class AgentExecutor:
                         if not os.path.isabs(val):
                             resolved_args[key] = os.path.join(session.project_path, val)
 
-            tool_result = self.tools.execute_tool(tool_name, resolved_args)
+            tool_result = self._execute_tool_safe(session, tool_name, resolved_args)
             accumulated_results.append(
                 {
                     "tool": tool_name,
@@ -1100,15 +1317,27 @@ class AgentExecutor:
         # Set active session ID for SSE token buffering
         self._active_session_id = session.id
 
+        # Initialise sandbox for isolated command execution
+        self._init_sandbox(session)
+
+        # Telemetry iteration counter
+        _iteration = 0
+
         try:
             # Phase 1: Observe
+            _iteration += 1
             self._emit(session, "thought", "Observing current project state...")
+            _tel_thought = self._tel_record(session, "thought", _iteration, "Observing project state")
             context = await self.observe(session)
+            self._tel_end(session, _tel_thought)
 
             # Phase 2: Plan
+            _iteration += 1
             self._emit(session, "thought", f"Planning tasks for: {session.goal}")
+            _tel_plan = self._tel_record(session, "thought", _iteration, f"Planning: {session.goal}")
             tasks = await self.plan(session.goal, context, session=session)
             session.tasks = tasks
+            self._tel_end(session, _tel_plan, output_data=f"{len(tasks)} tasks planned")
             self._emit(
                 session,
                 "plan",
@@ -1140,11 +1369,31 @@ class AgentExecutor:
                 if session.status == AgentStatus.FAILED:
                     break
 
+                _iteration += 1
                 session.current_task_index = i
                 self._emit(session, "task_start", task.description)
 
+                # Telemetry: record action span for this task
+                _tel_action = self._tel_record(
+                    session, "action", _iteration,
+                    f"task:{task.description}",
+                    input_data=task.description,
+                    task_id=task.id,
+                )
+
                 result = await self.act(session, task)
                 task.result = str(result.get("output", ""))[:5000]
+
+                # Close action span
+                act_status = "ok" if result.get("success") else "error"
+                self._tel_end(session, _tel_action, output_data=task.result[:500], status=act_status)
+
+                # Telemetry: record observation span
+                _tel_obs = self._tel_record(
+                    session, "observation", _iteration,
+                    f"result:{task.description[:60]}",
+                )
+                self._tel_end(session, _tel_obs, output_data=task.result[:500])
 
                 # Record task execution in session messages (for context compression)
                 session.add_message("assistant",
@@ -1291,6 +1540,14 @@ class AgentExecutor:
         finally:
             # Clear active session ID so SSE knows streaming is done
             self._active_session_id = None
+
+            # Cleanup sandbox for this session
+            if self._sandbox_manager is not None:
+                try:
+                    self._sandbox_manager.destroy_session(session.id)
+                    logger.info("Sandbox cleaned up for session %s", session.id)
+                except Exception as exc:
+                    logger.warning("Sandbox cleanup failed for session %s: %s", session.id, exc)
 
     async def _wait_for_resume(self, session: AgentSession) -> None:
         """Wait for a paused session to be resumed."""

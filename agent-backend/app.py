@@ -635,6 +635,18 @@ async def health() -> dict:
                 ]
                 llm_ready = len(cloud_providers) > 0
 
+    # Check sandbox availability
+    sandbox_info = {"available": False, "mode": "direct_unsafe"}
+    try:
+        from core.sandbox import DockerSandbox
+        docker_available = DockerSandbox.is_available()
+        sandbox_info = {
+            "docker_available": docker_available,
+            "mode": "docker" if docker_available else "process_fallback",
+        }
+    except Exception:
+        pass
+
     return {
         "status": "ok",
         "service": "construct-agent-api",
@@ -642,6 +654,7 @@ async def health() -> dict:
         "llm_ready": llm_ready,
         "llm_providers": providers,
         "memory": _agent_executor.memory.get_stats() if _agent_executor else {"enabled": False},
+        "sandbox": sandbox_info,
         "autonomous": {
             "available": _background_worker is not None,
             "worker_status": worker_status,
@@ -2685,3 +2698,428 @@ if __name__ == "__main__":
         port=PORT,
         log_level=LOG_LEVEL,
     )
+
+# ===========================================================================
+# Shadow Filesystem Endpoints — virtual staging for agent file ops
+# ===========================================================================
+
+class ShadowMergeRequest(BaseModel):
+    path: Optional[str] = Field(None, description="File path to merge (None = merge all)")
+
+class ShadowDiscardRequest(BaseModel):
+    path: Optional[str] = Field(None, description="File path to discard (None = discard all)")
+
+
+@app.get("/session/{session_id}/shadow/diffs")
+async def get_shadow_diffs(session_id: str) -> dict:
+    """Get all pending changes from the session's shadow filesystem as unified diffs.
+
+    Returns diffs for every file that has been created, modified, or deleted
+    in the shadow layer, along with summary statistics.
+    """
+    executor = _get_executor()
+    session = executor.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not session.shadow_fs:
+        raise HTTPException(status_code=404, detail="Shadow filesystem not initialised for this session")
+
+    return {
+        "session_id": session_id,
+        "diffs": session.shadow_fs.get_all_diffs(),
+        "stats": session.shadow_fs.get_stats(),
+    }
+
+
+@app.post("/session/{session_id}/shadow/merge")
+async def merge_shadow_changes(session_id: str, req: ShadowMergeRequest) -> dict:
+    """Merge shadow changes to disk (user clicked Accept).
+
+    Writes all pending changes from the shadow filesystem to the real
+    filesystem.  Can merge a single file or all files at once.
+    """
+    executor = _get_executor()
+    session = executor.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not session.shadow_fs:
+        raise HTTPException(status_code=404, detail="Shadow filesystem not initialised for this session")
+
+    try:
+        results = session.shadow_fs.merge_to_disk(req.path)
+        return {
+            "session_id": session_id,
+            "merged": results,
+            "all_success": all(results.values()),
+        }
+    except Exception as exc:
+        logger.error("Shadow merge failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/session/{session_id}/shadow/discard")
+async def discard_shadow_changes(session_id: str, req: ShadowDiscardRequest) -> dict:
+    """Discard shadow changes (user clicked Reject).
+
+    Reverts the shadow filesystem to the original state, discarding
+    all agent modifications.  Can discard a single file or all files.
+    """
+    executor = _get_executor()
+    session = executor.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not session.shadow_fs:
+        raise HTTPException(status_code=404, detail="Shadow filesystem not initialised for this session")
+
+    try:
+        session.shadow_fs.discard_changes(req.path)
+        return {
+            "session_id": session_id,
+            "discarded": req.path or "all",
+            "status": "ok",
+        }
+    except Exception as exc:
+        logger.error("Shadow discard failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/session/{session_id}/shadow/stats")
+async def get_shadow_stats(session_id: str) -> dict:
+    """Get shadow filesystem statistics for a session."""
+    executor = _get_executor()
+    session = executor.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not session.shadow_fs:
+        raise HTTPException(status_code=404, detail="Shadow filesystem not initialised for this session")
+
+    return {
+        "session_id": session_id,
+        "stats": session.shadow_fs.get_stats(),
+    }
+
+
+# ===========================================================================
+# Sandbox Endpoints — execution sandbox management
+# ===========================================================================
+
+@app.get("/sandbox/status")
+async def sandbox_status() -> dict:
+    """Check sandbox availability and configuration.
+
+    Reports whether Docker is available for containerized command
+    execution, and which sandbox mode will be used for agent sessions.
+    """
+    try:
+        from core.sandbox import DockerSandbox, SandboxManager
+        docker_available = DockerSandbox.is_available()
+        return {
+            "docker_available": docker_available,
+            "mode": "docker" if docker_available else "process_fallback",
+            "recommended": "docker",
+        }
+    except Exception as exc:
+        return {
+            "docker_available": False,
+            "mode": "direct_unsafe",
+            "error": str(exc),
+            "recommended": "Install Docker for sandboxed execution",
+        }
+
+
+# ===========================================================================
+# Telemetry Endpoints — execution trace debugging
+# ===========================================================================
+
+@app.get("/telemetry/session/{session_id}")
+async def get_session_telemetry(session_id: str) -> dict:
+    """Get execution traces for a session.
+
+    Returns all recorded trace spans for the session, grouped by
+    iteration.  Each span captures a thought, action, or observation
+    from the agent's ReAct loop.
+    """
+    try:
+        from core.telemetry import TelemetryStore
+        store = TelemetryStore()
+        traces = store.get_session_traces(session_id)
+        stats = store.get_session_stats(session_id)
+        return {
+            "session_id": session_id,
+            "trace_count": len(traces),
+            "iterations": stats.get("total_iterations", 0),
+            "stats": stats,
+            "traces": traces,
+        }
+    except Exception as exc:
+        logger.error("Telemetry query failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/telemetry/session/{session_id}/hallucinations")
+async def detect_hallucinations(session_id: str) -> dict:
+    """Detect suspected hallucination patterns in session traces.
+
+    Analyses the execution trace for patterns where the agent ignored
+    tool errors, produced incoherent thoughts, or continued after
+    failures without addressing them.
+    """
+    try:
+        from core.telemetry import TelemetryStore
+        store = TelemetryStore()
+        patterns = store.detect_hallucination_patterns(session_id)
+        return {
+            "session_id": session_id,
+            "suspected_hallucinations": len(patterns),
+            "patterns": patterns,
+        }
+    except Exception as exc:
+        logger.error("Hallucination detection failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/telemetry/evaluate")
+async def add_telemetry_evaluation(
+    session_id: str = Field(..., description="Session ID"),
+    iteration: int = Field(..., description="Iteration number"),
+    evaluator: str = Field("human", description="Evaluator type: human, automated, llm_judge"),
+    score: float = Field(..., ge=0.0, le=1.0, description="Score 0.0-1.0"),
+    feedback: Optional[str] = Field(None, description="Optional feedback text"),
+    hallucination_detected: Optional[bool] = Field(None, description="Whether hallucination was detected"),
+) -> dict:
+    """Add a quality evaluation for a session iteration.
+
+    Supports human ratings, automated scoring, or LLM judge evaluations.
+    Scores are persisted for post-hoc analysis and quality tracking.
+    """
+    try:
+        from core.telemetry import TelemetryStore, TraceEvaluation
+        import uuid
+        store = TelemetryStore()
+        evaluation = TraceEvaluation(
+            evaluation_id=str(uuid.uuid4()),
+            trace_id="",
+            session_id=session_id,
+            iteration=iteration,
+            evaluator=evaluator,
+            score=score,
+            feedback=feedback,
+            hallucination_detected=hallucination_detected,
+        )
+        store.record_evaluation(evaluation)
+        return {"status": "recorded", "evaluation_id": evaluation.evaluation_id}
+    except Exception as exc:
+        logger.error("Evaluation recording failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/telemetry/session/{session_id}/latency")
+async def get_latency_breakdown(session_id: str) -> dict:
+    """Get latency breakdown by phase (thought, action, observation) for a session."""
+    try:
+        from core.telemetry import TelemetryStore
+        store = TelemetryStore()
+        breakdown = store.get_latency_breakdown(session_id)
+        return {"session_id": session_id, "latency": breakdown}
+    except Exception as exc:
+        logger.error("Latency breakdown failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ===========================================================================
+# Code Graph Endpoints — structural code analysis
+# ===========================================================================
+
+class GraphIndexRequest(BaseModel):
+    project_path: str = Field(..., description="Path to the project to index")
+
+
+@app.post("/graph/index")
+async def index_project_graph(req: GraphIndexRequest) -> dict:
+    """Index a project for structural code search.
+
+    Parses all Python files in the project, extracts AST nodes
+    (classes, functions, imports), builds a dependency graph, and
+    persists the index to SQLite for fast querying.
+    """
+    try:
+        from core.code_graph import CodeGraph
+        graph = CodeGraph(req.project_path)
+        stats = graph.index_project()
+        return {"indexed": stats, "status": "ok"}
+    except Exception as exc:
+        logger.error("Graph indexing failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/graph/search")
+async def search_code_graph(
+    q: str = Field(..., description="Search query"),
+    type: str = Field("hybrid", description="Query type: name, type, dependency, dependent, hybrid"),
+    project_path: str = Field(".", description="Project path"),
+) -> dict:
+    """Search code by structure and semantics.
+
+    Supports multiple query types:
+    - **name**: Find entities by name (exact or prefix match)
+    - **type**: Find by node type (class, function, import, variable)
+    - **dependency**: Find what an entity depends on
+    - **dependent**: Find what depends on an entity
+    - **hybrid**: Combine all signals for best results
+    """
+    try:
+        from core.code_graph import CodeGraph
+        graph = CodeGraph(project_path)
+        results = graph.search(q, query_type=type)
+        return {"query": q, "query_type": type, "results": results, "count": len(results)}
+    except Exception as exc:
+        logger.error("Graph search failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/graph/context/{node_id:path}")
+async def get_node_context(
+    node_id: str = Path(..., description="Node ID (file:entity)"),
+    depth: int = Field(2, ge=1, le=5, description="Context depth"),
+    project_path: str = Field(".", description="Project path"),
+) -> dict:
+    """Get full structural context for a code entity.
+
+    Returns the entity definition plus its dependencies, dependents,
+    and sibling entities at the specified depth.
+    """
+    try:
+        from core.code_graph import CodeGraph
+        graph = CodeGraph(project_path)
+        context = graph.get_context_for_node(node_id, depth=depth)
+        return context
+    except Exception as exc:
+        logger.error("Context query failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/graph/stats")
+async def graph_stats(project_path: str = Field(".", description="Project path")) -> dict:
+    """Get code graph statistics for a project."""
+    try:
+        from core.code_graph import CodeGraph
+        graph = CodeGraph(project_path)
+        return graph.get_stats()
+    except Exception as exc:
+        logger.error("Graph stats failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/graph/file/{file_path:path}")
+async def get_file_structure(
+    file_path: str = Path(..., description="Relative file path"),
+    project_path: str = Field(".", description="Project path"),
+) -> dict:
+    """Get all AST entities in a single file."""
+    try:
+        from core.code_graph import CodeGraph
+        graph = CodeGraph(project_path)
+        entities = graph.get_file_structure(file_path)
+        return {"file": file_path, "entities": entities, "count": len(entities)}
+    except Exception as exc:
+        logger.error("File structure query failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ===========================================================================
+# Hybrid Search Endpoint — RRF fusion of vector + structural results
+# ===========================================================================
+
+class HybridSearchRequest(BaseModel):
+    query: str = Field(..., description="Search query text")
+    project_path: str = Field(".", description="Project path for structural search")
+    n_results: int = Field(10, ge=1, le=100, description="Number of results")
+    query_type: str = Field("hybrid", description="Structural query type: name, type, dependency, dependent, hybrid")
+    backends: Optional[List[str]] = Field(None, description="Backends to use: vector, structural, or both")
+
+
+@app.post("/search/hybrid")
+async def hybrid_search_endpoint(req: HybridSearchRequest) -> dict:
+    """Hybrid search combining vector (ChromaDB) and structural (CodeGraph) results.
+
+    Uses Reciprocal Rank Fusion (RRF) to merge results from both backends
+    into a single ranked list.  Vector search captures semantic similarity
+    while structural search captures AST-level and dependency relationships.
+
+    When both backends return results for the same entity, the RRF score
+    is combined, giving a boost to items found by both methods.
+    """
+    try:
+        from core.hybrid_search import HybridSearchEngine
+        engine = HybridSearchEngine()
+        results = engine.search(
+            query=req.query,
+            project_path=req.project_path,
+            n_results=req.n_results,
+            query_type=req.query_type,
+            backends=req.backends,
+        )
+        return {
+            "query": req.query,
+            "backends": req.backends or ["vector", "structural"],
+            "results": [r.to_dict() for r in results],
+            "count": len(results),
+        }
+    except Exception as exc:
+        logger.error("Hybrid search failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ===========================================================================
+# Sandbox Management Endpoints
+# ===========================================================================
+
+class SandboxCreateRequest(BaseModel):
+    session_id: str = Field(..., description="Session ID to create sandbox for")
+    project_path: str = Field(..., description="Project path to mount in sandbox")
+
+
+@app.post("/sandbox/create")
+async def create_sandbox(req: SandboxCreateRequest) -> dict:
+    """Create an execution sandbox for a session.
+
+    Tries Docker first; falls back to process-based sandbox if Docker
+    is unavailable.
+    """
+    executor = _get_executor()
+    session = executor.get_session(req.session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    executor._init_sandbox(session)
+    if executor._sandbox_manager is not None:
+        sandbox = executor._sandbox_manager.get(req.session_id)
+        if sandbox is not None:
+            mode = type(sandbox).__name__
+            return {"created": True, "session_id": req.session_id, "mode": mode}
+
+    return {"created": False, "session_id": req.session_id, "mode": "none"}
+
+
+@app.post("/sandbox/destroy/{session_id}")
+async def destroy_sandbox(session_id: str) -> dict:
+    """Destroy the execution sandbox for a session."""
+    executor = _get_executor()
+    if executor._sandbox_manager is not None:
+        executor._sandbox_manager.destroy_session(session_id)
+        return {"destroyed": True, "session_id": session_id}
+    return {"destroyed": False, "session_id": session_id, "error": "No sandbox manager"}
+
+
+@app.get("/sandbox/session/{session_id}")
+async def sandbox_session_status(session_id: str) -> dict:
+    """Get sandbox status for a specific session."""
+    executor = _get_executor()
+    if executor._sandbox_manager is not None:
+        sandbox = executor._sandbox_manager.get(session_id)
+        active = sandbox is not None
+        mode = ""
+        if active:
+            mode = type(sandbox).__name__
+        return {"session_id": session_id, "active": active, "mode": mode}
+    return {"session_id": session_id, "active": False, "mode": "none"}
