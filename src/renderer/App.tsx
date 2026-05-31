@@ -1,7 +1,6 @@
 import { lazy, Suspense, useState, useCallback, useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import OnboardingModal from "./components/OnboardingModal";
-import StatusBar from "./components/StatusBar";
 import CommandPalette from "./components/CommandPalette";
 import type { PaletteCommand } from "./components/CommandPalette";
 import {
@@ -49,32 +48,43 @@ function SplashScreen({ onReady }: { onReady: () => void }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Backend health check
+  // Backend health check — with fast fallback in web mode
   useEffect(() => {
     let cancelled = false;
     const checkBackend = async () => {
       setStatus("checking backend");
+
+      // If NOT running in Tauri, skip quickly (web dev mode)
+      const isTauri = typeof window !== "undefined" && (window as any).__TAURI__;
+      if (!isTauri) {
+        // In web browser without Tauri, skip splash after 1.5s
+        setProgress(100);
+        setStatus("web mode");
+        setTimeout(() => {
+          if (!cancelled) onReady();
+        }, 1500);
+        return;
+      }
+
       try {
         const ports = [8000, 25147, 8080];
 
-        if (typeof window !== "undefined" && (window as any).__TAURI__) {
-          try {
-            const { invoke } = (window as any).__TAURI__.core || (window as any).__TAURI__;
-            if (invoke) {
-              const { listen } = (window as any).__TAURI__.event || (window as any).__TAURI__;
-              if (listen) {
-                const unlisten = await listen("backend:ready", (event: any) => {
-                  const port = event.payload;
-                  if (typeof port === "number") {
-                    ports.unshift(port);
-                  }
-                });
-                setTimeout(() => unlisten(), 5000);
-              }
+        try {
+          const { invoke } = (window as any).__TAURI__.core || (window as any).__TAURI__;
+          if (invoke) {
+            const { listen } = (window as any).__TAURI__.event || (window as any).__TAURI__;
+            if (listen) {
+              const unlisten = await listen("backend:ready", (event: any) => {
+                const port = event.payload;
+                if (typeof port === "number") {
+                  ports.unshift(port);
+                }
+              });
+              setTimeout(() => unlisten(), 5000);
             }
-          } catch {
-            // Tauri API not available
           }
+        } catch {
+          // Tauri API not available
         }
 
         for (let i = 0; i < 10; i++) {
@@ -245,6 +255,7 @@ function AppRoot() {
   const handleOnboardingComplete = useCallback(() => {
     setOnboardingComplete(true);
     setShowOnboarding(false);
+    localStorage.setItem("construct_onboarding_complete", "true");
   }, [setOnboardingComplete]);
 
   const shortcuts = createConstructShortcuts({
@@ -280,37 +291,59 @@ function AppRoot() {
     console.log(`[command palette] selected: ${cmd.id} \u2014 ${cmd.label}`);
   }, []);
 
+  // Splash screen
   if (showSplash) {
     return <SplashScreen onReady={handleSplashReady} />;
   }
 
+  // Onboarding wizard
   if (showOnboarding) {
     return <OnboardingModal onComplete={handleOnboardingComplete} />;
   }
 
+  // Main IDE — IDELayout manages its own full layout including status bar
   return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh", backgroundColor: "#0A0E1A", fontFamily: '"Inter", "system-ui", sans-serif', overflow: "hidden", position: "relative" }}>
-      {/* Main IDE Layout — Monaco + Allotment + xterm */}
-      <Suspense fallback={<div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4A5568", fontSize: 11 }}>loading IDE...</div>}>
+    <ErrorBoundary>
+      <Suspense
+        fallback={
+          <div
+            style={{
+              width: "100vw",
+              height: "100vh",
+              background: "#0A0E1A",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#4A5568",
+              fontSize: 11,
+              fontFamily: "sans-serif",
+            }}
+          >
+            Loading IDE...
+          </div>
+        }
+      >
         <IDELayout />
       </Suspense>
 
-      {/* Status Bar */}
-      <StatusBar />
+      {/* Command Palette — overlay */}
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={closeCommandPalette}
+        onCommandSelect={handleCommandSelect}
+      />
 
-      {/* Command Palette */}
-      <CommandPalette isOpen={showCommandPalette} onClose={closeCommandPalette} onCommandSelect={handleCommandSelect} />
-
-      {/* Settings */}
+      {/* Settings — overlay */}
       {showSettings && (
         <Suspense fallback={null}>
           <SettingsPanel />
         </Suspense>
       )}
-    </div>
+    </ErrorBoundary>
   );
 }
 
+/* ─── Exported App ─── */
 export default function App() {
   return (
     <ErrorBoundary>

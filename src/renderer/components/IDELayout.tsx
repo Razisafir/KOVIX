@@ -346,6 +346,25 @@ export const IDELayout: React.FC = () => {
             )}
           </Allotment>
         </div>
+
+        {/* ── Status Bar ── */}
+        <div className="h-[22px] bg-[rgba(0,229,255,0.06)] border-t border-[rgba(0,229,255,0.12)] flex items-center px-2 text-[10px] text-[#E0E7FF] select-none shrink-0 font-mono">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#00E5FF]" />
+            <span className="text-[#4A5568]">Ready</span>
+            <span className="text-[#4A5568]">|</span>
+            <span className="text-[#4A5568]">Ollama</span>
+          </div>
+          <div className="mx-auto flex items-center gap-3">
+            <span className="text-[#4A5568]">{activeTab?.filePath ?? "no file"}</span>
+            <span className="text-[#4A5568]">Ln 1, Col 1</span>
+            <span className="text-[#4A5568]">UTF-8</span>
+            <span className="text-[#4A5568]">{activeTab?.language ?? "text"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[#4A5568]">0 pending changes</span>
+          </div>
+        </div>
       </div>
     </InlineAgentManager>
   );
