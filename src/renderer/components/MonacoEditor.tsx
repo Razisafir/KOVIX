@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useMemo } from "react";
-import Editor, { OnMount, DiffOnMount } from "@monaco-editor/react";
+import Editor, { OnMount } from "@monaco-editor/react";
 import type * as monaco from "monaco-editor";
 
 /* ─────────────────────── Language Detection ─────────────────────── */
@@ -237,9 +237,9 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     [filePath, onSave]
   );
 
-  const handleDiffMount: DiffOnMount = useCallback((editor, monacoInstance) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleDiffMount = useCallback((editor: any, monacoInstance: typeof monaco) => {
     ensureTheme(monacoInstance);
-    // editor here is IStandaloneDiffEditor
     void editor;
   }, []);
 

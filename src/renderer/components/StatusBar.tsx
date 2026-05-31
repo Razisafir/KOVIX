@@ -17,8 +17,8 @@ function StatusBar() {
   // Track cursor position from Monaco via custom events
   const [cursor, setCursor] = useState<CursorPosition>({ line: 1, column: 1 });
   const [activeFileName, setActiveFileName] = useState("main.py");
-  const [language, setLanguage] = useState("Python");
-  const [pendingChanges, setPendingChanges] = useState(0);
+  const [language] = useState("Python");
+  const [pendingChanges] = useState(0);
 
   useEffect(() => {
     const handleCursorChange = (e: Event) => {
@@ -94,7 +94,7 @@ function StatusBar() {
           className="flex items-center gap-1 text-[#4A5568] hover:text-[#E0E7FF] cursor-pointer bg-transparent border-none transition-colors"
           title="Toggle Terminal"
         >
-          <span className="text-[11px]">\u{1F5A5}\uFE0F</span>
+          <span className="text-[11px]">{"\u{1F5A5}\uFE0F"}</span>
         </button>
         <button
           onClick={toggleRightPanel}
@@ -104,10 +104,10 @@ function StatusBar() {
           }}
           title="Toggle Agent Panel"
         >
-          <span className="text-[11px]">\u{1F916}</span>
+          <span className="text-[11px]">{"\u{1F916}"}</span>
         </button>
         <span className="text-[#4A5568] hover:text-[#E0E7FF] cursor-pointer">
-          \u24D8 0
+          {"\u24D8"} 0
         </span>
       </div>
     </div>

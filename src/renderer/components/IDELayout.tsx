@@ -12,7 +12,6 @@ const TerminalPanel = lazy(() =>
 );
 const DiffPanel = lazy(() => import("./DiffPanel"));
 const MemoryPanel = lazy(() => import("./MemoryPanel"));
-const AgentPanel = lazy(() => import("./AgentPanel"));
 const RightAgentPanel = lazy(() => import("./RightAgentPanel"));
 
 /* ─────────────────────── Default code ─────────────────────── */
@@ -81,7 +80,6 @@ export const IDELayout: React.FC = () => {
   const panelTab = useAppStore((s) => s.panelTab);
   const setPanelTab = useAppStore((s) => s.setPanelTab);
   const agentStatus = useAppStore((s) => s.agentStatus);
-  const agentGoal = useAppStore((s) => s.agentGoal);
 
   // Editor state (local until we add useEditorStore)
   const [tabs, setTabs] = useState<EditorTab[]>(() => [
@@ -173,12 +171,12 @@ export const IDELayout: React.FC = () => {
 
   /* ─── Bottom panel tabs ─── */
   const bottomTabs = [
-    { id: "terminal", label: "\u{1F5A5}\uFE0F Terminal" },
-    { id: "chat", label: "\u{1F4AC} Chat" },
-    { id: "memory", label: "\u{1F9E0} Memory" },
-    { id: "changes", label: "\u{1F527} Changes" },
-    { id: "skills", label: "\u2699\uFE0F Skills" },
-    { id: "mcp", label: "\u{1F310} MCP" },
+    { id: "terminal", label: "Terminal" },
+    { id: "chat", label: "Chat" },
+    { id: "memory", label: "Memory" },
+    { id: "changes", label: "Changes" },
+    { id: "skills", label: "Skills" },
+    { id: "mcp", label: "MCP" },
   ];
 
   return (
@@ -242,7 +240,7 @@ export const IDELayout: React.FC = () => {
                       </span>
                       {activeTab?.isModified && (
                         <span className="ml-2 text-[9px] font-mono text-[#00E5FF]">
-                          \u25CF modified
+                          {"\u25CF"} modified
                         </span>
                       )}
                     </div>
@@ -261,7 +259,7 @@ export const IDELayout: React.FC = () => {
                         <div className="h-full flex items-center justify-center text-[#4A5568] text-sm">
                           <div className="text-center">
                             <div className="text-5xl mb-4 opacity-15">
-                              \u{1F916}
+                              {"\u{1F916}"}
                             </div>
                             <p className="text-[13px]">
                               Open a file or ask the agent to create one

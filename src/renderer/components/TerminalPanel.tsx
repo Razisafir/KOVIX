@@ -20,8 +20,8 @@ export const TerminalPanel: React.FC = () => {
         const { FitAddon } = await import("@xterm/addon-fit");
         const { WebLinksAddon } = await import("@xterm/addon-web-links");
 
-        // Import xterm CSS
-        await import("@xterm/xterm/css/xterm.css");
+        // Import xterm CSS (dynamic — may not resolve as a module)
+        try { await import("@xterm/xterm/css/xterm.css"); } catch { /* CSS imported via style tag */ }
 
         term = new Terminal({
           fontFamily: "'JetBrains Mono', 'Fira Code', monospace",

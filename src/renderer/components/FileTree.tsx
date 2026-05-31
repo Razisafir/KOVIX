@@ -1,5 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react";
-import useAppStore from "../stores/useAppStore";
+import React, { useState, useCallback, useEffect } from "react";
 
 /* ─────────────────────── Types ─────────────────────── */
 
