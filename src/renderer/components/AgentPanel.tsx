@@ -3,7 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import type { LogEntry } from "./TerminalOutput";
-import { type PendingChange, type DiffHunk_ as InlineDiffHunk, type DiffLine } from "./InlineDiff";
+import { type PendingChange, type DiffHunk_ as InlineDiffHunk } from "./InlineDiff";
 import useAppStore from "../stores/useAppStore";
 import { useDiffStore } from "../stores/useDiffStore";
 import { generateDiff } from "../utils/diffParser";

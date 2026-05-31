@@ -1,6 +1,31 @@
 import { useState } from "react";
 import type { FileDiff, DiffHunk } from "../types/diff";
 import { useDiffStore } from "../stores/useDiffStore";
+import { isTauri, getWriteTextFile, reconstructContent } from "../utils/tauriHelpers";
+
+/** Write accepted file content to disk */
+async function applyToDisk(fileDiff: FileDiff): Promise<boolean> {
+  const acceptedHunks = fileDiff.hunks.filter((h) => h.accepted === true);
+  if (acceptedHunks.length === 0) return false;
+
+  const finalContent = reconstructContent(fileDiff.oldContent, fileDiff.hunks);
+
+  const writeFn = getWriteTextFile();
+  if (isTauri() && writeFn) {
+    try {
+      await writeFn(fileDiff.filePath, finalContent);
+      console.log("[DiffViewer] Written to disk:", fileDiff.filePath);
+      return true;
+    } catch (err) {
+      console.error("[DiffViewer] Failed to write:", fileDiff.filePath, err);
+      return false;
+    }
+  }
+
+  // Web mode: just log
+  console.log("[DiffViewer] Would write to disk (web mode):", fileDiff.filePath);
+  return true;
+}
 
 function HunkActions({
   hunk,
@@ -105,6 +130,15 @@ export function DiffViewer({ sessionId, fileDiff }: { sessionId: string; fileDif
   const acceptAll = useDiffStore((s) => s.acceptAll);
   const rejectAll = useDiffStore((s) => s.rejectAll);
   const pendingCount = fileDiff.hunks.filter((h) => h.accepted === null).length;
+  const allAccepted = fileDiff.hunks.every((h) => h.accepted === true);
+  const [diskWriteOk, setDiskWriteOk] = useState(false);
+
+  const handleAcceptAll = async () => {
+    acceptAll(sessionId);
+    // After accepting all hunks, write to disk
+    const result = await applyToDisk({ ...fileDiff, hunks: fileDiff.hunks.map((h) => ({ ...h, accepted: true })) });
+    if (result) setDiskWriteOk(true);
+  };
 
   return (
     <div>
@@ -117,8 +151,14 @@ export function DiffViewer({ sessionId, fileDiff }: { sessionId: string; fileDif
         {pendingCount > 0 && (
           <div className="flex gap-1.5">
             <button onClick={() => rejectAll(sessionId)} className="h-[18px] px-1.5 bg-transparent border font-mono text-[8px] font-semibold tracking-wider cursor-pointer rounded" style={{ borderColor: "rgba(248,113,113,0.2)", color: "var(--c-err)" }}>REJECT ALL</button>
-            <button onClick={() => acceptAll(sessionId)} className="h-[18px] px-1.5 bg-transparent border font-mono text-[8px] font-semibold tracking-wider cursor-pointer rounded" style={{ borderColor: "rgba(74,222,128,0.2)", color: "var(--c-ok)" }}>ACCEPT ALL</button>
+            <button onClick={handleAcceptAll} className="h-[18px] px-1.5 bg-transparent border font-mono text-[8px] font-semibold tracking-wider cursor-pointer rounded" style={{ borderColor: "rgba(74,222,128,0.2)", color: "var(--c-ok)" }}>ACCEPT ALL</button>
           </div>
+        )}
+        {allAccepted && diskWriteOk && (
+          <span className="flex items-center gap-1 text-[10px] font-mono text-diff-add">
+            <span className="material-symbols-outlined text-[11px]">check_circle</span>
+            Saved
+          </span>
         )}
       </div>
       {fileDiff.hunks.map((hunk) => (<HunkView key={hunk.id} hunk={hunk} filePath={fileDiff.filePath} sessionId={sessionId} />))}

@@ -1,10 +1,54 @@
+import { useState, useCallback } from "react";
 import { useDiffStore } from "../stores/useDiffStore";
 import { DiffViewer } from "./DiffViewer";
+import type { FileDiff } from "../types/diff";
+import { isTauri, getWriteTextFile, reconstructContent } from "../utils/tauriHelpers";
+
+/** Write accepted file content to disk */
+async function applyFileToDisk(fileDiff: FileDiff): Promise<boolean> {
+  const acceptedHunks = fileDiff.hunks.filter((h) => h.accepted === true);
+  if (acceptedHunks.length === 0) return false;
+
+  const finalContent = reconstructContent(fileDiff.oldContent, fileDiff.hunks);
+
+  const writeFn = getWriteTextFile();
+  if (isTauri() && writeFn) {
+    try {
+      await writeFn(fileDiff.filePath, finalContent);
+      console.log("[DiffPanel] Written to disk:", fileDiff.filePath);
+      return true;
+    } catch (err) {
+      console.error("[DiffPanel] Failed to write:", fileDiff.filePath, err);
+      return false;
+    }
+  }
+
+  console.log("[DiffPanel] Would write to disk (web mode):", fileDiff.filePath);
+  return true;
+}
 
 function DiffPanel() {
   const sessions = useDiffStore((s) => s.sessions);
   const activeSessionId = useDiffStore((s) => s.activeSessionId);
   const activeSession = activeSessionId ? sessions.get(activeSessionId) : null;
+  const [applyStatus, setApplyStatus] = useState<string | null>(null);
+
+  const handleApplyAllAccepted = useCallback(async () => {
+    if (!activeSession) return;
+    let appliedCount = 0;
+    let errorCount = 0;
+    for (const fileDiff of activeSession.fileDiffs) {
+      const hasAccepted = fileDiff.hunks.some((h) => h.accepted === true);
+      if (!hasAccepted) continue;
+      const ok = await applyFileToDisk(fileDiff);
+      if (ok) appliedCount++;
+      else errorCount++;
+    }
+    if (appliedCount > 0 || errorCount > 0) {
+      setApplyStatus(`${appliedCount} file(s) written${errorCount > 0 ? `, ${errorCount} error(s)` : ""}`);
+      setTimeout(() => setApplyStatus(null), 4000);
+    }
+  }, [activeSession]);
 
   if (!activeSession || activeSession.fileDiffs.length === 0) {
     return (
@@ -62,7 +106,20 @@ function DiffPanel() {
               {rejectedCount} rejected
             </span>
           )}
+          {acceptedCount > 0 && (
+            <button
+              onClick={handleApplyAllAccepted}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono font-semibold border cursor-pointer transition-colors"
+              style={{ borderColor: "rgba(74,222,128,0.3)", color: "var(--c-ok)", backgroundColor: "rgba(74,222,128,0.1)" }}
+            >
+              <span className="material-symbols-outlined text-[10px]">save</span>
+              Apply All Accepted
+            </button>
+          )}
         </div>
+        {applyStatus && (
+          <span className="text-[9px] font-mono text-diff-add">{applyStatus}</span>
+        )}
       </div>
       <div
         className="flex-1 overflow-auto p-1"

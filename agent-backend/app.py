@@ -36,7 +36,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Dict, List, Optional, Any
 
-from fastapi import FastAPI, HTTPException, Path, Request
+from fastapi import FastAPI, HTTPException, Path, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -2878,14 +2878,18 @@ async def detect_hallucinations(session_id: str) -> dict:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+class TelemetryEvaluateRequest(BaseModel):
+    session_id: str = Field(..., description="Session ID")
+    iteration: int = Field(..., description="Iteration number")
+    evaluator: str = Field("human", description="Evaluator type: human, automated, llm_judge")
+    score: float = Field(..., ge=0.0, le=1.0, description="Score 0.0-1.0")
+    feedback: Optional[str] = Field(None, description="Optional feedback text")
+    hallucination_detected: Optional[bool] = Field(None, description="Whether hallucination was detected")
+
+
 @app.post("/telemetry/evaluate")
 async def add_telemetry_evaluation(
-    session_id: str = Field(..., description="Session ID"),
-    iteration: int = Field(..., description="Iteration number"),
-    evaluator: str = Field("human", description="Evaluator type: human, automated, llm_judge"),
-    score: float = Field(..., ge=0.0, le=1.0, description="Score 0.0-1.0"),
-    feedback: Optional[str] = Field(None, description="Optional feedback text"),
-    hallucination_detected: Optional[bool] = Field(None, description="Whether hallucination was detected"),
+    req: TelemetryEvaluateRequest,
 ) -> dict:
     """Add a quality evaluation for a session iteration.
 
@@ -2899,12 +2903,12 @@ async def add_telemetry_evaluation(
         evaluation = TraceEvaluation(
             evaluation_id=str(uuid.uuid4()),
             trace_id="",
-            session_id=session_id,
-            iteration=iteration,
-            evaluator=evaluator,
-            score=score,
-            feedback=feedback,
-            hallucination_detected=hallucination_detected,
+            session_id=req.session_id,
+            iteration=req.iteration,
+            evaluator=req.evaluator,
+            score=req.score,
+            feedback=req.feedback,
+            hallucination_detected=req.hallucination_detected,
         )
         store.record_evaluation(evaluation)
         return {"status": "recorded", "evaluation_id": evaluation.evaluation_id}
@@ -2954,9 +2958,9 @@ async def index_project_graph(req: GraphIndexRequest) -> dict:
 
 @app.get("/graph/search")
 async def search_code_graph(
-    q: str = Field(..., description="Search query"),
-    type: str = Field("hybrid", description="Query type: name, type, dependency, dependent, hybrid"),
-    project_path: str = Field(".", description="Project path"),
+    q: str = Query(..., description="Search query"),
+    type: str = Query("hybrid", description="Query type: name, type, dependency, dependent, hybrid"),
+    project_path: str = Query(".", description="Project path"),
 ) -> dict:
     """Search code by structure and semantics.
 
@@ -2980,8 +2984,8 @@ async def search_code_graph(
 @app.get("/graph/context/{node_id:path}")
 async def get_node_context(
     node_id: str = Path(..., description="Node ID (file:entity)"),
-    depth: int = Field(2, ge=1, le=5, description="Context depth"),
-    project_path: str = Field(".", description="Project path"),
+    depth: int = Query(2, ge=1, le=5, description="Context depth"),
+    project_path: str = Query(".", description="Project path"),
 ) -> dict:
     """Get full structural context for a code entity.
 
@@ -2999,7 +3003,7 @@ async def get_node_context(
 
 
 @app.get("/graph/stats")
-async def graph_stats(project_path: str = Field(".", description="Project path")) -> dict:
+async def graph_stats(project_path: str = Query(".", description="Project path")) -> dict:
     """Get code graph statistics for a project."""
     try:
         from core.code_graph import CodeGraph
@@ -3013,7 +3017,7 @@ async def graph_stats(project_path: str = Field(".", description="Project path")
 @app.get("/graph/file/{file_path:path}")
 async def get_file_structure(
     file_path: str = Path(..., description="Relative file path"),
-    project_path: str = Field(".", description="Project path"),
+    project_path: str = Query(".", description="Project path"),
 ) -> dict:
     """Get all AST entities in a single file."""
     try:
@@ -3123,3 +3127,102 @@ async def sandbox_session_status(session_id: str) -> dict:
             mode = type(sandbox).__name__
         return {"session_id": session_id, "active": active, "mode": mode}
     return {"session_id": session_id, "active": False, "mode": "none"}
+
+
+# ===========================================================================
+# Shadow FS Endpoints — diff review, merge, discard
+# ===========================================================================
+
+@app.get("/agent/{session_id}/diffs")
+async def agent_get_diffs(
+    session_id: str = Path(..., description="The session ID"),
+) -> dict:
+    """Get all pending diffs from the session's shadow filesystem.
+
+    Returns a list of diff objects for files that have been created,
+    modified, or deleted in the shadow layer but not yet merged to disk.
+    """
+    executor = _get_executor()
+    session = executor.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.shadow_fs is None:
+        return {"session_id": session_id, "diffs": [], "message": "No shadow FS for this session"}
+    try:
+        diffs = session.shadow_fs.get_all_diffs()
+        return {"session_id": session_id, "diffs": diffs}
+    except Exception as exc:
+        logger.error("Failed to get diffs for session %s: %s", session_id, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/agent/{session_id}/merge")
+async def agent_merge_shadow(
+    session_id: str = Path(..., description="The session ID"),
+) -> dict:
+    """Merge all accepted shadow filesystem changes to disk.
+
+    Writes all pending changes (created, modified, deleted files) from
+    the shadow layer to the real filesystem. After merging, the shadow
+    layer is reset to match the on-disk state.
+    """
+    executor = _get_executor()
+    session = executor.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.shadow_fs is None:
+        raise HTTPException(
+            status_code=400, detail="No shadow FS for this session"
+        )
+    try:
+        results = session.shadow_fs.merge_to_disk()
+        merged = [p for p, ok in results.items() if ok]
+        failed = [p for p, ok in results.items() if not ok]
+        logger.info(
+            "Shadow merge for session %s: %d merged, %d failed",
+            session_id,
+            len(merged),
+            len(failed),
+        )
+        return {
+            "session_id": session_id,
+            "status": "merged",
+            "message": f"All shadow changes merged to disk ({len(merged)} files)",
+            "merged": merged,
+            "failed": failed,
+        }
+    except Exception as exc:
+        logger.error("Failed to merge shadow for session %s: %s", session_id, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/agent/{session_id}/discard")
+async def agent_discard_shadow(
+    session_id: str = Path(..., description="The session ID"),
+) -> dict:
+    """Discard all shadow filesystem changes, reverting to on-disk state.
+
+    Removes all pending changes from the shadow layer. The shadow is
+    reset to match the real filesystem. No files on disk are affected.
+    """
+    executor = _get_executor()
+    session = executor.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.shadow_fs is None:
+        raise HTTPException(
+            status_code=400, detail="No shadow FS for this session"
+        )
+    try:
+        session.shadow_fs.discard_changes()
+        logger.info("Shadow discard for session %s", session_id)
+        return {
+            "session_id": session_id,
+            "status": "discarded",
+            "message": "All shadow changes discarded",
+        }
+    except Exception as exc:
+        logger.error(
+            "Failed to discard shadow for session %s: %s", session_id, exc
+        )
+        raise HTTPException(status_code=500, detail=str(exc))

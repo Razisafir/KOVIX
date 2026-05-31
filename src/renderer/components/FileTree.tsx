@@ -1,4 +1,51 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { isTauri, getReadDir, getReadTextFile } from "../utils/tauriHelpers";
+
+const FALLBACK_PATHS = [
+  "src/core/executor.py",
+  "src/core/llm_service.py",
+  "src/core/safety.py",
+  "src/core/shadow_fs.py",
+  "src/core/sandbox.py",
+  "src/core/telemetry.py",
+  "src/core/code_graph.py",
+  "src/core/hybrid_search.py",
+  "src/tools/__init__.py",
+  "src/tools/shadow_wrappers.py",
+  "src/tools/sandboxed_commands.py",
+  "src/tools/file_tools.py",
+  "src/tools/shell_tools.py",
+  "src/tools/git_tools.py",
+  "src/memory/__init__.py",
+  "src/memory/semantic.py",
+  "src/agents/__init__.py",
+  "src/agents/orchestrator.py",
+  "src/security/agent_shield.py",
+  "src/app.py",
+  "src/main.py",
+  "frontend/src/renderer/App.tsx",
+  "frontend/src/renderer/main.tsx",
+  "frontend/src/renderer/components/MonacoEditor.tsx",
+  "frontend/src/renderer/components/FileTree.tsx",
+  "frontend/src/renderer/components/IDELayout.tsx",
+  "frontend/src/renderer/components/TerminalPanel.tsx",
+  "frontend/src/renderer/components/InlineAgent.tsx",
+  "frontend/src/renderer/components/StatusBar.tsx",
+  "frontend/src/renderer/components/DiffViewer.tsx",
+  "frontend/src/renderer/components/TraceViewer.tsx",
+  "frontend/src/renderer/stores/useAppStore.ts",
+  "frontend/src/renderer/stores/useDiffStore.ts",
+  "frontend/src/main/src/lib.rs",
+  "frontend/src/main/src/terminal.rs",
+  "requirements.txt",
+  "pyproject.toml",
+  "README.md",
+  "Dockerfile",
+  "docker-compose.yml",
+  ".gitignore",
+  "package.json",
+  "Cargo.toml",
+];
 
 /* ─────────────────────── Types ─────────────────────── */
 
@@ -178,60 +225,71 @@ export const FileTree: React.FC<FileTreeProps> = ({ onFileSelect }) => {
   );
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [treeData, setTreeData] = useState<TreeNode | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const projectPathRef = useRef<string>("~/construct-projects/default");
+
+  // Load project files from disk or fallback to hardcoded list
+  const loadProjectFiles = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      if (isTauri()) {
+        const readDirFn = getReadDir();
+        if (readDirFn) {
+          // Tauri mode: read directory recursively
+          const paths: string[] = [];
+
+          async function walkDir(dirPath: string, prefix: string = ""): Promise<void> {
+            try {
+              const entries = await readDirFn!(dirPath);
+              for (const entry of entries) {
+                const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+                if (entry.isDirectory) {
+                  // Skip hidden and common ignored dirs
+                  if (entry.name.startsWith(".") || ["node_modules", "__pycache__", "target", "dist", ".git", "venv", ".venv"].includes(entry.name)) {
+                    continue;
+                  }
+                  await walkDir(`${dirPath}/${entry.name}`, relPath);
+                } else {
+                  paths.push(relPath);
+                }
+              }
+            } catch {
+              // Permission denied or not found — skip
+            }
+          }
+
+          await walkDir(projectPathRef.current);
+          if (paths.length > 0) {
+            const tree = buildTree(paths);
+            setTreeData(tree);
+          } else {
+            // Empty project — use fallback
+            const tree = buildTree(FALLBACK_PATHS);
+            setTreeData(tree);
+          }
+        } else {
+          // Tauri but readDir unavailable — use fallback
+          const tree = buildTree(FALLBACK_PATHS);
+          setTreeData(tree);
+        }
+      } else {
+        // Web mode: use fallback
+        const tree = buildTree(FALLBACK_PATHS);
+        setTreeData(tree);
+      }
+    } catch {
+      // Error reading directory — use fallback
+      const tree = buildTree(FALLBACK_PATHS);
+      setTreeData(tree);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Build tree from project files (using Tauri FS or fallback to static data)
   useEffect(() => {
-    // In a real app, this would use @tauri-apps/plugin-fs to read the directory
-    // For now, use a representative project structure
-    const projectPaths = [
-      "src/core/executor.py",
-      "src/core/llm_service.py",
-      "src/core/safety.py",
-      "src/core/shadow_fs.py",
-      "src/core/sandbox.py",
-      "src/core/telemetry.py",
-      "src/core/code_graph.py",
-      "src/core/hybrid_search.py",
-      "src/tools/__init__.py",
-      "src/tools/shadow_wrappers.py",
-      "src/tools/sandboxed_commands.py",
-      "src/tools/file_tools.py",
-      "src/tools/shell_tools.py",
-      "src/tools/git_tools.py",
-      "src/memory/__init__.py",
-      "src/memory/semantic.py",
-      "src/agents/__init__.py",
-      "src/agents/orchestrator.py",
-      "src/security/agent_shield.py",
-      "src/app.py",
-      "src/main.py",
-      "frontend/src/renderer/App.tsx",
-      "frontend/src/renderer/main.tsx",
-      "frontend/src/renderer/components/MonacoEditor.tsx",
-      "frontend/src/renderer/components/FileTree.tsx",
-      "frontend/src/renderer/components/IDELayout.tsx",
-      "frontend/src/renderer/components/TerminalPanel.tsx",
-      "frontend/src/renderer/components/InlineAgent.tsx",
-      "frontend/src/renderer/components/StatusBar.tsx",
-      "frontend/src/renderer/components/DiffViewer.tsx",
-      "frontend/src/renderer/components/TraceViewer.tsx",
-      "frontend/src/renderer/stores/useAppStore.ts",
-      "frontend/src/renderer/stores/useDiffStore.ts",
-      "frontend/src/main/src/lib.rs",
-      "frontend/src/main/src/terminal.rs",
-      "requirements.txt",
-      "pyproject.toml",
-      "README.md",
-      "Dockerfile",
-      "docker-compose.yml",
-      ".gitignore",
-      "package.json",
-      "Cargo.toml",
-    ];
-
-    const tree = buildTree(projectPaths);
-    setTreeData(tree);
-  }, []);
+    loadProjectFiles();
+  }, [loadProjectFiles]);
 
   const toggleFolder = useCallback((path: string) => {
     setExpandedFolders((prev) => {
@@ -248,7 +306,22 @@ export const FileTree: React.FC<FileTreeProps> = ({ onFileSelect }) => {
         toggleFolder(path);
       } else {
         setActiveFilePath(path);
-        onFileSelect?.(path);
+        // Try to read file content from disk via Tauri FS
+        const readFn = getReadTextFile();
+        if (isTauri() && readFn) {
+          const fullPath = `${projectPathRef.current}/${path}`;
+          readFn(fullPath).then((content) => {
+            onFileSelect?.(path);
+            // Dispatch event with content for the editor
+            window.dispatchEvent(new CustomEvent("construct:file-content", {
+              detail: { path, content },
+            }));
+          }).catch(() => {
+            onFileSelect?.(path);
+          });
+        } else {
+          onFileSelect?.(path);
+        }
       }
     },
     [onFileSelect, toggleFolder]
@@ -269,7 +342,9 @@ export const FileTree: React.FC<FileTreeProps> = ({ onFileSelect }) => {
             +
           </button>
           <button
-            className="text-[12px] text-[#4A5568] hover:text-[#00E5FF] cursor-pointer bg-transparent border-none transition-colors"
+            onClick={loadProjectFiles}
+            disabled={isLoading}
+            className={`text-[12px] cursor-pointer bg-transparent border-none transition-colors ${isLoading ? "text-[#00E5FF] animate-spin" : "text-[#4A5568] hover:text-[#00E5FF]"}`}
             title="Refresh"
           >
             \u21BB

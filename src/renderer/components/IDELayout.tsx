@@ -1,4 +1,4 @@
-import React, { useState, useCallback, Suspense, lazy } from "react";
+import React, { useState, useCallback, Suspense, lazy, useEffect } from "react";
 import { Allotment } from "allotment";
 import "allotment/dist/style.css";
 import { FileTree } from "./FileTree";
@@ -6,6 +6,7 @@ import { MonacoEditor } from "./MonacoEditor";
 import TabBar, { type EditorTab } from "./TabBar";
 import useAppStore from "../stores/useAppStore";
 import { InlineAgentManager } from "./InlineAgent";
+import { isTauri, getWriteTextFile } from "../utils/tauriHelpers";
 
 const TerminalPanel = lazy(() =>
   import("./TerminalPanel").then((m) => ({ default: m.TerminalPanel }))
@@ -143,6 +144,25 @@ export const IDELayout: React.FC = () => {
     [activeTabId]
   );
 
+  // Listen for file content events from FileTree (when reading from disk)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.path && detail?.content) {
+        // Update the tab content if a tab for this file is open
+        setTabs((prev) =>
+          prev.map((t) =>
+            t.filePath === detail.path
+              ? { ...t, content: detail.content, isModified: false }
+              : t
+          )
+        );
+      }
+    };
+    window.addEventListener("construct:file-content", handler);
+    return () => window.removeEventListener("construct:file-content", handler);
+  }, []);
+
   const handleFileSelect = useCallback(
     (path: string) => {
       const fileName = path.split("/").pop() || path;
@@ -157,14 +177,25 @@ export const IDELayout: React.FC = () => {
   );
 
   const handleSave = useCallback(
-    (value: string) => {
-      // In production, use Tauri FS plugin to write to disk
+    async (value: string) => {
+      const filePath = activeTab?.filePath;
+      if (!filePath) return;
+
+      try {
+        const writeFn = getWriteTextFile();
+        if (isTauri() && writeFn) {
+          await writeFn(filePath, value);
+          console.log("[IDE] Saved to disk:", filePath);
+        }
+      } catch (err) {
+        console.error("[IDE] Failed to save:", err);
+      }
+
       setTabs((prev) =>
         prev.map((t) =>
           t.id === activeTabId ? { ...t, content: value, isModified: false } : t
         )
       );
-      console.log("[IDE] Saved:", activeTab?.filePath);
     },
     [activeTabId, activeTab]
   );

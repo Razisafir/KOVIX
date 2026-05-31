@@ -1,5 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import useAppStore from "../stores/useAppStore";
+import { useDiffStore } from "../stores/useDiffStore";
+import { generateDiff } from "../utils/diffParser";
+import type { FileDiff } from "../types/diff";
+import {
+  isTauri,
+  getInvoke,
+  getListen,
+  getReadTextFile,
+  getWriteTextFile,
+  reconstructContent,
+} from "../utils/tauriHelpers";
 
 // Tab configuration
 const tabs = [
@@ -10,6 +21,15 @@ const tabs = [
   { id: "mcp", icon: "plug", label: "MCP" },
 ];
 
+/** A single chat/agent message in the panel */
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: number;
+  type?: "text" | "thought" | "tool_call" | "token" | "error" | "complete";
+}
+
 function RightAgentPanel() {
   const rightPanelTab = useAppStore((s) => s.rightPanelTab);
   const setRightPanelTab = useAppStore((s) => s.setRightPanelTab);
@@ -17,7 +37,25 @@ function RightAgentPanel() {
   const agentMode = useAppStore((s) => s.agentMode);
   const setAgentMode = useAppStore((s) => s.setAgentMode);
   const agentStatus = useAppStore((s) => s.agentStatus);
+  const setAgentStatus = useAppStore((s) => s.setAgentStatus);
+  const setAgentSessionId = useAppStore((s) => s.setAgentSessionId);
+
   const [goalInput, setGoalInput] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [streamingText, setStreamingText] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const unlistenRef = useRef<(() => void) | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Pending diff count from store
+  const pendingDiffCount = useDiffStore((s) => s.getPendingCount());
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, streamingText]);
 
   // Listen for panel-tab events
   useEffect(() => {
@@ -31,33 +69,568 @@ function RightAgentPanel() {
     return () => window.removeEventListener("construct:panel-tab", handler);
   }, [setRightPanelTab]);
 
+  // Listen for agent events from Rust backend when sessionId changes
+  useEffect(() => {
+    if (!sessionId) return;
+
+    let cancelled = false;
+
+    const setupListener = async () => {
+      const listenFn = getListen();
+      if (!listenFn) return;
+
+      const unlisten = await listenFn(
+        `agent:${sessionId}`,
+        (event: unknown) => {
+          if (cancelled) return;
+
+          const payload = (event as { payload: { type: string; content: string; timestamp: number } }).payload;
+          const { type, content } = payload;
+
+          switch (type) {
+            case "thought":
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                  role: "assistant",
+                  content,
+                  timestamp: Date.now(),
+                  type: "thought",
+                },
+              ]);
+              setStreamingText("");
+              setIsStreaming(false);
+              break;
+
+            case "token":
+              setStreamingText((prev) => prev + content);
+              setIsStreaming(true);
+              break;
+
+            case "tool_call":
+              setStreamingText("");
+              setIsStreaming(false);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                  role: "assistant",
+                  content,
+                  timestamp: Date.now(),
+                  type: "tool_call",
+                },
+              ]);
+              // Intercept file-change tool calls and generate diffs
+              handleToolCall(content);
+              break;
+
+            case "task_start":
+              setAgentStatus("running");
+              break;
+
+            case "task_complete":
+              break;
+
+            case "complete":
+              setAgentStatus("idle");
+              setStreamingText("");
+              setIsStreaming(false);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                  role: "system",
+                  content: "Agent completed.",
+                  timestamp: Date.now(),
+                  type: "complete",
+                },
+              ]);
+              break;
+
+            case "error":
+              setAgentStatus("failed");
+              setStreamingText("");
+              setIsStreaming(false);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                  role: "system",
+                  content: `Error: ${content}`,
+                  timestamp: Date.now(),
+                  type: "error",
+                },
+              ]);
+              break;
+
+            case "done":
+              setStreamingText("");
+              setIsStreaming(false);
+              if (agentStatus === "running") setAgentStatus("idle");
+              break;
+
+            case "stream_error":
+            case "stream_timeout":
+              setIsStreaming(false);
+              break;
+          }
+        }
+      );
+
+      if (!cancelled) {
+        unlistenRef.current = unlisten;
+      } else {
+        unlisten();
+      }
+    };
+
+    setupListener();
+
+    return () => {
+      cancelled = true;
+      if (unlistenRef.current) {
+        unlistenRef.current();
+        unlistenRef.current = null;
+      }
+    };
+  }, [sessionId, agentStatus, setAgentStatus]);
+
+  /** Handle tool_call events that modify files — generate diffs and add to diff store */
+  const handleToolCall = useCallback((content: string) => {
+    try {
+      const data = JSON.parse(content);
+      const toolName = data.tool || data.tool_name;
+      if (
+        toolName === "write_file" ||
+        toolName === "edit_file" ||
+        toolName === "create_file" ||
+        toolName === "delete_file"
+      ) {
+        const filePath = data.arguments?.path || data.arguments?.file_path || data.path || "";
+        const newContent = data.arguments?.content || data.content || "";
+
+        if (!filePath) return;
+
+        const diffStore = useDiffStore.getState();
+        const activeId = diffStore.activeSessionId;
+        if (!activeId) return;
+
+        if (toolName === "delete_file") {
+          // Delete: read old content, create deletion diff
+          const readFn = getReadTextFile();
+          if (isTauri() && readFn) {
+            readFn(filePath)
+              .then((oldContent) => {
+                const oldLines = oldContent.split("\n");
+                const fileDiff: FileDiff = {
+                  filePath,
+                  status: "deleted",
+                  hunks: [
+                    {
+                      id: "hunk-0",
+                      oldStart: 1,
+                      oldLines: oldLines.length,
+                      newStart: 0,
+                      newLines: 0,
+                      oldContent: oldLines,
+                      newContent: [],
+                      header: `@@ -1,${oldLines.length} +0,0 @@`,
+                      accepted: null,
+                    },
+                  ],
+                  oldContent,
+                  newContent: "",
+                };
+                diffStore.addFileDiff(activeId, fileDiff);
+              })
+              .catch(() => {
+                const fileDiff: FileDiff = {
+                  filePath,
+                  status: "deleted",
+                  hunks: [],
+                  oldContent: "",
+                  newContent: "",
+                };
+                diffStore.addFileDiff(activeId, fileDiff);
+              });
+          }
+          return;
+        }
+
+        if (!newContent) return;
+
+        // Write/create/edit file: generate diff
+        const readFn = getReadTextFile();
+        if (isTauri() && readFn) {
+          readFn(filePath)
+            .then((oldContent) => {
+              const fileDiff = generateDiff(oldContent, newContent, filePath);
+              diffStore.addFileDiff(activeId, fileDiff);
+            })
+            .catch(() => {
+              // File doesn't exist — it's a new file
+              const newLines = newContent.split("\n");
+              const fileDiff: FileDiff = {
+                filePath,
+                status: "added",
+                hunks: [
+                  {
+                    id: `hunk-0`,
+                    oldStart: 0,
+                    oldLines: 0,
+                    newStart: 1,
+                    newLines: newLines.length,
+                    oldContent: [],
+                    newContent: newLines,
+                    header: `@@ -0,0 +1,${newLines.length} @@`,
+                    accepted: null,
+                  },
+                ],
+                oldContent: "",
+                newContent,
+              };
+              diffStore.addFileDiff(activeId, fileDiff);
+            });
+        } else {
+          // Web mode: generate diff with empty old content
+          const fileDiff = generateDiff("", newContent, filePath);
+          diffStore.addFileDiff(activeId, fileDiff);
+        }
+      }
+    } catch {
+      // Content wasn't JSON — ignore
+    }
+  }, []);
+
+  /** Start the agent with the given goal */
+  const startAgent = useCallback(
+    async (goal: string) => {
+      if (!goal.trim() || isSending) return;
+
+      setIsSending(true);
+      setAgentStatus("running");
+
+      // Add user message to chat
+      const userMsg: ChatMessage = {
+        id: `msg-${Date.now()}-user`,
+        role: "user",
+        content: goal,
+        timestamp: Date.now(),
+        type: "text",
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setGoalInput("");
+      setStreamingText("");
+      setIsStreaming(false);
+
+      try {
+        if (isTauri() && getInvoke()) {
+          // Tauri mode: invoke Rust backend
+          const sid = await getInvoke()!("start_agent", {
+            goal,
+            projectPath: "~/construct-projects/default",
+            mode: agentMode,
+          }) as string;
+          setSessionId(sid);
+          setAgentSessionId(sid);
+          useDiffStore.getState().createSession(sid, []);
+
+          // Start SSE stream for real-time tokens
+          getInvoke()!("stream_agent_events", { sessionId: sid }).catch((err: unknown) => {
+            console.warn("[RightAgentPanel] SSE stream failed (falling back to polling):", err);
+          });
+        } else {
+          // Web mode: simulate agent response via backend API
+          try {
+            const response = await fetch("http://127.0.0.1:8000/agent/start", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                goal,
+                project_path: ".",
+                mode: agentMode,
+              }),
+            });
+            if (response.ok) {
+              const data = await response.json();
+              const sid = data.session_id;
+              setSessionId(sid);
+              setAgentSessionId(sid);
+              useDiffStore.getState().createSession(sid, []);
+
+              // Start polling for events
+              pollAgentOutput(sid);
+            } else {
+              throw new Error(`Agent start failed: ${response.status}`);
+            }
+          } catch (apiErr) {
+            // Backend not available — show mock response
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `msg-${Date.now()}-mock`,
+                role: "assistant",
+                content: `I'll help you with: "${goal}". (Agent backend not connected — running in demo mode)`,
+                timestamp: Date.now(),
+                type: "thought",
+              },
+            ]);
+            setAgentStatus("idle");
+          }
+        }
+      } catch (err) {
+        setAgentStatus("failed");
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}-error`,
+            role: "system",
+            content: `Failed to start agent: ${err}`,
+            timestamp: Date.now(),
+            type: "error",
+          },
+        ]);
+      } finally {
+        setIsSending(false);
+      }
+    },
+    [agentMode, isSending, setAgentStatus, setAgentSessionId]
+  );
+
+  /** Poll agent output from the HTTP API (fallback when Tauri events aren't available) */
+  const pollAgentOutput = useCallback(
+    (sid: string) => {
+      let since = 0;
+      const interval = setInterval(async () => {
+        try {
+          const response = await fetch(
+            `http://127.0.0.1:8000/agent/${sid}/output?since=${since}`
+          );
+          if (!response.ok) {
+            clearInterval(interval);
+            return;
+          }
+          const data = await response.json();
+          if (data.events && data.events.length > 0) {
+            since += data.events.length;
+            for (const event of data.events) {
+              const { type, content } = event;
+              switch (type) {
+                case "thought":
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                      role: "assistant",
+                      content,
+                      timestamp: Date.now(),
+                      type: "thought",
+                    },
+                  ]);
+                  break;
+                case "tool_call":
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                      role: "assistant",
+                      content,
+                      timestamp: Date.now(),
+                      type: "tool_call",
+                    },
+                  ]);
+                  handleToolCall(content);
+                  break;
+                case "complete":
+                  setAgentStatus("idle");
+                  clearInterval(interval);
+                  break;
+                case "error":
+                  setAgentStatus("failed");
+                  clearInterval(interval);
+                  break;
+              }
+            }
+          }
+
+          // Check if session is done
+          const statusResp = await fetch(`http://127.0.0.1:8000/agent/${sid}/status`);
+          if (statusResp.ok) {
+            const statusData = await statusResp.json();
+            if (["completed", "failed", "waiting"].includes(statusData.status)) {
+              setAgentStatus("idle");
+              clearInterval(interval);
+            }
+          }
+        } catch {
+          clearInterval(interval);
+        }
+      }, 1000);
+    },
+    [handleToolCall, setAgentStatus]
+  );
+
+  /** Apply all accepted diffs to disk */
+  const applyAcceptedDiffs = useCallback(async () => {
+    const { activeSessionId: activeId, sessions } = useDiffStore.getState();
+    if (!activeId) return;
+    const session = sessions.get(activeId);
+    if (!session) return;
+
+    let appliedCount = 0;
+
+    for (const fileDiff of session.fileDiffs) {
+      const acceptedHunks = fileDiff.hunks.filter((h) => h.accepted === true);
+      if (acceptedHunks.length === 0) continue;
+
+      const finalContent = reconstructContent(fileDiff.oldContent, fileDiff.hunks);
+
+      try {
+        const writeFn = getWriteTextFile();
+        if (isTauri() && writeFn) {
+          await writeFn(fileDiff.filePath, finalContent);
+          console.log("[RightAgentPanel] Wrote to disk:", fileDiff.filePath);
+        }
+        appliedCount++;
+      } catch (err) {
+        console.error("[RightAgentPanel] Failed to write:", fileDiff.filePath, err);
+      }
+    }
+
+    if (appliedCount > 0) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now()}-apply`,
+          role: "system",
+          content: `Applied ${appliedCount} file(s) to disk.`,
+          timestamp: Date.now(),
+          type: "complete",
+        },
+      ]);
+    }
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        startAgent(goalInput);
+      }
+    },
+    [goalInput, startAgent]
+  );
+
+  const handleSendClick = useCallback(() => {
+    startAgent(goalInput);
+  }, [goalInput, startAgent]);
+
   const renderChatContent = () => (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col overflow-hidden">
       {/* Chat messages area */}
-      <div className="flex-1 overflow-auto p-4 flex flex-col gap-4">
-        {/* Welcome message */}
-        <div className="glass-panel p-4" style={{ animation: "fade-in 300ms ease" }}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="material-symbols-outlined text-accent-cyan text-[20px]">smart_toy</span>
-            <span className="text-sm font-medium font-sans text-text-primary">Construct Agent</span>
+      <div className="flex-1 overflow-auto p-4 flex flex-col gap-3">
+        {/* Welcome message if no messages */}
+        {messages.length === 0 && (
+          <div className="glass-panel p-4" style={{ animation: "fade-in 300ms ease" }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-accent-cyan text-[20px]">smart_toy</span>
+              <span className="text-sm font-medium font-sans text-text-primary">Construct Agent</span>
+            </div>
+            <div className="text-xs text-text-secondary leading-relaxed">
+              I can help you code, debug, review, and manage your project. 
+              Describe what you want to accomplish.
+            </div>
           </div>
-          <div className="text-xs text-text-secondary leading-relaxed">
-            I can help you code, debug, review, and manage your project. 
-            Describe what you want to accomplish.
+        )}
+
+        {/* Render messages */}
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`glass-panel p-3 ${
+              msg.role === "user"
+                ? "border-accent-cyan/20"
+                : msg.type === "error"
+                  ? "border-diff-remove/30"
+                  : msg.type === "complete"
+                    ? "border-diff-add/30"
+                    : ""
+            }`}
+            style={{ animation: "fade-in 200ms ease" }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <span className="material-symbols-outlined text-[14px] text-text-secondary">
+                {msg.role === "user"
+                  ? "person"
+                  : msg.type === "thought"
+                    ? "psychology"
+                    : msg.type === "tool_call"
+                      ? "build"
+                      : msg.type === "error"
+                        ? "error"
+                        : "smart_toy"}
+              </span>
+              <span className="text-[10px] font-mono text-text-secondary uppercase">
+                {msg.role === "user" ? "You" : msg.type || "Agent"}
+              </span>
+            </div>
+            <div className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap break-words">
+              {msg.type === "tool_call" ? (
+                <details>
+                  <summary className="cursor-pointer text-accent-cyan text-[11px]">
+                    Tool call — click to expand
+                  </summary>
+                  <pre className="mt-1 text-[10px] text-text-secondary overflow-auto max-h-40">
+                    {msg.content}
+                  </pre>
+                </details>
+              ) : (
+                msg.content
+              )}
+            </div>
           </div>
-        </div>
-        {/* Quick actions */}
-        <div className="flex flex-wrap gap-2">
-          {["Explain this code", "Find bugs", "Add tests", "Refactor"].map((action) => (
-            <button
-              key={action}
-              className="btn-ghost text-[10px] font-mono px-3 py-1.5"
-              onClick={() => setGoalInput(action)}
-            >
-              {action}
-            </button>
-          ))}
-        </div>
+        ))}
+
+        {/* Streaming text */}
+        {isStreaming && streamingText && (
+          <div className="glass-panel p-3 border-accent-cyan/20" style={{ animation: "fade-in 200ms ease" }}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="material-symbols-outlined text-[14px] text-accent-cyan animate-pulse">psychology</span>
+              <span className="text-[10px] font-mono text-accent-cyan uppercase">Thinking</span>
+            </div>
+            <div className="text-xs text-text-primary leading-relaxed whitespace-pre-wrap">
+              {streamingText}
+              <span className="animate-pulse text-accent-cyan">|</span>
+            </div>
+          </div>
+        )}
+
+        {/* Apply Changes button when there are pending diffs */}
+        {pendingDiffCount > 0 && !isStreaming && (
+          <div className="glass-panel p-3 border-diff-add/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[14px] text-diff-add">difference</span>
+                <span className="text-xs text-diff-add font-mono">{pendingDiffCount} pending change(s)</span>
+              </div>
+              <button
+                onClick={applyAcceptedDiffs}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-md text-[10px] font-mono font-semibold border cursor-pointer transition-colors"
+                style={{
+                  backgroundColor: "rgba(74, 222, 128, 0.1)",
+                  borderColor: "rgba(74, 222, 128, 0.3)",
+                  color: "var(--c-ok)",
+                }}
+              >
+                <span className="material-symbols-outlined text-[12px]">check</span>
+                Apply Accepted
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div ref={chatEndRef} />
       </div>
     </div>
   );
@@ -105,6 +678,14 @@ function RightAgentPanel() {
           Model: claude-sonnet-4-20250514
         </div>
       </div>
+
+      {/* Session info */}
+      {sessionId && (
+        <div className="glass-panel p-3">
+          <div className="micro-label text-text-secondary mb-1">Session</div>
+          <div className="text-[11px] font-mono text-accent-cyan">{sessionId}</div>
+        </div>
+      )}
 
       {/* Memory context */}
       <div className="glass-panel p-3">
@@ -183,8 +764,15 @@ function RightAgentPanel() {
       {/* ── Panel Header ── */}
       <div className="h-12 px-4 flex items-center justify-between shrink-0" style={{ borderBottom: "1px solid var(--glass-border)" }}>
         <div className="flex items-center gap-2">
-          <span className="led-cyan" />
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            agentStatus === "running" ? "bg-status-running animate-pulse" :
+            agentStatus === "idle" ? "led-cyan" :
+            "led-gold"
+          }`} />
           <span className="text-sm font-medium font-sans text-text-primary">Agent</span>
+          {sessionId && (
+            <span className="text-[9px] font-mono text-text-secondary ml-1">{sessionId.slice(0, 8)}</span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -251,11 +839,19 @@ function RightAgentPanel() {
             type="text"
             value={goalInput}
             onChange={(e) => setGoalInput(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Ask anything... (@ to mention, / for commands)"
-            className="flex-1 bg-transparent border-none outline-none text-[12px] font-sans text-text-primary placeholder:text-text-secondary/50 caret-accent-cyan"
+            disabled={isSending}
+            className="flex-1 bg-transparent border-none outline-none text-[12px] font-sans text-text-primary placeholder:text-text-secondary/50 caret-accent-cyan disabled:opacity-50"
           />
-          <button className="ml-2 w-8 h-8 rounded-lg btn-primary flex items-center justify-center text-bg-onyx">
-            <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+          <button
+            onClick={handleSendClick}
+            disabled={!goalInput.trim() || isSending}
+            className="ml-2 w-8 h-8 rounded-lg btn-primary flex items-center justify-center text-bg-onyx disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-opacity"
+          >
+            <span className="material-symbols-outlined text-[16px]">
+              {isSending ? "hourglass_top" : "arrow_upward"}
+            </span>
           </button>
         </div>
         <div className="text-[9px] text-text-secondary/40 text-center font-mono">
