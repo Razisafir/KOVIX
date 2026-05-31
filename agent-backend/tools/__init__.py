@@ -13,6 +13,7 @@ Usage::
     result = registry.execute_tool("read_file", {"file_path": "app.py"})
 """
 
+import json
 import logging
 import os
 import importlib
@@ -1748,13 +1749,19 @@ class ToolRegistry:
         """Bridge MCP server tools into the tool registry.
 
         If the ``CONSTRUCT_MCP_ENABLED`` environment variable is set to ``1``,
-        this method imports the MCP client, discovers available tools from
-        connected MCP servers, and registers wrapper functions for each tool
-        in this registry.
+        this method attempts to connect to any MCP servers specified via
+        environment variables and registers their tools in this registry.
+
+        At startup, this only connects to servers whose connection details
+        are provided via the ``CONSTRUCT_MCP_SERVERS`` env var (JSON array
+        of ``{"name", "command", "args"}`` objects).
+
+        Runtime connections are handled via :meth:`register_mcp_server_tools`
+        which is called by the ``POST /mcp/connect`` API endpoint.
 
         Each MCP tool is exposed as a regular tool function that internally
-        delegates to the MCP client's ``call_tool`` method.  The wrapper
-        handles the async-to-sync bridging transparently.
+        delegates to the stdio MCP connection manager.  The wrapper handles
+        the async-to-sync bridging transparently.
 
         Failures are logged as warnings and do **not** prevent the registry
         from functioning.
@@ -1763,73 +1770,141 @@ class ToolRegistry:
             logger.debug("MCP bridging disabled (CONSTRUCT_MCP_ENABLED != 1)")
             return
 
-        try:
-            from mcp.mcp_client import MCPClient  # lazy import
-        except ImportError as exc:
-            logger.warning(
-                "MCP client module not available — skipping MCP tool bridge: %s",
-                exc,
-            )
-            return
+        # Initialize the shared MCP connection manager
+        self._mcp_manager = self._get_mcp_manager()
 
-        try:
-            client = MCPClient()
-            mcp_tools = client.list_tools()
-        except Exception as exc:
-            logger.warning(
-                "Failed to list MCP tools — skipping MCP tool bridge: %s", exc
-            )
-            return
-
-        if not mcp_tools:
-            logger.info("MCP enabled but no tools available from connected servers")
-            return
-
-        # Track which servers contributed tools
-        server_names: set = set()
-        registered_count = 0
-
-        for mcp_tool in mcp_tools:
+        # Auto-connect to servers specified via environment variable
+        servers_json = os.environ.get("CONSTRUCT_MCP_SERVERS", "")
+        if servers_json:
             try:
-                tool_name = f"mcp_{mcp_tool.server}_{mcp_tool.name}"
-                server_names.add(mcp_tool.server)
+                import asyncio
+                servers = json.loads(servers_json)
+                for srv in servers:
+                    try:
+                        from mcp.connection_manager import StdioServerConfig
+                        config = StdioServerConfig(
+                            name=srv["name"],
+                            command=srv["command"],
+                            args=srv.get("args", []),
+                            env=srv.get("env"),
+                        )
+                        success = asyncio.run(self._mcp_manager.connect_stdio(srv["name"], config))
+                        if success:
+                            self.register_mcp_server_tools(srv["name"])
+                            logger.info("Auto-connected MCP server: %s", srv["name"])
+                        else:
+                            logger.warning("Failed to auto-connect MCP server: %s", srv["name"])
+                    except Exception as exc:
+                        logger.warning("Failed to auto-connect MCP server %s: %s", srv.get("name", "?"), exc)
+            except json.JSONDecodeError as exc:
+                logger.warning("Invalid CONSTRUCT_MCP_SERVERS JSON: %s", exc)
+            except Exception as exc:
+                logger.warning("Error processing CONSTRUCT_MCP_SERVERS: %s", exc)
 
-                # Build a closure that captures the MCP tool info
-                def _make_wrapper(
-                    server: str, name: str, mcp_client: MCPClient
+        logger.info("MCP tool bridge initialized (manager=%s)", type(self._mcp_manager).__name__)
+
+    # -- MCP runtime tool registration ---------------------------------------
+
+    _mcp_manager: Optional[Any] = None
+
+    @classmethod
+    def _get_mcp_manager(cls):
+        """Return (creating if needed) the shared MCPConnectionManager."""
+        from mcp.connection_manager import MCPConnectionManager
+        if cls._mcp_manager is None:
+            cls._mcp_manager = MCPConnectionManager()
+        return cls._mcp_manager
+
+    def register_mcp_server_tools(self, server_name: str) -> int:
+        """Register all tools from a connected stdio MCP server.
+
+        Called after ``MCPConnectionManager.connect_stdio()`` succeeds.
+        Creates wrapper functions for each discovered tool and registers
+        them in the tool registry so the agent can use them in the ReAct loop.
+
+        Args:
+            server_name: The connected MCP server identifier.
+
+        Returns:
+            Number of tools registered.
+        """
+        manager = self._get_mcp_manager()
+        conn = manager._stdio_connections.get(server_name)
+        if conn is None:
+            logger.warning("Cannot register tools: stdio server '%s' not connected", server_name)
+            return 0
+
+        registered_count = 0
+        for mcp_tool in conn.tools:
+            try:
+                tool_name = f"mcp_{server_name}_{mcp_tool.name}"
+
+                # Build a closure that captures the tool info
+                def _make_stdio_wrapper(
+                    srv_name: str, tool_name_inner: str, mgr: Any
                 ) -> Callable[..., Dict[str, Any]]:
-                    """Create a sync wrapper for an async MCP tool call."""
+                    """Create a sync wrapper for an async MCP stdio tool call.
+
+                    Handles the tricky async-to-sync bridging: MCP stdio
+                    connections use subprocess pipes that are bound to a
+                    specific event loop.  When called from FastAPI (which
+                    runs its own loop), we must schedule the coroutine on
+                    that running loop rather than creating a new one.
+                    """
+
+                    # Store a reference to the loop where the connection was created
+                    # so we can schedule coroutines on it from other threads.
+                    _origin_loop: Optional[Any] = None
+                    import asyncio as _asyncio
+                    try:
+                        _origin_loop = _asyncio.get_running_loop()
+                    except RuntimeError:
+                        pass
 
                     def wrapper(**kwargs: Any) -> Dict[str, Any]:
                         import asyncio
                         import concurrent.futures
 
                         async def _call() -> Dict[str, Any]:
-                            return await mcp_client.call_tool(server, name, kwargs)
+                            return await mgr.call_stdio_tool(srv_name, tool_name_inner, kwargs)
 
+                        # Strategy 1: If we're on the same loop as the connection,
+                        # use run_coroutine_threadsafe from a worker thread.
+                        origin = _origin_loop
+                        if origin is not None and origin.is_running():
+                            future = asyncio.run_coroutine_threadsafe(_call(), origin)
+                            try:
+                                return future.result(timeout=60)
+                            except Exception as exc:
+                                return {
+                                    "success": False,
+                                    "error": str(exc),
+                                    "tool": tool_name_inner,
+                                    "server": srv_name,
+                                }
+
+                        # Strategy 2: No running loop — create one
                         try:
-                            # Try running in an existing event loop
                             loop = asyncio.get_running_loop()
-                            with concurrent.futures.ThreadPoolExecutor(
-                                max_workers=1
-                            ) as pool:
+                            # We're in an async context but not on the origin loop.
+                            # Run in a separate thread.
+                            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                                 future = pool.submit(asyncio.run, _call())
-                                return future.result()
+                                return future.result(timeout=60)
                         except RuntimeError:
-                            # No running loop
                             return asyncio.run(_call())
 
                     return wrapper
 
-                tool_func = _make_wrapper(mcp_tool.server, mcp_tool.name, client)
+                tool_func = _make_stdio_wrapper(server_name, mcp_tool.name, manager)
 
                 # Preserve original function name for inspect / logging
                 tool_func.__name__ = tool_name
                 tool_func.__qualname__ = tool_name
 
                 # Build schema from MCP tool metadata
-                description = mcp_tool.description or f"MCP tool: {mcp_tool.name} (server: {mcp_tool.server})"
-                parameters = mcp_tool.parameters if isinstance(mcp_tool.parameters, dict) else {}
+                description = mcp_tool.description or f"MCP tool: {mcp_tool.name} (server: {server_name})"
+                parameters = mcp_tool.input_schema if isinstance(mcp_tool.input_schema, dict) else {}
                 schema = self._make_tool_schema(tool_name, description, parameters)
 
                 self.register_tool(tool_name, tool_func, schema)
@@ -1838,16 +1913,39 @@ class ToolRegistry:
             except Exception as exc:
                 logger.warning(
                     "Failed to register MCP tool %s/%s: %s",
-                    mcp_tool.server,
+                    server_name,
                     mcp_tool.name,
                     exc,
                 )
 
-        logger.info(
-            "MCP tool bridge: registered %d tool(s) from server(s): %s",
-            registered_count,
-            ", ".join(sorted(server_names)),
-        )
+        if registered_count > 0:
+            logger.info(
+                "MCP tool bridge: registered %d tool(s) from stdio server '%s'",
+                registered_count,
+                server_name,
+            )
+        return registered_count
+
+    def unregister_mcp_server_tools(self, server_name: str) -> int:
+        """Unregister all tools from a disconnected stdio MCP server.
+
+        Args:
+            server_name: The MCP server identifier.
+
+        Returns:
+            Number of tools unregistered.
+        """
+        prefix = f"mcp_{server_name}_"
+        tools_to_remove = [name for name in self._tools if name.startswith(prefix)]
+        for name in tools_to_remove:
+            self.unregister_tool(name)
+        if tools_to_remove:
+            logger.info(
+                "MCP tool bridge: unregistered %d tool(s) from stdio server '%s'",
+                len(tools_to_remove),
+                server_name,
+            )
+        return len(tools_to_remove)
 
 
 # Convenience singleton

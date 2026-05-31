@@ -242,6 +242,15 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
 
+    # Shutdown MCP connections
+    logger.info("Shutting down MCP connections …")
+    if _tool_registry is not None:
+        try:
+            manager = _tool_registry._get_mcp_manager()
+            await manager.disconnect_all()
+        except Exception:
+            pass
+
     logger.info("Closing LLM service connections...")
     if _llm_service is not None:
         try:
@@ -2393,6 +2402,247 @@ async def orchestrate_status() -> dict:
     """Get orchestrator status including active teams and queue info."""
     orch = _get_orchestrator()
     return orch.get_status()
+
+
+# ===========================================================================
+# MCP (Model Context Protocol) Endpoints
+# ===========================================================================
+
+class MCPConnectRequest(BaseModel):
+    """Request body for connecting to an MCP server via stdio transport."""
+    name: str = Field(..., description="Unique name for this MCP server connection")
+    command: str = Field(..., description="Executable to launch (e.g. 'npx', 'python')")
+    args: List[str] = Field(default_factory=list, description="Arguments for the command")
+    env: Optional[Dict[str, str]] = Field(None, description="Environment variables for the subprocess")
+
+
+class MCPConnectResponse(BaseModel):
+    connected: bool
+    name: str
+    tools: List[dict]
+    tool_count: int
+    message: str
+
+
+class MCPToolListResponse(BaseModel):
+    tools: List[dict]
+    total: int
+    servers: List[str]
+
+
+class MCPDisconnectResponse(BaseModel):
+    disconnected: bool
+    name: str
+    tools_removed: int
+    message: str
+
+
+class MCPStatusResponse(BaseModel):
+    servers: List[dict]
+    total_servers: int
+    total_tools: int
+    mcp_enabled: bool
+
+
+def _get_mcp_manager():
+    """Return the shared MCPConnectionManager from ToolRegistry."""
+    if _tool_registry is None:
+        raise HTTPException(status_code=503, detail="Tool registry not initialised")
+    return _tool_registry._get_mcp_manager()
+
+
+@app.post("/mcp/connect", response_model=MCPConnectResponse)
+async def mcp_connect(req: MCPConnectRequest) -> dict:
+    """Connect to an MCP server via stdio transport.
+
+    Launches the specified command as a subprocess, performs the MCP
+    initialize handshake, discovers available tools, and registers them
+    in the tool registry so the agent can use them in the ReAct loop.
+
+    Example::
+
+        curl -X POST http://127.0.0.1:8000/mcp/connect \\
+          -H "Content-Type: application/json" \\
+          -d '{"name":"fs","command":"npx","args":["-y","@modelcontextprotocol/server-filesystem","/tmp"]}'
+    """
+    if _tool_registry is None:
+        raise HTTPException(status_code=503, detail="Tool registry not initialised")
+
+    try:
+        from mcp.connection_manager import StdioServerConfig
+
+        config = StdioServerConfig(
+            name=req.name,
+            command=req.command,
+            args=req.args,
+            env=req.env,
+        )
+
+        manager = _tool_registry._get_mcp_manager()
+        success = await manager.connect_stdio(req.name, config)
+
+        if not success:
+            return {
+                "connected": False,
+                "name": req.name,
+                "tools": [],
+                "tool_count": 0,
+                "message": f"Failed to connect to MCP server '{req.name}' (process may have crashed)",
+            }
+
+        # Register discovered tools in the tool registry
+        registered_count = _tool_registry.register_mcp_server_tools(req.name)
+
+        # Get tool info for response
+        conn = manager._stdio_connections.get(req.name)
+        tools_info = []
+        if conn:
+            for t in conn.tools:
+                tools_info.append({
+                    "name": t.name,
+                    "description": t.description,
+                    "full_name": f"mcp_{req.name}_{t.name}",
+                })
+
+        logger.info(
+            "MCP server '%s' connected: %d tools registered (command=%s %s)",
+            req.name,
+            registered_count,
+            req.command,
+            " ".join(req.args),
+        )
+
+        return {
+            "connected": True,
+            "name": req.name,
+            "tools": tools_info,
+            "tool_count": registered_count,
+            "message": f"Connected to MCP server '{req.name}' with {registered_count} tools",
+        }
+
+    except Exception as exc:
+        logger.error("MCP connect failed for '%s': %s", req.name, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/mcp/tools", response_model=MCPToolListResponse)
+async def mcp_list_tools() -> dict:
+    """List all tools from connected MCP servers.
+
+    Returns all tools discovered from stdio MCP servers, including
+    their names, descriptions, and the server they belong to.
+    """
+    if _tool_registry is None:
+        raise HTTPException(status_code=503, detail="Tool registry not initialised")
+
+    try:
+        manager = _tool_registry._get_mcp_manager()
+        all_tools = []
+        server_names = []
+
+        for server_name in manager.list_stdio_servers():
+            server_names.append(server_name)
+            server_tools = await manager.list_stdio_tools(server_name)
+            for t in server_tools:
+                all_tools.append({
+                    "name": t.name,
+                    "full_name": f"mcp_{server_name}_{t.name}",
+                    "description": t.description,
+                    "server": server_name,
+                    "input_schema": t.input_schema,
+                })
+
+        return {
+            "tools": all_tools,
+            "total": len(all_tools),
+            "servers": server_names,
+        }
+
+    except Exception as exc:
+        logger.error("MCP tools list failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/mcp/disconnect/{server_name}", response_model=MCPDisconnectResponse)
+async def mcp_disconnect(
+    server_name: str = Path(..., description="The MCP server name to disconnect"),
+) -> dict:
+    """Disconnect from an MCP server and unregister its tools.
+
+    Terminates the subprocess, removes the connection from the pool,
+    and unregisters all tools that were discovered from this server.
+    """
+    if _tool_registry is None:
+        raise HTTPException(status_code=503, detail="Tool registry not initialised")
+
+    try:
+        manager = _tool_registry._get_mcp_manager()
+
+        # Check if server exists
+        if server_name not in manager._stdio_connections:
+            raise HTTPException(
+                status_code=404,
+                detail=f"MCP server '{server_name}' not found",
+            )
+
+        # Unregister tools from registry
+        tools_removed = _tool_registry.unregister_mcp_server_tools(server_name)
+
+        # Disconnect from the server
+        await manager.disconnect_stdio(server_name)
+
+        logger.info("MCP server '%s' disconnected: %d tools removed", server_name, tools_removed)
+
+        return {
+            "disconnected": True,
+            "name": server_name,
+            "tools_removed": tools_removed,
+            "message": f"Disconnected from MCP server '{server_name}', {tools_removed} tools removed",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("MCP disconnect failed for '%s': %s", server_name, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/mcp/status", response_model=MCPStatusResponse)
+async def mcp_status() -> dict:
+    """Get the status of all MCP connections.
+
+    Returns information about each connected MCP server including
+    health status, discovered tools, and subprocess details.
+    """
+    if _tool_registry is None:
+        raise HTTPException(status_code=503, detail="Tool registry not initialised")
+
+    try:
+        manager = _tool_registry._get_mcp_manager()
+        server_infos = manager.get_all_stdio_server_info()
+
+        # Also check HTTP connections
+        for name in manager.list_servers():
+            if name not in [s.get("name") for s in server_infos]:
+                health = manager.get_health(name)
+                server_infos.append({
+                    "name": name,
+                    "type": "http",
+                    "status": health.status.value if health else "unknown",
+                })
+
+        total_tools = sum(len(s.get("tools", [])) for s in server_infos)
+
+        return {
+            "servers": server_infos,
+            "total_servers": len(server_infos),
+            "total_tools": total_tools,
+            "mcp_enabled": os.environ.get("CONSTRUCT_MCP_ENABLED") == "1",
+        }
+
+    except Exception as exc:
+        logger.error("MCP status failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 if __name__ == "__main__":
     import uvicorn
