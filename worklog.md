@@ -456,3 +456,25 @@ Stage Summary:
 - v0.1.0-beta.2 tag pushed to origin
 - 3 blocker-fix commits pushed to main
 - CI should trigger: https://github.com/Razisafir/construct-ai-agent/actions
+---
+Task ID: 1
+Agent: Main Agent
+Task: Create v0.1.0-beta.4 release with Windows installer
+
+Work Log:
+- Verified current repo state: latest tag v0.1.0-beta.2 local, v0.1.0-beta.3 remote
+- Confirmed 3 beta blocker commits already in main branch
+- Found CI was failing on all 3 platform builds (test-rust, test-frontend, test-python-unit, test-e2e-mock all passed; build-windows, build-linux, build-macos all failed)
+- Root cause: tauri-plugin-updater v2.10.1 changed `download_and_install()` API to require 2 callback arguments (on_chunk, on_download_finish)
+- Fixed src/main/src/lib.rs line 133 to pass required callbacks
+- Committed fix and pushed to origin/main
+- Created tag v0.1.0-beta.4 and pushed to GitHub
+- Created GitHub Release with description via API
+- Monitored CI Build #186: all 4 test jobs passed, all 3 build jobs passed, draft-release succeeded
+- Verified release assets: 6 files including Construct_0.1.0_x64-setup.exe (339.2 MB)
+
+Stage Summary:
+- v0.1.0-beta.4 release live at https://github.com/Razisafir/construct-ai-agent/releases/tag/v0.1.0-beta.4
+- Windows installer: Construct_0.1.0_x64-setup.exe (339.2 MB)
+- All CI checks passed
+- Fixed critical Rust build error that was blocking all platform builds
