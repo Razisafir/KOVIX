@@ -1160,16 +1160,26 @@ class AgentExecutor:
                 for tc in task.tool_calls:
                     tc_tool = tc.get("tool", "")
                     tc_args = tc.get("arguments", {})
-                    if tc_tool in ("write_file", "edit_file"):
+                    if tc_tool in ("write_file", "edit_file", "delete_file"):
                         file_path = tc_args.get("file_path", "unknown")
                         content_preview = tc_args.get("content", "")[:200]
+                        if tc_tool == "write_file":
+                            change_type = "create"
+                        elif tc_tool == "edit_file":
+                            change_type = "modify"
+                        else:
+                            change_type = "delete"
                         self.memory.store_code_event(
                             session_id=session.id,
                             file_path=file_path,
-                            change_type="create" if tc_tool == "write_file" else "modify",
+                            change_type=change_type,
                             summary=f"{tc_tool}: {task.description} — "
-                                    f"wrote {len(tc_args.get('content', ''))} bytes to {file_path}",
-                            diff=content_preview,
+                                    + (
+                                        f"wrote {len(tc_args.get('content', ''))} bytes to {file_path}"
+                                        if tc_tool != "delete_file"
+                                        else f"deleted {file_path}"
+                                    ),
+                            diff=content_preview if tc_tool != "delete_file" else None,
                         )
 
                 if result.get("success"):
