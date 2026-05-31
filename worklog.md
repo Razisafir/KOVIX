@@ -69,3 +69,24 @@ Stage Summary:
 - Banner displayed on all 5 onboarding steps (welcome, project, AI config, preferences, ready)
 - /health endpoint: checks Ollama at /api/tags with 2s timeout, falls back to cloud provider config check
 - Already committed in ff8293a
+---
+Task ID: 2.4
+Agent: Main Agent
+Task: Accurate README — Fix README claims to match reality (Prompt 2.4)
+
+Work Log:
+- Read README.md and tools/__init__.py to assess current state
+- Counted actual tools in _TOOL_FUNCTIONS dispatch map: 39 tools
+- Verified security rules count: README says "41 regex patterns" (not "44") ✅
+- Verified Roadmap section exists with MCP, screen control, auto-updates ✅
+- Verified MCP/screen control/auto-updates NOT in Capabilities section ✅
+- Verified tool count: README says "39 Built-in Tools", matches dispatch map ✅
+- Verified REPO_AUDIT.md also says "41 regex patterns" ✅
+- All fixes already applied in prior commit ff8293a — no changes needed
+
+Stage Summary:
+- All 4 success criteria PASS — no changes required
+- Tool count verified: 39 in dispatch map matches README claim
+- Security count verified: "41 regex patterns" (not "44")
+- Roadmap section correctly isolates unbuilt features (MCP, screen control, auto-updates, plugin marketplace, multi-project workspaces)
+- No unimplemented feature claims in Capabilities or Tech Stack sections
