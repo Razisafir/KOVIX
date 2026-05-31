@@ -26,24 +26,24 @@ const fileTree: FileNode[] = [
 ];
 
 const recentMemories = [
-  { text: "Uses FastAPI + async routes", time: "2 days ago", dotColor: "bg-[#4ade80]" },
-  { text: "Prefers snake_case, ruff for linting", time: "1 week ago", dotColor: "bg-[#60a5fa]" },
-  { text: "Added ChromaDB for embeddings", time: "2 weeks ago", dotColor: "bg-[#facc15]" },
+  { text: "Uses FastAPI + async routes", time: "2 days ago", dotClass: "led-green" },
+  { text: "Prefers snake_case, ruff for linting", time: "1 week ago", dotClass: "led-cyan" },
+  { text: "Added ChromaDB for embeddings", time: "2 weeks ago", dotClass: "led-gold" },
 ];
 
 /** Returns a Tailwind bg-* class for the file status dot */
 function dotClass(mod?: string): string {
-  if (mod === "M") return "bg-[#facc15]"; // yellow — modified
-  if (mod === "A") return "bg-[#4ade80]"; // green — clean / added
-  if (mod === "E") return "bg-[#60a5fa]"; // blue — info / error
-  return "bg-[#3a494a]"; // muted — no status
+  if (mod === "M") return "bg-accent-gold";   // gold — modified
+  if (mod === "A") return "bg-accent-cyan";    // cyan — added
+  if (mod === "E") return "bg-diff-remove";    // red — error
+  return "bg-c-text4";                          // muted — no status
 }
 
 /** Returns a Tailwind text-* class for the mod badge */
 function modBadgeClass(mod?: string): string {
-  if (mod === "M") return "text-[#e9c349]";  // gold
-  if (mod === "A") return "text-accent-cyan"; // cyan
-  if (mod === "E") return "text-[#f87171]";   // red
+  if (mod === "M") return "text-accent-gold";   // gold
+  if (mod === "A") return "text-accent-cyan";    // cyan
+  if (mod === "E") return "text-diff-remove";    // red
   return "";
 }
 
@@ -63,13 +63,13 @@ function Sidebar() {
   };
 
   return (
-    <aside className="flex flex-col h-full bg-bg-onyx border-r border-border-subtle glass-panel">
+    <aside className="flex flex-col h-full" style={{ background: "rgba(12, 14, 17, 0.6)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
       {/* ── Explorer Header ── */}
-      <div className="h-10 px-4 flex items-center justify-between border-b border-border-subtle">
+      <div className="h-10 px-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(0, 229, 255, 0.08)" }}>
         <span className="font-mono text-[10px] font-semibold tracking-widest uppercase text-text-secondary">
           MY-API-PROJECT
         </span>
-        <span className="material-symbols-outlined text-[16px] cursor-pointer text-text-secondary hover:text-text-primary transition-colors">
+        <span className="material-symbols-outlined text-[16px] cursor-pointer text-text-secondary hover:text-accent-cyan transition-colors">
           more_horiz
         </span>
       </div>
@@ -90,32 +90,34 @@ function Sidebar() {
                   else setActiveFile(node.name);
                 }}
                 className={
-                  "flex items-center cursor-pointer border-l-2 transition-colors duration-[50ms] " +
+                  "flex items-center cursor-pointer border-l-2 transition-all duration-100 " +
                   (isActive
-                    ? "border-accent-cyan bg-white/5 text-text-primary"
+                    ? "border-accent-cyan text-text-primary"
                     : "border-transparent hover:bg-white/5 text-text-secondary")
                 }
                 style={{
-                  height: 26,
+                  height: 28,
                   paddingLeft: 16 + node.indent * 16,
                   paddingRight: 8,
+                  backgroundColor: isActive ? "rgba(0, 229, 255, 0.06)" : undefined,
                 }}
               >
                 {isFolder ? (
-                  <span className="material-symbols-outlined text-[16px] mr-1 text-[#3a494a]">
+                  <span className="material-symbols-outlined text-[16px] mr-1 text-text-secondary">
                     {isExpanded ? "arrow_drop_down" : "arrow_right"}
                   </span>
                 ) : (
                   <span
-                    className={`w-2 h-2 rounded-full flex-shrink-0 mr-2 ${dotClass(node.mod)}`}
+                    className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mr-2 ${dotClass(node.mod)}`}
+                    style={{ boxShadow: node.mod ? "0 0 6px currentColor" : undefined }}
                   />
                 )}
-                <span className="truncate text-[13px]">
+                <span className="truncate text-[12px]">
                   {isFolder ? node.name + "/" : node.name}
                 </span>
                 {node.mod && (
                   <span
-                    className={`text-[9px] font-semibold ml-[6px] font-mono ${modBadgeClass(node.mod)}`}
+                    className={`text-[9px] font-semibold ml-2 font-mono ${modBadgeClass(node.mod)}`}
                   >
                     [{node.mod}]
                   </span>
@@ -127,22 +129,22 @@ function Sidebar() {
       </div>
 
       {/* ── Recent Memory Section ── */}
-      <div className="h-64 border-t border-border-subtle flex flex-col">
-        <div className="h-10 px-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-[16px] text-accent-gold">
+      <div className="border-t flex flex-col" style={{ borderColor: "rgba(0, 229, 255, 0.08)" }}>
+        <div className="h-9 px-4 flex items-center gap-2">
+          <span className="material-symbols-outlined text-[14px] text-accent-gold">
             memory
           </span>
           <span className="font-mono text-[10px] font-semibold tracking-widest uppercase text-text-secondary">
             RECENT MEMORY
           </span>
         </div>
-        <div className="flex-1 overflow-auto p-4 flex flex-col gap-4">
+        <div className="overflow-auto p-3 flex flex-col gap-3">
           {recentMemories.map((mem, i) => (
-            <div key={i} className="flex gap-3">
-              <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${mem.dotColor}`} />
+            <div key={i} className="flex gap-2.5">
+              <div className={`mt-1.5 ${mem.dotClass}`} />
               <div>
-                <div className="text-sm text-text-primary">{mem.text}</div>
-                <div className="text-xs text-text-secondary mt-1">{mem.time}</div>
+                <div className="text-[11px] text-text-primary">{mem.text}</div>
+                <div className="text-[10px] text-text-secondary mt-0.5">{mem.time}</div>
               </div>
             </div>
           ))}

@@ -130,9 +130,9 @@ function Panel() {
   };
 
   return (
-    <div className="flex flex-col w-full h-full glass-panel bg-panel-bg">
+    <div className="flex flex-col w-full h-full" style={{ background: "rgba(12, 14, 17, 0.6)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)" }}>
       {/* Tab Bar */}
-      <div className="flex items-center justify-between h-10 shrink-0 bg-bg-onyx border-b border-border-subtle">
+      <div className="flex items-center justify-between h-9 shrink-0" style={{ background: "rgba(20, 22, 25, 0.6)", borderBottom: "1px solid rgba(0, 229, 255, 0.08)" }}>
         <div className="flex overflow-hidden flex-1">
           {tabs.map((tab) => {
             const isActive = panelTab === tab.id;
@@ -143,17 +143,18 @@ function Panel() {
                 className={`
                   relative flex items-center h-full px-[10px] gap-[5px] border-0 cursor-pointer shrink-0
                   whitespace-nowrap font-mono text-[10px] uppercase tracking-wider font-semibold
-                  transition-colors duration-[50ms] border-r border-border-subtle
+                  transition-all duration-100
                   ${isActive
-                    ? "text-accent-cyan border-b-2 border-b-accent-cyan bg-c-s2"
+                    ? "text-accent-cyan border-b-2 border-b-accent-cyan"
                     : "text-text-secondary border-b-2 border-b-transparent bg-transparent hover:text-text-primary"
                   }
                 `}
+                style={{ backgroundColor: isActive ? "rgba(0, 229, 255, 0.06)" : undefined }}
               >
                 <span className="material-symbols-outlined text-[13px]">{tab.icon}</span>
                 <span>{tab.label}</span>
                 {tab.badge && tab.badge > 0 && (
-                  <span className="absolute top-0.5 right-1 text-[7px] font-bold leading-none px-[3px] py-[1px] rounded-full bg-c-warn text-bg-onyx">
+                  <span className="absolute top-0.5 right-1 text-[7px] font-bold leading-none px-[3px] py-[1px] rounded-full bg-accent-gold text-bg-onyx">
                     {tab.badge > 9 ? "9+" : tab.badge}
                   </span>
                 )}
@@ -164,7 +165,7 @@ function Panel() {
         <div className="flex items-center pr-1 shrink-0">
           <button
             onClick={togglePanel}
-            className="flex items-center justify-center w-[22px] h-[22px] rounded-md border-0 cursor-pointer bg-transparent text-text-secondary hover:text-text-primary transition-colors"
+            className="flex items-center justify-center w-[22px] h-[22px] rounded-md border-0 cursor-pointer bg-transparent text-text-secondary hover:text-accent-cyan transition-colors"
             title="Close panel"
           >
             <span className="material-symbols-outlined text-[14px]">expand_more</span>
@@ -173,7 +174,7 @@ function Panel() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto bg-bg-onyx">
+      <div className="flex-1 overflow-auto" style={{ background: "rgba(12, 14, 17, 0.3)" }}>
         {renderContent()}
       </div>
     </div>

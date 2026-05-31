@@ -12,25 +12,15 @@ Construct is a desktop AI coding agent powered by a persistent memory system and
 
 ## Screenshots
 
-| Splash Screen | Main IDE View | Command Palette |
+*Cursor-style layout: Left sidebar + Center editor + Right agent panel*
+
+| Splash Screen | Full IDE View | Command Palette |
 |:---:|:---:|:---:|
 | ![Splash Screen](docs/screenshots/splash-screen.png) | ![Main IDE](docs/screenshots/main-ide-view.png) | ![Command Palette](docs/screenshots/command-palette.png) |
 
-| Agent Panel | Memory Panel | Chat Panel |
+| Right Panel - Chat | Right Panel - Agent | Right Panel - Memory |
 |:---:|:---:|:---:|
-| ![Agent Panel](docs/screenshots/agent-panel.png) | ![Memory Panel](docs/screenshots/memory-panel.png) | ![Chat Panel](docs/screenshots/chat-panel.png) |
-
-| Skills Marketplace | MCP Connectors | Multi-Agent |
-|:---:|:---:|:---:|
-| ![Skills](docs/screenshots/skills-marketplace.png) | ![MCP](docs/screenshots/mcp-connectors.png) | ![Multi-Agent](docs/screenshots/multi-agent-panel.png) |
-
-| Autonomous Mode | Diff/Changes | Screen Control |
-|:---:|:---:|:---:|
-| ![Autonomous](docs/screenshots/autonomous-mode.png) | ![Changes](docs/screenshots/changes-diff-panel.png) | ![Screen](docs/screenshots/screen-control.png) |
-
-| Settings | Onboarding | Sidebar Collapsed |
-|:---:|:---:|:---:|
-| ![Settings](docs/screenshots/settings-panel.png) | ![Onboarding](docs/screenshots/onboarding-modal.png) | ![No Sidebar](docs/screenshots/sidebar-collapsed.png) |
+| ![Chat](docs/screenshots/right-panel-chat.png) | ![Agent](docs/screenshots/right-panel-agent.png) | ![Memory](docs/screenshots/right-panel-memory.png) |
 
 ## Capabilities
 

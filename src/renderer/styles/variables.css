@@ -88,14 +88,20 @@
   /* ----------------------------------------------------------
      Color: Glassmorphism
      ---------------------------------------------------------- */
-  --glass-bg:            rgba(20, 22, 25, 0.6);
-  --glass-blur:          12px;
+  --glass-bg:            rgba(15, 23, 42, 0.6);
+  --glass-bg-heavy:      rgba(15, 23, 42, 0.8);
+  --glass-blur:          24px;
+  --glass-border:        rgba(0, 229, 255, 0.12);
+  --glass-border-active: rgba(0, 229, 255, 0.25);
 
   /* ----------------------------------------------------------
      Color: Glow effects
      ---------------------------------------------------------- */
-  --glow-cyan:           0 0 12px rgba(0, 245, 255, 0.2);
-  --border-glow-cyan:    1px solid rgba(0, 245, 255, 0.4);
+  --glow-cyan:           0 0 20px rgba(0, 229, 255, 0.15);
+  --glow-cyan-strong:    0 0 30px rgba(0, 229, 255, 0.25);
+  --border-glow-cyan:    1px solid rgba(0, 229, 255, 0.4);
+  --glow-gold:           0 0 12px rgba(233, 195, 73, 0.15);
+  --aura-glow:           0 0 20px rgba(0, 229, 255, 0.15);
 
   /* ----------------------------------------------------------
      Typography
@@ -131,10 +137,11 @@
   /* ----------------------------------------------------------
      Borders & Radius
      ---------------------------------------------------------- */
-  --radius-sm:   2px;
-  --radius-default: 4px;
-  --radius-md:   6px;
-  --radius-lg:   8px;
+  --radius-sm:   4px;
+  --radius-default: 6px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
 
   /* ----------------------------------------------------------
      Animation

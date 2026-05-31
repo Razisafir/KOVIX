@@ -73,8 +73,8 @@
      Scrollbars — thin, 8px, #282a2d thumb
      ---------------------------------------------------------- */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
@@ -82,12 +82,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #282a2d;
-    border-radius: 4px;
+    background: rgba(40, 42, 45, 0.6);
+    border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #3a494a;
+    background: rgba(58, 73, 74, 0.8);
   }
 
   ::-webkit-scrollbar-corner {
@@ -97,7 +97,7 @@
   /* Firefox scrollbar */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #282a2d transparent;
+    scrollbar-color: rgba(40, 42, 45, 0.6) transparent;
   }
 }
 
@@ -106,23 +106,53 @@
    ============================================================ */
 
 @layer utilities {
-  /* Glassmorphism panel */
+  /* Glassmorphism panel — enhanced blur */
   .glass-panel {
-    background: rgba(20, 22, 25, 0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid #282a2d;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--aura-glow);
+  }
+
+  /* Glassmorphism panel — heavy (for right panel, overlays) */
+  .glass-panel-heavy {
+    background: var(--glass-bg-heavy);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--aura-glow);
   }
 
   /* Glowing Cyan border (for active agent panel) */
   .glow-cyan {
-    box-shadow: 0 0 12px rgba(0, 245, 255, 0.2);
-    border: 1px solid rgba(0, 245, 255, 0.4);
+    box-shadow: var(--glow-cyan);
+    border: 1px solid var(--glass-border-active);
+  }
+
+  .glow-cyan-strong {
+    box-shadow: var(--glow-cyan-strong);
+    border: 1px solid rgba(0, 229, 255, 0.4);
   }
 
   /* Luminous gradient border (Cyan → Lavender at 30%) */
   .luminous-border {
-    border-image: linear-gradient(180deg, rgba(0, 245, 255, 0.3), rgba(167, 139, 250, 0.3)) 1;
+    position: relative;
+  }
+  .luminous-border::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.4), transparent, rgba(0, 229, 255, 0.2));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
   }
 
   /* Mac window dots */
@@ -150,26 +180,37 @@
     text-transform: uppercase;
   }
 
-  /* LED Indicator dots */
+  /* LED Indicator dots — with pulsing glow */
   .led-cyan {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: #00f5ff;
-    animation: led-pulse 2s ease-in-out infinite;
+    background-color: #00e5ff;
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+    animation: pulse-led 2s ease-in-out infinite;
   }
   .led-gold {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background-color: #e9c349;
+    box-shadow: 0 0 6px rgba(233, 195, 73, 0.4);
+  }
+  .led-green {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #22c55e;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    animation: pulse-led 2s ease-in-out infinite;
   }
   .led-error {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background-color: #f87171;
-    animation: led-pulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 8px rgba(248, 113, 113, 0.6);
+    animation: pulse-led-error 1.5s ease-in-out infinite;
   }
 
   /* Tabular numbers for data columns */
@@ -188,19 +229,119 @@
     transition-timing-function: var(--ease-default);
   }
 
+  /* Streaming text glow for agent output */
+  .streaming-text {
+    font-family: var(--font-mono);
+    color: var(--electric-cyan, #00E5FF);
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+  }
+
+  /* Primary button — gradient cyan with glow */
+  .btn-primary {
+    background: linear-gradient(135deg, #00E5FF 0%, #00B8D4 100%);
+    border: none;
+    box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+    color: #0A0E1A;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+  .btn-primary:hover {
+    box-shadow: 0 0 25px rgba(0, 229, 255, 0.5);
+    transform: translateY(-1px);
+  }
+
+  /* Ghost button — outlined cyan */
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    color: var(--c-accent);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+  .btn-ghost:hover {
+    background: rgba(0, 229, 255, 0.08);
+    border-color: rgba(0, 229, 255, 0.5);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.15);
+  }
+
+  /* Glass input */
+  .input-glass {
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 229, 255, 0.12);
+    border-radius: var(--radius-md);
+    color: #E0E7FF;
+    outline: none;
+    transition: all 150ms ease;
+  }
+  .input-glass:focus {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
+  }
+  .input-glass::placeholder {
+    color: rgba(132, 148, 149, 0.6);
+  }
+
+  /* Ambient glow background effect */
+  .ambient-glow {
+    position: fixed;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 229, 255, 0.06) 0%, transparent 70%);
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .ambient-glow-gold {
+    position: fixed;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(233, 195, 73, 0.04) 0%, transparent 70%);
+    filter: blur(60px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
   /* Agent pulse animation */
-  @keyframes led-pulse {
-    0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }
-    50% { opacity: 0.5; box-shadow: 0 0 8px currentColor; }
+  @keyframes pulse-led {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(0, 229, 255, 0.6); }
+    50% { opacity: 0.6; box-shadow: 0 0 16px rgba(0, 229, 255, 0.8); }
+  }
+
+  @keyframes pulse-led-error {
+    0%, 100% { opacity: 1; box-shadow: 0 0 8px rgba(248, 113, 113, 0.6); }
+    50% { opacity: 0.5; box-shadow: 0 0 16px rgba(248, 113, 113, 0.8); }
   }
 
   @keyframes agent-glow {
-    0%, 100% { box-shadow: 0 0 8px rgba(0, 245, 255, 0.15); }
-    50% { box-shadow: 0 0 16px rgba(0, 245, 255, 0.3); }
+    0%, 100% { box-shadow: 0 0 8px rgba(0, 229, 255, 0.15); }
+    50% { box-shadow: 0 0 20px rgba(0, 229, 255, 0.35); }
   }
 
   @keyframes terminal-blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
   }
 }

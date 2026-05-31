@@ -38,6 +38,12 @@ interface AppState {
   panelTab: string;
   setPanelTab: (tab: string) => void;
 
+  // Right Agent Panel
+  rightPanelVisible: boolean;
+  toggleRightPanel: () => void;
+  rightPanelTab: string;
+  setRightPanelTab: (tab: string) => void;
+
   // Sidebar
   activeSidebarTab: string;
   setActiveSidebarTab: (tab: string) => void;
@@ -161,6 +167,13 @@ const useAppStore = create<AppState>((set) => ({
   // Panel tab
   panelTab: "terminal" as const,
   setPanelTab: (tab) => set({ panelTab: tab }),
+
+  // Right Agent Panel
+  rightPanelVisible: true,
+  toggleRightPanel: () =>
+    set((state) => ({ rightPanelVisible: !state.rightPanelVisible })),
+  rightPanelTab: "agent",
+  setRightPanelTab: (tab) => set({ rightPanelTab: tab }),
 
   // Sidebar
   activeSidebarTab: "files",
