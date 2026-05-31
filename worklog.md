@@ -173,3 +173,29 @@ Stage Summary:
 - Tools loaded into ToolRegistry ✓ (_load_single_skill after install)
 - Agent can invoke installed skill tools ✓ (register_tool called for tool.py/main.py with __tool_metadata__)
 - No hardcoded marketplace entries ✓ (replaced with real GitHub search)
+---
+Task ID: 3.3
+Agent: Main Agent
+Task: MCP Connector Real — Wire One Real MCP Server
+
+Work Log:
+- Explored existing MCP codebase: mcp_client.py (HTTP-only), connection_manager.py (HTTP pool), tools/__init__.py (broken _register_mcp_tools), app.py (no MCP endpoints)
+- Implemented StdioMCPConnection class in connection_manager.py with full JSON-RPC lifecycle: initialize handshake, tools/list discovery, tools/call execution, ping health check, subprocess management
+- Added StdioServerConfig and StdioMCPTool dataclasses for stdio transport configuration
+- Extended MCPConnectionManager with stdio methods: connect_stdio, disconnect_stdio, list_stdio_tools, call_stdio_tool, ping_stdio, get_stdio_server_info
+- Fixed _register_mcp_tools() in tools/__init__.py — was creating MCPClient and calling list_tools() without connecting first, always returning empty. Replaced with working runtime registration via register_mcp_server_tools()
+- Added register_mcp_server_tools() and unregister_mcp_server_tools() methods to ToolRegistry
+- Implemented async-to-sync bridging with run_coroutine_threadsafe for FastAPI context
+- Added 4 MCP API endpoints to app.py: POST /mcp/connect, GET /mcp/tools, POST /mcp/disconnect/{name}, GET /mcp/status
+- Added MCP shutdown in lifespan cleanup
+- End-to-end verified with @modelcontextprotocol/server-filesystem: 14 tools discovered, write_file + read_file + list_directory all working through ToolRegistry.execute_tool()
+
+Stage Summary:
+- Commit: deef802 "feat: MCP connector — real server connection, tool discovery, execution"
+- Key files modified: mcp/connection_manager.py (+580 lines), tools/__init__.py (+130 lines), app.py (+250 lines), mcp/__init__.py (+14 lines)
+- All 5 success criteria verified:
+  1. ✅ Connect to real MCP server (stdio) — filesystem server with 14 tools
+  2. ✅ Discover tools from server — tools/list via JSON-RPC
+  3. ✅ Call MCP tools through ToolRegistry — execute_tool works for mcp_fs_* tools
+  4. ✅ Agent can use MCP tools in ReAct loop — schemas appear in get_tool_schemas()
+  5. ✅ At least one MCP server verified end-to-end — write + read + list_directory
