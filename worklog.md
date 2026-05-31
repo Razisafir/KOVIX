@@ -47,3 +47,25 @@ Stage Summary:
 - Light mode adds conciseness prompt ✓
 - LLM responses differ based on depth setting ✓
 - Commit: 57057b3 — fix: thinking mode — depth changes LLM system prompt, add GET endpoint
+---
+Task ID: 2.3
+Agent: Main Agent
+Task: Honest Onboarding — Show Demo Mode when no LLM connected (Prompt 2.3)
+
+Work Log:
+- Read OnboardingWizard.tsx and app.py to assess current state
+- Found all features already implemented in commit ff8293a ("fix(beta): server stability, honest onboarding, accurate claims")
+- Verified all 4 success criteria via code review:
+  1. Yellow "Demo Mode" banner when no LLM → OnboardingWizard.tsx lines 149-163 (rgba(234,179,8) yellow styling)
+  2. Green "Ready" banner when LLM connected → OnboardingWizard.tsx lines 166-178 (rgba(34,197,94) green styling)
+  3. Button text conditional → OnboardingWizard.tsx line 424 ("Continue in Demo Mode" vs "Launch Construct")
+  4. /health endpoint returns llm_ready boolean → app.py lines 606-632 (checks Ollama reachability + cloud providers fallback)
+- No code changes needed — all work was done in a prior session
+
+Stage Summary:
+- All 4 success criteria PASS — no changes required
+- LLM connection detection: useEffect polls /health every 30 seconds, sets llmConnected state
+- renderLlmStatusBanner() shows 3 states: checking (neutral), demo mode (yellow), ready (green)
+- Banner displayed on all 5 onboarding steps (welcome, project, AI config, preferences, ready)
+- /health endpoint: checks Ollama at /api/tags with 2s timeout, falls back to cloud provider config check
+- Already committed in ff8293a
