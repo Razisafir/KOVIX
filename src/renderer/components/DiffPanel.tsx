@@ -7,13 +7,15 @@ import { isTauri, getWriteTextFile, reconstructContent } from "../utils/tauriHel
 /** Write accepted file content to disk */
 async function applyFileToDisk(fileDiff: FileDiff): Promise<boolean> {
   const acceptedHunks = fileDiff.hunks.filter((h) => h.accepted === true);
-  if (acceptedHunks.length === 0) return false;
+  const rejectedHunks = fileDiff.hunks.filter((h) => h.accepted === false);
 
-  const finalContent = reconstructContent(fileDiff.oldContent, fileDiff.hunks);
+  if (acceptedHunks.length === 0 && rejectedHunks.length === 0) return false;
 
   const writeFn = getWriteTextFile();
   if (isTauri() && writeFn) {
     try {
+      // Reconstruct content: accepted hunks get new content, rejected hunks get old content
+      const finalContent = reconstructContent(fileDiff.oldContent, fileDiff.hunks);
       await writeFn(fileDiff.filePath, finalContent);
       console.log("[DiffPanel] Written to disk:", fileDiff.filePath);
       return true;
@@ -38,14 +40,16 @@ function DiffPanel() {
     let appliedCount = 0;
     let errorCount = 0;
     for (const fileDiff of activeSession.fileDiffs) {
-      const hasAccepted = fileDiff.hunks.some((h) => h.accepted === true);
-      if (!hasAccepted) continue;
+      const hasDecisions = fileDiff.hunks.some((h) => h.accepted !== null);
+      if (!hasDecisions) continue;
       const ok = await applyFileToDisk(fileDiff);
       if (ok) appliedCount++;
       else errorCount++;
     }
     if (appliedCount > 0 || errorCount > 0) {
-      setApplyStatus(`${appliedCount} file(s) written${errorCount > 0 ? `, ${errorCount} error(s)` : ""}`);
+      setApplyStatus(
+        `${appliedCount} file(s) applied${errorCount > 0 ? `, ${errorCount} error(s)` : ""}`
+      );
       setTimeout(() => setApplyStatus(null), 4000);
     }
   }, [activeSession]);
@@ -76,6 +80,8 @@ function DiffPanel() {
     (acc, fd) => acc + fd.hunks.filter((h) => h.accepted === false).length,
     0
   );
+  const hasDecisions = acceptedCount > 0 || rejectedCount > 0;
+  const allDecided = pendingCount === 0 && hasDecisions;
 
   return (
     <div className="flex flex-col h-full bg-bg-onyx font-mono">
@@ -106,19 +112,21 @@ function DiffPanel() {
               {rejectedCount} rejected
             </span>
           )}
-          {acceptedCount > 0 && (
+          {allDecided && (
             <button
               onClick={handleApplyAllAccepted}
               className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono font-semibold border cursor-pointer transition-colors"
               style={{ borderColor: "rgba(74,222,128,0.3)", color: "var(--c-ok)", backgroundColor: "rgba(74,222,128,0.1)" }}
             >
               <span className="material-symbols-outlined text-[10px]">save</span>
-              Apply All Accepted
+              APPLY CHANGES
             </button>
           )}
         </div>
         {applyStatus && (
-          <span className="text-[9px] font-mono text-diff-add">{applyStatus}</span>
+          <span className="text-[9px] font-mono" style={{ color: applyStatus.includes("error") ? "var(--c-err)" : "var(--c-ok)" }}>
+            {applyStatus}
+          </span>
         )}
       </div>
       <div

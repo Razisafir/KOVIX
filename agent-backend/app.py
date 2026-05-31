@@ -416,6 +416,9 @@ class ToolExecuteRequest(BaseModel):
     arguments: dict = Field(
         default_factory=dict, description="Tool arguments as a JSON object"
     )
+    project_path: Optional[str] = Field(
+        None, description="Optional project path to set as base directory for file tools"
+    )
 
 
 class ToolExecuteResponse(BaseModel):
@@ -1187,6 +1190,8 @@ async def execute_tool(req: ToolExecuteRequest) -> dict:
     Execute a tool directly by name with JSON arguments.
 
     This is useful for ad-hoc tool use without starting a full agent session.
+    If project_path is provided, the file tools sandbox is set to that path,
+    allowing file operations within the specified project directory.
     """
     if _tool_registry is None:
         raise HTTPException(status_code=503, detail="Tool registry not initialised")
@@ -1198,12 +1203,24 @@ async def execute_tool(req: ToolExecuteRequest) -> dict:
             detail=f"Unknown tool: '{req.tool_name}'. Available: {available}",
         )
 
+    # Set base directory for file tools if project_path is provided
+    old_base_dir = None
+    if req.project_path:
+        from tools.file_tools import set_base_dir
+        old_base_dir = set_base_dir(req.project_path)
+        logger.info("Set BASE_DIR to %s for direct tool execution", req.project_path)
+
     try:
         result = _tool_registry.execute_tool(req.tool_name, req.arguments)
         return {"tool_name": req.tool_name, "result": result}
     except Exception as exc:
         logger.error("Tool execution failed: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        # Restore previous base directory
+        if old_base_dir is not None:
+            from tools.file_tools import set_base_dir
+            set_base_dir(old_base_dir)
 
 
 # ===========================================================================

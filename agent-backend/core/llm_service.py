@@ -585,11 +585,13 @@ class LLMService:
         Select the best provider based on prompt complexity.
 
         Heuristics:
+        - If Mock LLM is configured (CONSTRUCT_MOCK_LLM=1), always use Mock.
+          This ensures deterministic CI/testing behavior.
         - Short prompts (< 200 chars) -> Ollama (local, fast, free)
         - Code generation tasks -> OpenAI/Anthropic (best code quality)
         - Complex reasoning -> Anthropic (best reasoning)
         - Quick completions -> Ollama
-        - Fallback order: Anthropic > OpenAI > Ollama
+        - Fallback order: Anthropic > OpenAI > Ollama > Mock
 
         Parameters
         ----------
@@ -601,6 +603,11 @@ class LLMService:
         LLMProvider
             The selected provider.
         """
+        # CRITICAL: When Mock LLM is configured, always use it.
+        # This ensures the agent loop works in CI/offline/testing environments.
+        if LLMProvider.MOCK in self.configs:
+            return LLMProvider.MOCK
+
         prompt_lower = prompt.lower()
 
         # Short/simple prompts -> Ollama
@@ -914,20 +921,44 @@ class LLMService:
                 yield batch
         except Exception as exc:
             logger.warning(
-                "Primary provider %s streaming failed: %s. Falling back to Ollama (streaming).",
+                "Primary provider %s streaming failed: %s. Trying fallback providers.",
                 provider.value,
                 exc,
             )
-            if provider != LLMProvider.OLLAMA:
-                raw_stream = self._stream_with_provider(
-                    LLMProvider.OLLAMA, messages, tool_schemas, temperature, max_tokens
-                )
-                async for batch in self._buffered_stream(raw_stream, buffer_ms=50):
-                    if session_id and session_id in self._token_buffers:
-                        self._token_buffers[session_id] += batch
-                    yield batch
-            else:
-                yield f"\n[Error: {exc}]"
+            # Try each fallback provider in order (includes mock at the end)
+            fallback_succeeded = False
+            for fallback_name in _PROVIDER_FALLBACK_ORDER:
+                try:
+                    fallback_provider = LLMProvider(fallback_name)
+                except ValueError:
+                    continue
+                if fallback_provider == provider:
+                    continue
+                if fallback_provider not in self.configs:
+                    continue
+                try:
+                    raw_stream = self._stream_with_provider(
+                        fallback_provider, messages, tool_schemas, temperature, max_tokens
+                    )
+                    async for batch in self._buffered_stream(raw_stream, buffer_ms=50):
+                        if session_id and session_id in self._token_buffers:
+                            self._token_buffers[session_id] += batch
+                        yield batch
+                    logger.info(
+                        "Fallback streaming succeeded with provider: %s",
+                        fallback_provider.value,
+                    )
+                    fallback_succeeded = True
+                    break
+                except Exception as fallback_exc:
+                    logger.warning(
+                        "Fallback provider %s also failed: %s",
+                        fallback_provider.value,
+                        fallback_exc,
+                    )
+                    continue
+            if not fallback_succeeded:
+                yield f"\n[Error: All LLM providers failed. Primary: {exc}]"
         finally:
             self._stream_metrics.active_streams = max(0, self._stream_metrics.active_streams - 1)
             # Clean up token buffer after stream completes
@@ -1505,8 +1536,12 @@ class LLMService:
         """Deterministic mock completion for CI testing."""
         from core.mock_llm import MockLLMProvider
 
-        mock = MockLLMProvider()
-        result = await mock.complete(messages)
+        # Reuse a persistent mock instance so _act_call_count is preserved
+        # across calls within the same session. This ensures the mock LLM
+        # correctly transitions from tool calls to "done" responses.
+        if not hasattr(self, '_mock_provider') or self._mock_provider is None:
+            self._mock_provider = MockLLMProvider()
+        result = await self._mock_provider.complete(messages)
         self._log_call(
             LLMCallLog(
                 provider="mock",
@@ -1528,8 +1563,10 @@ class LLMService:
         """Deterministic mock streaming for CI testing."""
         from core.mock_llm import MockLLMProvider
 
-        mock = MockLLMProvider()
-        async for chunk in mock.stream_complete(messages):
+        # Reuse a persistent mock instance so _act_call_count is preserved
+        if not hasattr(self, '_mock_provider') or self._mock_provider is None:
+            self._mock_provider = MockLLMProvider()
+        async for chunk in self._mock_provider.stream_complete(messages):
             yield chunk
 
     # -- Logging ------------------------------------------------------------
