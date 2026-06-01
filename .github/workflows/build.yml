@@ -164,7 +164,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-mock-results
           path: |
@@ -229,13 +229,13 @@ jobs:
           args: ''
 
       - name: Upload .msi artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: construct-windows-msi
           path: src/main/target/release/bundle/msi/*.msi
 
       - name: Upload .exe (nsis) artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: construct-windows-exe
           path: src/main/target/release/bundle/nsis/*.exe
@@ -294,7 +294,7 @@ jobs:
           args: '--target aarch64-apple-darwin'
 
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: construct-macos-dmg
           path: src/main/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
@@ -362,13 +362,13 @@ jobs:
           args: ''
 
       - name: Upload .deb artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: construct-linux-deb
           path: src/main/target/release/bundle/deb/*.deb
 
       - name: Upload .AppImage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: construct-linux-appimage
           path: src/main/target/release/bundle/appimage/*.AppImage
