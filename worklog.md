@@ -500,3 +500,48 @@ Stage Summary:
 - v0.1.0-beta.5 release live at https://github.com/Razisafir/construct-ai-agent/releases/tag/v0.1.0-beta.5
 - Windows installer ready with all startup fixes
 - Linux build has a PyInstaller sidecar issue (separate from this fix)
+
+---
+Task ID: 2
+Agent: main
+Task: Verify VS Code Layout + Fix Critical Issues + Add Real Terminal
+
+Work Log:
+- Discovered actual repo is at /home/z/construct-ai-agent/ (not /tmp/my-project/)
+- Synced all layout changes from /tmp/my-project/ working copy to actual repo
+- Found dead code files (IDELayout.tsx, RightAgentPanel.tsx) referencing old store properties
+- Added backward compat aliases to useAppStore: rightPanelVisible, rightPanelTab, setRightPanelTab, toggleRightPanel
+- Added named export to ActivityBar.tsx for IDELayout.tsx compatibility
+- Fixed setRightPanelTab type to accept string (for RightAgentPanel.tsx tab.id)
+- TypeScript compiles clean (0 new errors)
+- Vite build passes
+- Committed and pushed layout restructuring (commit 831c8a9)
+- Added portable-pty v0.8 to Cargo.toml
+- Rewrote terminal.rs with PTY support:
+  - Uses native_pty_system() (ConPTY on Windows, fork/exec on Unix)
+  - CommandBuilder::new_default_prog() for shell detection
+  - Writes directly to MasterPty (avoids try_clone_writer CI failure from previous session)
+  - Real resize via MasterPty.resize()
+  - Reader via try_clone_reader() in spawn_blocking task
+- Created TerminalPanel.tsx with xterm.js v6:
+  - FitAddon for auto-sizing
+  - WebLinksAddon for clickable URLs
+  - Custom construct-dark theme matching IDE
+  - Tauri event integration (terminal:data / terminal_input)
+  - Web mode fallback
+- Updated Panel.tsx to lazy-load TerminalPanel
+- TypeScript compiles clean, Vite build passes (TerminalPanel chunk: 339KB)
+- Committed and pushed terminal (commit 23193f9)
+
+Stage Summary:
+- Layout restructuring committed and pushed ✓
+- Backward compat fixes for dead code ✓
+- Real PTY terminal implemented (Rust + xterm.js) ✓
+- TypeScript: 0 new errors ✓
+- Vite build: PASS ✓
+- 2 commits pushed to main
+- CI will verify Rust compilation (portable-pty needs to compile on all 3 platforms)
+- NOTE: Rust/Cargo not available on this server — CI must verify Rust build
+KEY RISK: portable-pty MasterPty implements Write trait but we lock the entire master to write.
+  If write operations block the resize, we may need to use a separate write channel.
+  This can be addressed if CI reveals issues.

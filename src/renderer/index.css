@@ -99,6 +99,12 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(40, 42, 45, 0.6) transparent;
   }
+
+  /* Prevent text selection in UI chrome (nav, headers, sidebars, tabs, buttons) */
+  nav, header, footer, aside, button, [role="tab"], [role="toolbar"] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
 }
 
 /* ============================================================
@@ -155,21 +161,47 @@
     pointer-events: none;
   }
 
-  /* Mac window dots */
-  .mac-dots {
-    display: flex;
-    gap: 8px;
-    padding: 0 16px;
+  /* GPU-accelerated layer — promote to compositor for smooth transforms */
+  .gpu-layer {
+    will-change: transform;
+    transform: translateZ(0);
   }
-  .mac-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    display: inline-block;
+
+  /* Native scrollbars — thin, dark, matching OS style */
+  .native-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(40, 42, 45, 0.6) transparent;
   }
-  .mac-dot.close { background-color: #ff5f56; }
-  .mac-dot.minimize { background-color: #ffbd2e; }
-  .mac-dot.maximize { background-color: #27c93f; }
+  .native-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .native-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .native-scroll::-webkit-scrollbar-thumb {
+    background: rgba(40, 42, 45, 0.6);
+    border-radius: 3px;
+  }
+  .native-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(58, 73, 74, 0.8);
+  }
+
+  /* User-select control — prevent accidental text selection in UI chrome */
+  .no-select {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .editor-select {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  /* System font stack — matches OS native fonts */
+  .system-font {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+  }
 
   /* Micro-label style */
   .micro-label {

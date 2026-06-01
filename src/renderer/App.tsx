@@ -166,133 +166,148 @@ function useSettingsShortcut(onOpen: () => void) {
   }, [onOpen]);
 }
 
-/* ─── Title Bar Menu ─── */
-interface MenuItem {
-  label: string;
-  action?: () => void;
-  shortcut?: string;
+/* ─── Native Menu Events Hook ─── */
+function useNativeMenuEvents() {
+  useEffect(() => {
+    if (typeof window === "undefined" || !(window as any).__TAURI__) return;
+
+    const setupListener = async () => {
+      try {
+        const { listen } = (window as any).__TAURI__.event || (window as any).__TAURI__;
+        if (!listen) return;
+
+        const unlisten = await listen("menu-event", (event: any) => {
+          const menuId: string = event.payload;
+          const store = useAppStore.getState();
+
+          switch (menuId) {
+            // File menu
+            case "file:new":
+              console.log("[menu] new file");
+              break;
+            case "file:open-file":
+              import("./utils/nativeDialogs").then((d) => d.openFileDialog()).then((path) => {
+                if (path) console.log("[menu] opened file:", path);
+              });
+              break;
+            case "file:open-folder":
+              import("./utils/nativeDialogs").then((d) => d.openFolderDialog()).then((path) => {
+                if (path) console.log("[menu] opened folder:", path);
+              });
+              break;
+            case "file:save":
+              console.log("[menu] save");
+              break;
+            case "file:save-all":
+              console.log("[menu] save all");
+              break;
+            case "file:quit":
+              console.log("[menu] quit");
+              break;
+
+            // View menu
+            case "view:command-palette":
+              // Dispatch to command palette
+              window.dispatchEvent(new CustomEvent("construct:open-command-palette"));
+              break;
+            case "view:explorer":
+              store.setActiveSidebarTab("explorer");
+              if (!store.sidebarVisible) store.toggleSidebar();
+              break;
+            case "view:search":
+              store.setActiveSidebarTab("search");
+              if (!store.sidebarVisible) store.toggleSidebar();
+              break;
+            case "view:toggle-sidebar":
+              store.toggleSidebar();
+              break;
+            case "view:toggle-right-sidebar":
+              store.toggleRightSidebar();
+              break;
+            case "view:toggle-panel":
+              store.togglePanel();
+              break;
+
+            // Agent menu
+            case "agent:new-chat":
+              store.setRightSidebarTab("chat");
+              if (!store.rightSidebarVisible) store.toggleRightSidebar();
+              break;
+            case "agent:memory":
+              store.setRightSidebarTab("memory");
+              if (!store.rightSidebarVisible) store.toggleRightSidebar();
+              break;
+            case "agent:dashboard":
+              store.setRightSidebarTab("agent");
+              if (!store.rightSidebarVisible) store.toggleRightSidebar();
+              break;
+            case "agent:new-terminal":
+              store.setPanelTab("terminal");
+              if (!store.panelVisible) store.togglePanel();
+              break;
+
+            // Help menu
+            case "help:documentation":
+              window.open("https://docs.construct.ai", "_blank");
+              break;
+            case "help:shortcuts":
+              console.log("[menu] keyboard shortcuts");
+              break;
+            case "help:about":
+              console.log("[menu] about construct");
+              break;
+
+            default:
+              console.log("[menu] unhandled:", menuId);
+          }
+        });
+
+        return () => {
+          unlisten.then((fn: () => void) => fn());
+        };
+      } catch (e) {
+        console.warn("[useNativeMenuEvents] Failed to set up listener:", e);
+      }
+    };
+
+    const cleanup = setupListener();
+    return () => {
+      cleanup.then((fn) => fn?.());
+    };
+  }, []);
 }
 
-interface MenuGroup {
-  label: string;
-  items: MenuItem[];
-}
+/* ─── File Drop Hook ─── */
+function useFileDrop() {
+  useEffect(() => {
+    if (typeof window === "undefined" || !(window as any).__TAURI__) return;
 
-function TitleBarMenu({ onTogglePanel, onToggleSidebar, onToggleRightSidebar }: {
-  onTogglePanel: () => void;
-  onToggleSidebar: () => void;
-  onToggleRightSidebar: () => void;
-}) {
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const store = useAppStore();
+    const setupListener = async () => {
+      try {
+        const { listen } = (window as any).__TAURI__.event || (window as any).__TAURI__;
+        if (!listen) return;
 
-  const menuGroups: MenuGroup[] = [
-    {
-      label: "File",
-      items: [
-        { label: "New File", shortcut: "Ctrl+N" },
-        { label: "Open File...", shortcut: "Ctrl+O" },
-        { label: "Save", shortcut: "Ctrl+S" },
-        { label: "Save All", shortcut: "Ctrl+Shift+S" },
-      ],
-    },
-    {
-      label: "Edit",
-      items: [
-        { label: "Undo", shortcut: "Ctrl+Z" },
-        { label: "Redo", shortcut: "Ctrl+Shift+Z" },
-        { label: "Find", shortcut: "Ctrl+F" },
-        { label: "Replace", shortcut: "Ctrl+H" },
-      ],
-    },
-    {
-      label: "View",
-      items: [
-        { label: "Command Palette...", shortcut: "Ctrl+Shift+P" },
-        { label: "Toggle Sidebar", action: onToggleSidebar, shortcut: "Ctrl+B" },
-        { label: "Toggle Right Sidebar", action: onToggleRightSidebar, shortcut: "Ctrl+Shift+B" },
-        { label: "Toggle Bottom Panel", action: onTogglePanel, shortcut: "Ctrl+`" },
-      ],
-    },
-    {
-      label: "Agent",
-      items: [
-        { label: "New Chat", action: () => store.setRightSidebarTab("chat") },
-        { label: "Plan Mode" },
-        { label: "Act Mode" },
-        { label: "YOLO Mode" },
-        { label: "Memory Browser", action: () => store.setRightSidebarTab("memory") },
-        { label: "Agent Dashboard", action: () => store.setRightSidebarTab("agent") },
-      ],
-    },
-    {
-      label: "Terminal",
-      items: [
-        { label: "New Terminal", action: () => { store.setPanelTab("terminal"); if (!store.panelVisible) store.togglePanel(); } },
-        { label: "Clear Terminal" },
-      ],
-    },
-    {
-      label: "Help",
-      items: [
-        { label: "Documentation" },
-        { label: "Keyboard Shortcuts", shortcut: "Ctrl+K Ctrl+S" },
-        { label: "About Construct" },
-      ],
-    },
-  ];
+        const unlisten = await listen("tauri://file-drop", (event: any) => {
+          const paths: string[] = event.payload;
+          if (paths && paths.length > 0) {
+            console.log("[file-drop] Dropped files:", paths);
+            // Could open the first file, add to workspace, etc.
+          }
+        });
 
-  return (
-    <div className="flex items-center h-full gap-0">
-      {menuGroups.map((group) => (
-        <div key={group.label} className="relative">
-          <button
-            onClick={() => setOpenMenu(openMenu === group.label ? null : group.label)}
-            onMouseEnter={() => { if (openMenu) setOpenMenu(group.label); }}
-            className={`h-full px-3 text-[12px] font-sans border-none cursor-pointer transition-colors ${
-              openMenu === group.label
-                ? "bg-c-s2 text-text-primary"
-                : "bg-transparent text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            {group.label}
-          </button>
+        return () => {
+          unlisten.then((fn: () => void) => fn());
+        };
+      } catch (e) {
+        console.warn("[useFileDrop] Failed to set up listener:", e);
+      }
+    };
 
-          {openMenu === group.label && (
-            <>
-              {/* Invisible overlay to catch outside clicks */}
-              <div
-                className="fixed inset-0 z-[998]"
-                onClick={() => setOpenMenu(null)}
-              />
-              <div
-                className="absolute left-0 top-full z-[999] min-w-[220px] bg-panel-bg border border-border-subtle rounded-md shadow-lg py-1"
-                style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
-              >
-                {group.items.map((item, i) => (
-                  <button
-                    key={i}
-                    onClick={() => {
-                      item.action?.();
-                      setOpenMenu(null);
-                    }}
-                    className="flex items-center justify-between w-full px-3 py-1.5 text-[12px] font-sans border-none cursor-pointer bg-transparent text-text-secondary hover:bg-c-s2 hover:text-text-primary transition-colors text-left"
-                  >
-                    <span>{item.label}</span>
-                    {item.shortcut && (
-                      <span className="text-[10px] text-text-secondary/50 ml-4 font-mono">
-                        {item.shortcut}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      ))}
-    </div>
-  );
+    const cleanup = setupListener();
+    return () => {
+      cleanup.then((fn) => fn?.());
+    };
+  }, []);
 }
 
 /* ─── App Root ─── */
@@ -311,6 +326,12 @@ function AppRoot() {
   const [showSettings, setShowSettings] = useState(false);
 
   const { isOpen: showCommandPalette, open: openCommandPalette, close: closeCommandPalette } = useCommandPalette();
+
+  // Native menu event listener — dispatches Rust menu events to Zustand store
+  useNativeMenuEvents();
+
+  // Native file drop listener — handles drag-and-drop from OS file manager
+  useFileDrop();
 
   useEffect(() => {
     registerDefaultCommands();
@@ -391,36 +412,7 @@ function AppRoot() {
 
   return (
     <div className="font-sans h-screen w-screen overflow-hidden flex flex-col antialiased selection:bg-accent-cyan-dim bg-bg-onyx text-text-primary">
-      {/* ── Top Title Bar (h-8) ── */}
-      <header className="h-8 flex-shrink-0 bg-panel-bg flex items-center justify-between border-b border-border-subtle relative z-50" style={{ WebkitAppRegion: "drag" } as React.CSSProperties}>
-        {/* Left: Mac dots + Menu */}
-        <div className="flex items-center" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-          <div className="mac-dots flex items-center pl-4 pr-2">
-            <span className="mac-dot close" />
-            <span className="mac-dot minimize" />
-            <span className="mac-dot maximize" />
-          </div>
-          <TitleBarMenu
-            onTogglePanel={togglePanel}
-            onToggleSidebar={toggleSidebar}
-            onToggleRightSidebar={toggleRightSidebar}
-          />
-        </div>
-
-        {/* Centered title */}
-        <div className="flex-1 flex justify-center items-center text-[12px] font-medium text-text-secondary pointer-events-none select-none">
-          Construct
-        </div>
-
-        {/* Right: LLM status + window controls */}
-        <div className="flex items-center pr-3 gap-2" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-          <div className="text-[10px] font-mono text-accent-cyan bg-accent-cyan-dim px-2 py-0.5 rounded-md border border-accent-cyan/30">
-            Kimi K2.5 · local
-          </div>
-        </div>
-      </header>
-
-      {/* ── Main Content Area ── */}
+      {/* ── Main Content Area (no custom title bar — using native OS decorations) ── */}
       <div className="flex flex-1 overflow-hidden">
         {/* Far Left: Activity Bar (w-12) */}
         <ActivityBar />

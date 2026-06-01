@@ -42,6 +42,7 @@ futures = "0.3"
 # -- logging --
 log = "0.4"
 tauri-plugin-log = "2"
+tauri-plugin-notification = "2"
 
 [build-dependencies]
 tauri-build = "2"
