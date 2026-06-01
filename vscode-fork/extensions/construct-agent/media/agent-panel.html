@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="header">
+        <h3>Construct Agent</h3>
+        <span class="status online" id="status">Ready</span>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="actions" id="actions">
+        <button class="accept" id="acceptBtn">Accept All</button>
+        <button class="reject" id="rejectBtn">Reject All</button>
+    </div>
+    <div class="input-area">
+        <textarea id="input" placeholder="Ask the agent to code something... (Cmd+Enter to send)"></textarea>
+        <button id="sendBtn">Send</button>
+    </div>
+    <script src="agent-panel.js"></script>
+</body>
+</html>
