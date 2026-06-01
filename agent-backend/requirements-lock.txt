@@ -20,7 +20,7 @@ markitdown==0.1.1
 playwright==1.49.1
 
 # Transitive dependencies (key ones)
-numpy>=1.24.0
+numpy>=2.4.6
 torch>=2.0.0
 transformers>=4.30.0
 huggingface-hub>=0.16.0
