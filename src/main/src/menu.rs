@@ -12,8 +12,8 @@ use tauri::{
 /// Build the native application menu.
 ///
 /// Called from `Builder::menu()` which passes `&AppHandle`.
-/// Returns a `Result<Menu>` as required by the builder API.
-pub fn build_menu<R: Runtime>(handle: &AppHandle<R>) -> Result<Menu<R>, Box<dyn std::error::Error>> {
+/// Returns `tauri::Result<Menu<R>>` as required by the builder API.
+pub fn build_menu<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     // ── File Menu ────────────────────────────────────────────────────────
     let file_new = MenuItem::with_id(handle, "file:new", "New File", true, Some("CmdOrCtrl+N"))?;
     let file_open_file = MenuItem::with_id(handle, "file:open-file", "Open File...", true, Some("CmdOrCtrl+O"))?;
@@ -129,8 +129,8 @@ pub fn build_menu<R: Runtime>(handle: &AppHandle<R>) -> Result<Menu<R>, Box<dyn 
     )?;
 
     // ── Assemble top-level menu ──────────────────────────────────────────
-    Ok(Menu::with_items(
+    Menu::with_items(
         handle,
         &[&file_menu, &edit_menu, &view_menu, &agent_menu, &help_menu],
-    )?)
+    )
 }
