@@ -6,4 +6,4 @@ pytest-asyncio==0.25.0
 pytest-cov==6.0.0
 httpx==0.28.1          # For FastAPI TestClient
 respx==0.22.0          # For mocking HTTPX calls in tests
-pyinstaller==6.11.0    # For bundling Python backend as Tauri sidecar
+pyinstaller==6.20.0    # For bundling Python backend as Tauri sidecar
