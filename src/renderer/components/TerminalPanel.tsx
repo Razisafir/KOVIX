@@ -1,204 +1,216 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useEffect, useRef, useCallback } from "react";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import { WebLinksAddon } from "@xterm/addon-web-links";
+import "@xterm/xterm/css/xterm.css";
 
-export const TerminalPanel: React.FC = () => {
+// Detect Tauri runtime
+const isTauri = typeof window !== "undefined" && !!(window as any).__TAURI__;
+
+// Tauri v2 API helpers
+async function getInvoke() {
+  if (!isTauri) return null;
+  try {
+    const { invoke } = (window as any).__TAURI__.core || (window as any).__TAURI__;
+    return invoke as (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
+  } catch {
+    return null;
+  }
+}
+
+async function getListen() {
+  if (!isTauri) return null;
+  try {
+    const { listen } = (window as any).__TAURI__.event || (window as any).__TAURI__;
+    return listen as <T>(event: string, handler: (e: { payload: T }) => void) => Promise<() => void>;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Real terminal panel using xterm.js connected to a PTY via Tauri.
+ *
+ * Data flow:
+ *   Frontend (xterm.js) → invoke('terminal_input', {data}) → Rust PTY stdin
+ *   Rust PTY stdout → emit('terminal:data', string) → xterm.js write()
+ */
+export function TerminalPanel() {
   const terminalRef = useRef<HTMLDivElement>(null);
-  const [isReady, setIsReady] = useState(false);
-  const [xtermLoaded, setXtermLoaded] = useState(false);
+  const termInstanceRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
 
-  // Dynamically import xterm to handle SSR / missing dependency gracefully
-  useEffect(() => {
-    let term: any = null;
-    let fitAddon: any = null;
-    let unlistenFn: (() => void) | null = null;
+  const initTerminal = useCallback(async () => {
+    if (!terminalRef.current) return;
+    // Don't re-init
+    if (termInstanceRef.current) return;
 
-    const initTerminal = async () => {
-      if (!terminalRef.current) return;
+    const term = new Terminal({
+      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+      fontSize: 12,
+      lineHeight: 1.2,
+      cursorBlink: true,
+      cursorStyle: "bar",
+      theme: {
+        background: "#0c0e11",
+        foreground: "#e2e2e6",
+        cursor: "#00f5ff",
+        cursorAccent: "#0c0e11",
+        selectionBackground: "rgba(0, 245, 255, 0.15)",
+        black: "#0c0e11",
+        red: "#e06c75",
+        green: "#98c379",
+        yellow: "#e5c07b",
+        blue: "#61afef",
+        magenta: "#c678dd",
+        cyan: "#00f5ff",
+        white: "#e2e2e6",
+        brightBlack: "#849495",
+        brightRed: "#e06c75",
+        brightGreen: "#98c379",
+        brightYellow: "#e5c07b",
+        brightBlue: "#61afef",
+        brightMagenta: "#c678dd",
+        brightCyan: "#00f5ff",
+        brightWhite: "#ffffff",
+      },
+      allowProposedApi: true,
+      scrollback: 5000,
+      convertEol: false,
+    });
 
-      try {
-        // Dynamic imports so the app doesn't crash if xterm isn't available
-        const { Terminal } = await import("@xterm/xterm");
-        const { FitAddon } = await import("@xterm/addon-fit");
-        const { WebLinksAddon } = await import("@xterm/addon-web-links");
+    const fitAddon = new FitAddon();
+    const webLinksAddon = new WebLinksAddon();
 
-        // Import xterm CSS (dynamic — may not resolve as a module)
-        try {
-          // @ts-ignore — CSS module import
-          await import("@xterm/xterm/css/xterm.css");
-        } catch { /* CSS imported via style tag */ }
+    term.loadAddon(fitAddon);
+    term.loadAddon(webLinksAddon);
+    term.open(terminalRef.current);
 
-        term = new Terminal({
-          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-          fontSize: 12,
-          lineHeight: 1.2,
-          cursorBlink: true,
-          cursorStyle: "block",
-          theme: {
-            background: "#0A0E1A",
-            foreground: "#E0E7FF",
-            cursor: "#00E5FF",
-            selectionBackground: "#00E5FF44",
-            selectionForeground: "#0A0E1A",
-            black: "#0A0E1A",
-            red: "#FF4444",
-            green: "#00E5FF",
-            yellow: "#FFD700",
-            blue: "#4A90D9",
-            magenta: "#FF00FF",
-            cyan: "#00E5FF",
-            white: "#E0E7FF",
-            brightBlack: "#4A5568",
-            brightRed: "#FF6B6B",
-            brightGreen: "#00FFFF",
-            brightYellow: "#FFE66D",
-            brightBlue: "#6BB5FF",
-            brightMagenta: "#FF6BFF",
-            brightCyan: "#6BFFFF",
-            brightWhite: "#FFFFFF",
-          },
-          scrollback: 10000,
-          convertEol: true,
-          allowProposedApi: true,
+    termInstanceRef.current = term;
+    fitAddonRef.current = fitAddon;
+
+    // Initial fit
+    try {
+      fitAddon.fit();
+    } catch {
+      // Ignore fit errors on first render
+    }
+
+    const cols = term.cols;
+    const rows = term.rows;
+
+    // Connect to Tauri PTY backend
+    if (isTauri) {
+      const invoke = await getInvoke();
+      const listenFn = await getListen();
+
+      if (invoke && listenFn) {
+        // Listen for PTY output from Rust
+        const unlisten = await listenFn<string>("terminal:data", (event) => {
+          term.write(event.payload);
         });
 
-        fitAddon = new FitAddon();
-        const webLinksAddon = new WebLinksAddon();
-
-        term.loadAddon(fitAddon);
-        term.loadAddon(webLinksAddon);
-
-        term.open(terminalRef.current);
-        fitAddon.fit();
-
-        setXtermLoaded(true);
-
-        // Try to connect to Tauri PTY backend
-        const isTauri =
-          typeof window !== "undefined" &&
-          ((window as any).__TAURI__ !== undefined);
-
-        if (isTauri) {
-          try {
-            const { invoke } = await import("@tauri-apps/api/core");
-            const { listen } = await import("@tauri-apps/api/event");
-
-            // Spawn PTY via Rust backend
-            await invoke("spawn_terminal", {
-              cols: term.cols,
-              rows: term.rows,
-            });
-
-            // Listen for output from Rust
-            const unlisten = await listen<string>("terminal:data", (event) => {
-              term.write(event.payload);
-            });
-            unlistenFn = unlisten;
-
-            // Send input to Rust
-            term.onData((data: string) => {
-              invoke("terminal_input", { data });
-            });
-
-            // Handle resize
-            term.onResize(({ cols, rows }: { cols: number; rows: number }) => {
-              invoke("terminal_resize", { cols, rows });
-            });
-          } catch (err) {
-            term.writeln(
-              `\x1b[31mPTY connection failed: ${err}\x1b[0m`
-            );
-            term.writeln(
-              "\x1b[33mRunning in local echo mode. Commands won't execute.\x1b[0m"
-            );
-            // Local echo fallback
-            term.onData((data: string) => {
-              if (data === "\r") {
-                term.writeln("");
-              } else if (data === "\u007F") {
-                term.write("\b \b");
-              } else {
-                term.write(data);
-              }
-            });
-          }
-        } else {
-          // Not running in Tauri — local echo mode for dev
-          term.writeln(
-            "\x1b[33mRunning outside Tauri. Terminal is in local-echo mode.\x1b[0m"
-          );
-          term.onData((data: string) => {
-            if (data === "\r") {
-              term.writeln("");
-            } else if (data === "\u007F") {
-              term.write("\b \b");
-            } else {
-              term.write(data);
-            }
+        // Send keyboard input to PTY
+        term.onData((data) => {
+          invoke("terminal_input", { data }).catch((err: unknown) => {
+            console.error("[Terminal] Failed to send input:", err);
           });
-        }
+        });
 
-        setIsReady(true);
-      } catch (err) {
-        // xterm failed to load — show fallback terminal
-        console.warn("xterm.js failed to load:", err);
-        setIsReady(true);
-      }
-    };
-
-    initTerminal();
-
-    // Handle resize
-    const handleResize = () => {
-      if (fitAddon) {
+        // Spawn the PTY shell
         try {
-          fitAddon.fit();
-        } catch {
-          // ignore resize errors
+          await invoke("spawn_terminal", { cols, rows });
+          term.focus();
+        } catch (err) {
+          term.writeln(`\r\n\x1b[31mFailed to spawn terminal: ${err}\x1b[0m`);
+          console.error("[Terminal] spawn_terminal failed:", err);
         }
-      }
-    };
 
-    window.addEventListener("resize", handleResize);
+        // Handle resize
+        const onResize = () => {
+          try {
+            fitAddon.fit();
+            const { cols: newCols, rows: newRows } = term;
+            invoke("terminal_resize", { cols: newCols, rows: newRows }).catch(
+              (err: unknown) => {
+                console.warn("[Terminal] resize failed:", err);
+              }
+            );
+          } catch {
+            // Ignore resize errors
+          }
+        };
+
+        term.onResize(onResize);
+
+        // Also handle window resize
+        const resizeObserver = new ResizeObserver(() => {
+          onResize();
+        });
+        resizeObserver.observe(terminalRef.current);
+
+        // Cleanup on unmount
+        return () => {
+          unlisten();
+          resizeObserver.disconnect();
+          invoke("kill_terminal").catch(() => {});
+          term.dispose();
+          termInstanceRef.current = null;
+          fitAddonRef.current = null;
+        };
+      }
+    }
+
+    // Fallback: web mode (no Tauri) — show a demo terminal
+    term.writeln("\x1b[36mConstruct IDE — Web Mode\x1b[0m");
+    term.writeln("\x1b[90mTerminal requires Tauri runtime for PTY support.\x1b[0m");
+    term.writeln("\x1b[90mRun 'cargo tauri dev' for a real terminal.\x1b[0m\r\n");
+    term.write("\x1b[32m$ \x1b[0m");
+
+    let lineBuffer = "";
+    term.onData((data) => {
+      if (data === "\r") {
+        term.write("\r\n");
+        if (lineBuffer.trim()) {
+          term.writeln(`\x1b[31mcommand not found: ${lineBuffer}\x1b[0m`);
+        }
+        term.write("\x1b[32m$ \x1b[0m");
+        lineBuffer = "";
+      } else if (data === "\x7f") {
+        // Backspace
+        if (lineBuffer.length > 0) {
+          lineBuffer = lineBuffer.slice(0, -1);
+          term.write("\b \b");
+        }
+      } else if (data >= " ") {
+        lineBuffer += data;
+        term.write(data);
+      }
+    });
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-      unlistenFn?.();
-      term?.dispose();
+      term.dispose();
+      termInstanceRef.current = null;
     };
   }, []);
 
-  // Welcome message for fallback mode (when xterm didn't load)
-  if (!xtermLoaded && isReady) {
-    return (
-      <div className="h-full w-full bg-[#0A0E1A] p-2 font-mono text-[11px] text-[#849495] leading-[18px]">
-        <div className="text-[#00E5FF]">$ construct --version</div>
-        <div>0.1.0-alpha</div>
-        <div className="mt-1 text-[#00E5FF]">$ npm run dev</div>
-        <div className="text-[#4EC9B0]">vite v6.0 ready in 342ms</div>
-        <div className="text-[#00E5FF]">local: http://localhost:5173/</div>
-        <div className="mt-1 text-[#00E5FF]">$ cargo tauri dev</div>
-        <div>Running ConstructApp...</div>
-        <div className="mt-2 text-[#FFD700]">
-          xterm.js not loaded. Install @xterm/xterm for real terminal.
-        </div>
-        <div className="text-[#00E5FF]">_</div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    initTerminal().then((fn) => {
+      cleanup = fn || undefined;
+    });
+    return () => {
+      cleanup?.();
+    };
+  }, [initTerminal]);
 
   return (
-    <div className="h-full w-full p-[2px] bg-[#0A0E1A]">
-      <div
-        ref={terminalRef}
-        className="h-full w-full"
-        style={{ minHeight: 100 }}
-      />
-      {!isReady && (
-        <div className="absolute inset-0 flex items-center justify-center text-[10px] text-[#4A5568] font-mono">
-          initializing terminal...
-        </div>
-      )}
-    </div>
+    <div
+      ref={terminalRef}
+      className="w-full h-full"
+      style={{ padding: "4px 4px 0 4px", background: "#0c0e11" }}
+    />
   );
-};
+}
 
 export default TerminalPanel;

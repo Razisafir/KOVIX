@@ -1,4 +1,9 @@
+import { lazy, Suspense } from "react";
 import useAppStore from "../stores/useAppStore";
+
+const TerminalPanel = lazy(() =>
+  import("./TerminalPanel").then((m) => ({ default: m.TerminalPanel ?? m.default ?? m.TerminalPanel }))
+);
 
 interface Tab {
   id: string;
@@ -20,21 +25,6 @@ function Panel() {
     { id: "ports", icon: "lan", label: "Ports" },
   ];
 
-  const renderTerminal = () => (
-    <div className="font-mono text-[11px] leading-[18px] p-2 text-text-secondary">
-      <div>$ construct --version</div>
-      <div className="text-text-primary">0.1.0-beta</div>
-      <div className="mt-1">$ npm run dev</div>
-      <div className="text-c-ok">vite v6.0 ready in 342ms</div>
-      <div className="text-accent-cyan">
-        local: http://localhost:5173/
-      </div>
-      <div className="mt-1">$ cargo tauri dev</div>
-      <div className="text-text-primary">Running ConstructApp...</div>
-      <div className="mt-1 text-accent-cyan">_</div>
-    </div>
-  );
-
   const renderPlaceholder = (label: string, icon: string) => (
     <div className="flex flex-col items-center justify-center h-full gap-3 font-mono">
       <span className="material-symbols-outlined text-[28px] opacity-30 text-text-secondary">{icon}</span>
@@ -45,12 +35,23 @@ function Panel() {
 
   const renderContent = () => {
     switch (panelTab) {
-      case "terminal": return renderTerminal();
+      case "terminal":
+        return (
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-full font-mono text-[11px] text-text-secondary">
+                loading terminal...
+              </div>
+            }
+          >
+            <TerminalPanel />
+          </Suspense>
+        );
       case "problems": return renderPlaceholder("Problems", "warning");
       case "output": return renderPlaceholder("Output", "output");
       case "debug-console": return renderPlaceholder("Debug Console", "bug_report");
       case "ports": return renderPlaceholder("Ports", "lan");
-      default: return renderTerminal();
+      default: return renderPlaceholder("Terminal", "terminal");
     }
   };
 
@@ -98,7 +99,7 @@ function Panel() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-auto bg-bg-onyx">
+      <div className="flex-1 overflow-hidden bg-bg-onyx">
         {renderContent()}
       </div>
     </div>
