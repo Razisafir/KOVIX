@@ -38,7 +38,7 @@
     "@xterm/xterm": "^6.0.0",
     "allotment": "^1.20.5",
     "lucide-react": "^0.460.0",
-    "monaco-editor": "^0.52.0",
+    "monaco-editor": "^0.55.1",
     "react": "^18.3.1",
     "react-complex-tree": "^2.6.1",
     "react-dom": "^18.3.1",
