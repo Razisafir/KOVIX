@@ -94,6 +94,17 @@ coverage/
 .nyc_output/
 
 # ============================================================================
+# VS CODE FORK
+# ============================================================================
+vscode-fork/node_modules/
+vscode-fork/out/
+vscode-fork/.build/
+vscode-fork/extensions/construct-agent/out/
+vscode-fork/extensions/construct-agent/node_modules/
+vscode-fork/resources/agent-backend/construct-agent-backend
+vscode-fork/resources/agent-backend/construct-agent-backend.exe
+
+# ============================================================================
 # TEMP FILES
 # ============================================================================
 tmp/

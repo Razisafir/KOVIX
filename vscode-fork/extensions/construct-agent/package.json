@@ -1,0 +1,78 @@
+{
+  "name": "construct-agent",
+  "displayName": "Construct Agent",
+  "description": "AI coding agent with persistent memory and multi-agent teams",
+  "version": "0.2.0",
+  "publisher": "construct",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Machine Learning", "Debuggers", "Programming Languages"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [{
+        "id": "construct-agent",
+        "title": "Construct Agent",
+        "icon": "media/logo.svg"
+      }]
+    },
+    "views": {
+      "construct-agent": [{
+        "id": "construct.agentPanel",
+        "name": "Agent",
+        "type": "webview"
+      }]
+    },
+    "commands": [
+      { "command": "construct.newChat", "title": "New Chat", "category": "Construct" },
+      { "command": "construct.acceptAllChanges", "title": "Accept All Changes", "category": "Construct" },
+      { "command": "construct.rejectAllChanges", "title": "Reject All Changes", "category": "Construct" },
+      { "command": "construct.inlineChat", "title": "Inline Chat", "category": "Construct" },
+      { "command": "construct.openMemory", "title": "Open Memory Browser", "category": "Construct" },
+      { "command": "construct.openChanges", "title": "Open Changes Panel", "category": "Construct" },
+      { "command": "construct.configure", "title": "Configure Agent", "category": "Construct" }
+    ],
+    "keybindings": [
+      { "command": "construct.inlineChat", "key": "ctrl+shift+l", "mac": "cmd+shift+l", "when": "editorTextFocus" },
+      { "command": "construct.newChat", "key": "ctrl+shift+o", "mac": "cmd+shift+o" }
+    ],
+    "menus": {
+      "commandPalette": [
+        { "command": "construct.newChat", "group": "construct@1" },
+        { "command": "construct.inlineChat", "group": "construct@2" }
+      ],
+      "editor/context": [
+        { "command": "construct.inlineChat", "group": "9_cutcopypaste@5", "when": "editorHasSelection" }
+      ]
+    },
+    "configuration": {
+      "title": "Construct Agent",
+      "properties": {
+        "construct.backendUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8000",
+          "description": "URL for the Construct agent backend"
+        },
+        "construct.autoStartBackend": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start the Python backend on extension activation"
+        },
+        "construct.enableInlineCompletions": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable ghost text inline completions (experimental)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

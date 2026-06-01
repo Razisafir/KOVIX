@@ -1,6 +1,6 @@
-# Construct
+# Construct IDE
 
-## The AI Coding Agent That Never Forgets & Never Stops
+## The AI Coding Agent That Never Forgets — Now Inside a Real IDE
 
 © 2026 Construct AI. All Rights Reserved.
 
@@ -8,154 +8,127 @@
 
 ---
 
-Construct is a desktop AI coding agent powered by a persistent memory system and multi-provider LLM integration. It understands your codebase, remembers every interaction, and autonomously plans, codes, tests, and commits.
+Construct IDE is a fork of Microsoft VS Code with a built-in AI coding agent powered by a persistent memory system and multi-provider LLM integration. Unlike Cursor or other AI editors that rely on cloud APIs, Construct runs a 100% local Python backend — your code never leaves your machine.
+
+## What You Get
+
+| Feature | Construct IDE |
+|---------|--------------|
+| Real Terminal | node-pty + xterm.js (not fake) |
+| Real LSP | Full IntelliSense for 50+ languages |
+| Real Debugger | Breakpoints, variables, call stack |
+| Real Git UI | Blame, diff, merge, branch switching |
+| 50,000+ Extensions | Full VS Code marketplace compatibility |
+| AI Agent | ReAct loop with persistent memory |
+| Local-First | Zero data leaves your machine |
+| Shadow Filesystem | Review agent changes before applying |
 
 ## Screenshots
 
-*Cursor-style layout: Left sidebar + Center editor + Right agent panel*
-
-| Splash Screen | Full IDE View | Command Palette |
+| Splash Screen | Full IDE View | Agent Panel |
 |:---:|:---:|:---:|
 | ![Splash Screen](docs/screenshots/splash-screen.png) | ![Main IDE](docs/screenshots/main-ide-view.png) | ![Command Palette](docs/screenshots/command-palette.png) |
-
-| Right Panel - Chat | Right Panel - Agent | Right Panel - Memory |
-|:---:|:---:|:---:|
-| ![Chat](docs/screenshots/right-panel-chat.png) | ![Agent](docs/screenshots/right-panel-agent.png) | ![Memory](docs/screenshots/right-panel-memory.png) |
-
-## Capabilities
-
-- **Autonomous Agent** — Describe a goal, watch it plan, code, test, and commit
-- **Persistent Memory** — Every conversation, code change, and preference is remembered
-- **Semantic Search** — Find relevant past work via vector embeddings
-- **Multi-Provider LLM** — OpenAI, Anthropic, Google, or local Ollama with smart routing
-- **Full Tool System** — File operations, shell commands, git, and code refactoring
-- **Streaming UI** — Real-time output with task progress and generated code
-- **Monaco Editor** — Full-featured code editor loaded from CDN
-
-## Tech Stack
-
-- **Tauri v2** — Rust-powered desktop app shell
-- **React 18 + TypeScript + Tailwind CSS** — Modern frontend
-- **SQLite + ChromaDB** — Dual-layer persistent memory
-- **Multi-Provider LLM** — OpenAI, Anthropic, Google, Ollama
-- **39 Built-in Tools** — File, shell, git, code analysis, browser, database, document conversion, and binary analysis
 
 ## Project Structure
 
 ```
-construct/
-├── src/
-│   ├── main/              # Tauri Rust backend
-│   │   ├── src/
-│   │   │   ├── main.rs    # Entry point
-│   │   │   ├── lib.rs     # App logic & commands
-│   │   │   ├── db.rs      # SQLite memory layer
-│   │   │   └── commands/
-│   │   │       ├── mod.rs
-│   │   │       ├── memory.rs   # Memory Tauri commands
-│   │   │       └── agent.rs    # Agent Tauri commands
-│   │   ├── Cargo.toml
-│   │   └── tauri.conf.json
-│   ├── renderer/          # React frontend
-│   │   ├── components/
-│   │   │   ├── Sidebar.tsx
-│   │   │   ├── Editor.tsx
-│   │   │   ├── Panel.tsx         # Bottom panel (Terminal/Problems/Chat/Agent/Memory)
-│   │   │   ├── AgentPanel.tsx    # AI agent control panel
-│   │   │   ├── MemoryPanel.tsx   # Memory system UI
-│   │   │   └── StatusBar.tsx
-│   │   ├── stores/
-│   │   │   └── useAppStore.ts
-│   │   ├── types/
-│   │   │   ├── index.ts
-│   │   │   ├── memory.ts
-│   │   │   └── agent.ts
-│   │   ├── App.tsx
-│   │   ├── main.tsx
-│   │   └── index.css
-│   └── shared/
-├── agent-backend/           # Python backend
-│   ├── core/                # LLM service, executor, sessions
-│   ├── memory/              # ChromaDB semantic search
-│   ├── tools/               # File, shell, git, code tools
-│   ├── app.py               # FastAPI server
+construct-ai-agent/
+├── .github/
+│   └── workflows/
+│       ├── build-tauri.yml          ← Legacy CI (Tauri)
+│       └── build-vscode.yml         ← VS Code fork CI
+├── agent-backend/                   ← ⭐ SHARED: Python FastAPI
+│   ├── app.py                       ← 89 routes
+│   ├── core/
+│   │   ├── executor.py              ← ReAct loop
+│   │   ├── llm_service.py           ← 10+ providers
+│   │   ├── memory.py                ← SQLite + ChromaDB
+│   │   ├── safety_monitor.py        ← 41 safety patterns
+│   │   ├── telemetry.py             ← Execution traces
+│   │   ├── code_graph.py            ← AST + dependency graph
+│   │   ├── shadow_fs.py             ← Virtual staging
+│   │   ├── lsp_manager.py           ← Language servers
+│   │   └── completions.py           ← Inline completions
+│   ├── tools/                       ← 39 tools
+│   ├── agents/                      ← Multi-agent orchestrator
+│   ├── mcp/                         ← MCP client
 │   └── requirements.txt
-├── package.json
-├── vite.config.ts
-├── tailwind.config.js
-└── index.html
+├── src/                             ← LEGACY: Tauri v2 (preserved)
+├── vscode-fork/                     ← 🆕 PRIMARY: VS Code fork
+│   ├── src/vs/                      ← VS Code core
+│   ├── extensions/
+│   │   ├── theme-construct/         ← Construct Dark theme
+│   │   └── construct-agent/         ← AI agent extension
+│   │       ├── src/
+│   │       │   ├── extension.ts     ← Entry point
+│   │       │   ├── panels/AgentPanel.ts
+│   │       │   ├── inline/InlineChatProvider.ts
+│   │       │   ├── statusbar/StatusBarContribution.ts
+│   │       │   ├── commands/AgentCommands.ts
+│   │       │   └── api/ConstructAPI.ts
+│   │       └── media/
+│   ├── resources/agent-backend/     ← Bundled Python executable
+│   ├── product.json                 ← "Construct IDE" branding
+│   └── package.json
+├── shared-types/                    ← TypeScript API contracts
+│   └── api.ts
+├── scripts/
+│   ├── sync-vscode.sh              ← Sync upstream VS Code
+│   └── bundle-backend.sh           ← Build Python executable
+├── docs/
+│   └── architecture.md
+└── README.md
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v18+
-- [Rust](https://rustup.rs/) latest stable
+- [Node.js](https://nodejs.org/) v20+
 - [Python 3.10+](https://python.org/)
-- [Tauri CLI prerequisites](https://tauri.app/start/prerequisites/)
-
-### Installation
-
-```bash
-# Install frontend dependencies
-npm install
-
-# Install Python backend dependencies
-cd agent-backend
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cd ..
-```
+- [Yarn](https://yarnpkg.com/) v1.22+
 
 ### Development
 
 ```bash
 # Terminal 1: Start the Python backend
 cd agent-backend
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 python -m uvicorn app:app --reload --port 8000
 
-# Terminal 2: Start the Tauri app
-npm run tauri:dev
+# Terminal 2: Start VS Code in dev mode
+cd vscode-fork
+yarn install
+yarn watch
 ```
 
 ### Building
 
 ```bash
-npm run tauri:build
+# Build Python backend as standalone executable
+./scripts/bundle-backend.sh
+
+# Build VS Code for your platform
+cd vscode-fork
+yarn install
+yarn compile
+# Then platform-specific:
+yarn gulp vscode-linux-x64          # Linux
+yarn gulp vscode-darwin-arm64       # macOS
+yarn gulp vscode-win32-x64          # Windows
 ```
 
-Output will be in `src/main/target/release/bundle/`.
+### Legacy Tauri Frontend
 
-## Memory System
+The original Tauri v2 frontend is preserved in `src/` and still works:
 
-Construct features a dual-layer persistent memory system:
-
-### Layer 1: SQLite (Rust/Tauri)
-
-| Table | Purpose |
-|-------|---------|
-| `conversations` | All user/agent message history |
-| `code_events` | File changes, diffs, summaries |
-| `user_preferences` | Learned preferences with confidence scores |
-| `project_state` | Current project snapshot |
-
-### Layer 2: ChromaDB (Python)
-
-| Collection | Content |
-|------------|---------|
-| `conversation_embeddings` | Vectorized conversation messages |
-| `code_embeddings` | Vectorized code events and diffs |
-
-### Tauri Memory Commands
-
-| Command | Description |
-|---------|-------------|
-| `record_conversation` | Store a conversation message |
-| `recall_context` | Search across memory |
-| `store_preference` | Save a learned preference |
-| `get_preferences` | Retrieve all preferences |
+```bash
+npm install
+cd agent-backend && python -m uvicorn app:app --port 8000 &
+npm run tauri:dev
+```
 
 ## Agent System
 
@@ -187,17 +160,13 @@ observe() → plan() → act() → verify()
    ↑___________________________|
 ```
 
-The agent observes the project state, plans tasks, executes them using tools, and verifies results before continuing.
+## Key Bindings
 
-### Tauri Agent Commands
-
-| Command | Description |
-|---------|-------------|
-| `start_agent` | Start a new session with a goal |
-| `get_agent_status` | Get session status and tasks |
-| `pause_agent` | Pause execution |
-| `resume_agent` | Resume execution |
-| `stop_agent` | Stop and terminate |
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+Shift+L` / `Ctrl+Shift+L` | Inline chat at cursor |
+| `Cmd+Shift+O` / `Ctrl+Shift+O` | New agent chat |
+| `Cmd+Shift+P` / `Ctrl+Shift+P` | Command palette (includes Construct commands) |
 
 ## Configuration
 
@@ -207,32 +176,38 @@ Copy `.env.example` to `.env` and configure:
 cp .env.example .env
 ```
 
-Key settings:
+VS Code settings (`construct.*`):
+- `construct.backendUrl` — Backend URL (default: `http://127.0.0.1:8000`)
+- `construct.autoStartBackend` — Auto-start Python process (default: `true`)
+- `construct.enableInlineCompletions` — Ghost text suggestions (default: `false`, experimental)
+
+Environment variables:
 - `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` — LLM provider keys
 - `OLLAMA_HOST` / `OLLAMA_MODEL` — Local LLM configuration
 - `DB_PATH` — SQLite database location
 - `CHROMA_PATH` — ChromaDB storage directory
 - `REQUIRE_APPROVAL` — Safety level for destructive operations
 
+## Upstream Sync
+
+To pull the latest VS Code changes:
+
+```bash
+./scripts/sync-vscode.sh           # Normal sync
+./scripts/sync-vscode.sh --dry-run # Preview changes
+```
+
+## Architecture
+
+See [docs/architecture.md](docs/architecture.md) for the full architecture document.
+
 ## Security
 
-- 45 regex patterns covering destructive operations, architecture changes, auth/payment code, and code-level security
-- Path traversal protection at tool level
-- Configurable protected paths
-- AgentShield scans all generated code before execution
-- Safety modes require human approval for destructive operations
-
-## Roadmap (Not Yet Available)
-
-- MCP server connections
-- Screen control / GUI automation
-- Auto-updates
-- Plugin marketplace
-- Multi-project workspaces
-
-## Custom Theme
-
-The app uses a Catppuccin-inspired dark theme with custom colors defined in `tailwind.config.js`. The editor has a custom Monaco theme called `"construct-dark"`.
+- Backend only listens on localhost (127.0.0.1:8000)
+- No cloud API calls unless user explicitly configures an LLM provider
+- Shadow filesystem ensures agent changes are reviewable before applying
+- Safety monitor validates all agent actions against 41 safety patterns
+- No telemetry or data collection by default
 
 ## License
 

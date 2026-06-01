@@ -1,0 +1,213 @@
+name: Build Construct IDE (VS Code Fork)
+
+on:
+  push:
+    branches: [vscode-fork-main]
+    tags: ['vscode-v*']
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Build Python Backend
+        run: |
+          cd agent-backend
+          pip install -r requirements.txt pyinstaller
+          pyinstaller --onefile --name construct-agent-backend `
+            --add-data "core;core" `
+            --add-data "tools;tools" `
+            --add-data "agents;agents" `
+            --add-data "mcp;mcp" `
+            --hidden-import uvicorn `
+            --hidden-import fastapi `
+            --hidden-import chromadb `
+            --hidden-import sqlite3 `
+            --collect-all chromadb `
+            --noconfirm `
+            app.py
+          New-Item -ItemType Directory -Force -Path ..\vscode-fork\resources\agent-backend
+          Copy-Item dist\construct-agent-backend.exe ..\vscode-fork\resources\agent-backend\
+
+      - name: Install VS Code dependencies
+        working-directory: vscode-fork
+        run: yarn install
+
+      - name: Compile VS Code
+        working-directory: vscode-fork
+        run: yarn compile
+
+      - name: Build Windows x64
+        working-directory: vscode-fork
+        run: yarn gulp vscode-win32-x64
+
+      - name: Package Installer
+        working-directory: vscode-fork
+        run: yarn gulp vscode-win32-x64-system-setup
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: construct-ide-windows
+          path: vscode-fork/.build/win32/x64/system-setup/*.exe
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: vscode-fork/.build/win32/x64/system-setup/*.exe
+          draft: false
+          prerelease: true
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Build Python Backend
+        run: |
+          cd agent-backend
+          pip install -r requirements.txt pyinstaller
+          pyinstaller --onefile --name construct-agent-backend \
+            --add-data "core:core" \
+            --add-data "tools:tools" \
+            --add-data "agents:agents" \
+            --add-data "mcp:mcp" \
+            --hidden-import uvicorn \
+            --hidden-import fastapi \
+            --hidden-import chromadb \
+            --hidden-import sqlite3 \
+            --collect-all chromadb \
+            --noconfirm \
+            app.py
+          mkdir -p ../vscode-fork/resources/agent-backend
+          cp dist/construct-agent-backend ../vscode-fork/resources/agent-backend/
+
+      - name: Install VS Code dependencies
+        working-directory: vscode-fork
+        run: yarn install
+
+      - name: Compile VS Code
+        working-directory: vscode-fork
+        run: yarn compile
+
+      - name: Build macOS ARM64
+        working-directory: vscode-fork
+        run: yarn gulp vscode-darwin-arm64
+
+      - name: Package DMG
+        working-directory: vscode-fork
+        run: yarn gulp vscode-darwin-arm64-build-dmg
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: construct-ide-macos
+          path: vscode-fork/.build/darwin/arm64/*.dmg
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: vscode-fork/.build/darwin/arm64/*.dmg
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxkbfile-dev libsecret-1-dev libgtk-3-dev libgbm1 libnss3
+
+      - name: Build Python Backend
+        run: |
+          cd agent-backend
+          pip install -r requirements.txt pyinstaller
+          pyinstaller --onefile --name construct-agent-backend \
+            --add-data "core:core" \
+            --add-data "tools:tools" \
+            --add-data "agents:agents" \
+            --add-data "mcp:mcp" \
+            --hidden-import uvicorn \
+            --hidden-import fastapi \
+            --hidden-import chromadb \
+            --hidden-import sqlite3 \
+            --collect-all chromadb \
+            --noconfirm \
+            app.py
+          mkdir -p ../vscode-fork/resources/agent-backend
+          cp dist/construct-agent-backend ../vscode-fork/resources/agent-backend/
+
+      - name: Install VS Code dependencies
+        working-directory: vscode-fork
+        run: yarn install
+
+      - name: Compile VS Code
+        working-directory: vscode-fork
+        run: yarn compile
+
+      - name: Build Linux x64
+        working-directory: vscode-fork
+        run: yarn gulp vscode-linux-x64
+
+      - name: Package DEB
+        working-directory: vscode-fork
+        run: yarn gulp vscode-linux-x64-build-deb
+
+      - name: Package RPM
+        working-directory: vscode-fork
+        run: yarn gulp vscode-linux-x64-build-rpm
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: construct-ide-linux
+          path: |
+            vscode-fork/.build/linux/x64/deb/*.deb
+            vscode-fork/.build/linux/x64/rpm/*.rpm
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            vscode-fork/.build/linux/x64/deb/*.deb
+            vscode-fork/.build/linux/x64/rpm/*.rpm
