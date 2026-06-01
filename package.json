@@ -58,7 +58,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.17.0",
     "eslint-plugin-react-hooks": "^5.1.0",
-    "eslint-plugin-react-refresh": "^0.4.16",
+    "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^15.13.0",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.49",
