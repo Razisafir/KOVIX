@@ -5,15 +5,11 @@
  * Falls back gracefully when running in browser (no Tauri).
  */
 
-let dialogModule: typeof import("@tauri-apps/plugin-dialog") | null = null;
-
 async function getDialog() {
-  if (dialogModule) return dialogModule;
   try {
     // Check if we're running inside Tauri
     if (typeof window !== "undefined" && (window as any).__TAURI__) {
-      dialogModule = await import("@tauri-apps/plugin-dialog");
-      return dialogModule;
+      return await import("@tauri-apps/plugin-dialog");
     }
   } catch {
     // Not in Tauri or plugin not available
@@ -37,9 +33,8 @@ export async function openFolderDialog(): Promise<string | null> {
       multiple: false,
       title: "Open Folder",
     });
-    // dialog.open returns string | string[] | null
+    // dialog.open with multiple:false returns string | null
     if (typeof selected === "string") return selected;
-    if (Array.isArray(selected) && selected.length > 0) return selected[0];
     return null;
   } catch (e) {
     console.warn("[nativeDialogs] Folder dialog error:", e);
@@ -63,8 +58,8 @@ export async function openFileDialog(): Promise<string | null> {
       multiple: false,
       title: "Open File",
     });
+    // dialog.open with multiple:false returns string | null
     if (typeof selected === "string") return selected;
-    if (Array.isArray(selected) && selected.length > 0) return selected[0];
     return null;
   } catch (e) {
     console.warn("[nativeDialogs] File dialog error:", e);
