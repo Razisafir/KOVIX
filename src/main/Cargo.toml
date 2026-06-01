@@ -32,7 +32,7 @@ uuid = { version = "1.11", features = ["v4", "serde"] }
 parking_lot = "0.12"
 
 # -- terminal PTY --
-portable-pty = "0.8"
+portable-pty = "0.9"
 
 # -- HTTP client for calling Python backend --
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"], default-features = false }
