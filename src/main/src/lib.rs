@@ -21,6 +21,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_log::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
+        .menu(|handle| menu::build_menu(handle))
         .on_menu_event(|app, event| {
             // Emit menu:{id} events to the frontend so React can dispatch
             // them to Zustand store actions.
@@ -29,13 +30,6 @@ pub fn run() {
             let _ = app.emit("menu-event", event_id);
         })
         .setup(|app| {
-            // ── 0. Native menu ──────────────────────────────────────────────
-            // Must be set inside setup() where the App is available.
-            let app_menu = menu::build_menu(app);
-            if let Err(e) = app.set_menu(app_menu) {
-                log::error!("Failed to set native menu: {}. App will open without menu bar.", e);
-            }
-
             // ── 1. Spawn Python backend sidecar ─────────────────────────────
             let app_handle = app.handle().clone();
             let port = match spawn_backend(&app_handle) {
