@@ -1,0 +1,18 @@
+{
+  "name": "theme-construct",
+  "displayName": "Construct Dark Theme",
+  "description": "Official Construct IDE dark theme with cyan accents",
+  "version": "0.1.0",
+  "publisher": "construct",
+  "engines": { "vscode": "*" },
+  "categories": ["Themes"],
+  "contributes": {
+    "themes": [
+      {
+        "label": "Construct Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/construct-dark-color-theme.json"
+      }
+    ]
+  }
+}

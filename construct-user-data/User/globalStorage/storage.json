@@ -1,0 +1,34 @@
+{
+    "telemetry.sqmId": "",
+    "telemetry.machineId": "45d21b18c8febd5a9e8799e9b7a3c17305e8502b083f8774907b83532bac2b59",
+    "telemetry.devDeviceId": "58b98176-785e-4d01-9785-08f780aa5c47",
+    "backupWorkspaces": {
+        "workspaces": [],
+        "folders": [],
+        "emptyWindows": [
+            {
+                "backupFolder": "1780403232810"
+            }
+        ]
+    },
+    "windowControlHeight": 35,
+    "profileAssociations": {
+        "workspaces": {},
+        "emptyWindows": {
+            "1780403232810": "__default__profile__"
+        }
+    },
+    "windowsState": {
+        "lastActiveWindow": {
+            "backupPath": "/tmp/vscode-1.96.0/construct-user-data/Backups/1780403232810",
+            "uiState": {
+                "mode": 1,
+                "x": 128,
+                "y": 0,
+                "width": 1024,
+                "height": 720
+            }
+        },
+        "openedWindows": []
+    }
+}
