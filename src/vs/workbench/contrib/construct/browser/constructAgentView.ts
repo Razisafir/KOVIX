@@ -134,7 +134,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 container.appendChild(inputArea);
         }
 
-        override layoutBody(height: number, width: number): void {
+        protected override layoutBody(height: number, width: number): void {
                 // Layout handled by flexbox
         }
 }
