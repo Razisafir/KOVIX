@@ -28,6 +28,12 @@ import { LLMProviderService, ModelRegistryService, CredentialStoreService, LLMSt
 import { ICostGovernorService } from '../../../../platform/construct/common/costGovernor.js';
 import { CostGovernorService } from './services/costGovernorService.js';
 
+// Phase 2: AI Execution Service + Execution Graph registrations
+import { IAIExecutionService } from '../../../../platform/construct/common/aiExecutionService.js';
+import { AIExecutionService } from './services/aiExecutionService.js';
+import { IExecutionGraphService } from '../../../../platform/construct/common/executionGraphService.js';
+import { ExecutionGraphService } from './services/executionGraphService.js';
+
 // Phase 1: Register LLM Provider singletons
 registerSingleton(ILLMProviderService, LLMProviderService, InstantiationType.Delayed);
 registerSingleton(IModelRegistryService, ModelRegistryService, InstantiationType.Delayed);
@@ -35,6 +41,10 @@ registerSingleton(ICredentialStoreService, CredentialStoreService, Instantiation
 registerSingleton(ILLMStreamingService, LLMStreamingService, InstantiationType.Delayed);
 registerSingleton(IProviderHealthService, ProviderHealthService, InstantiationType.Delayed);
 registerSingleton(ICostGovernorService, CostGovernorService, InstantiationType.Delayed);
+
+// Phase 2: Register AI Execution + Execution Graph singletons
+registerSingleton(IAIExecutionService, AIExecutionService, InstantiationType.Delayed);
+registerSingleton(IExecutionGraphService, ExecutionGraphService, InstantiationType.Delayed);
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 
