@@ -79,7 +79,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y fakeroot dpkg-dev rpm libkrb5-dev
+          sudo apt-get install -y fakeroot dpkg-dev rpm libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-0 libsecret-1-dev
 
       - name: Install dependencies
         run: npm ci
