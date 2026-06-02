@@ -13,13 +13,14 @@ import { ISemanticMemoryService } from '../../../../platform/construct/common/me
 import { IProceduralMemoryService } from '../../../../platform/construct/common/memory/proceduralMemory.js';
 import { IMemoryOrchestrator } from '../../../../platform/construct/common/memory/memoryOrchestrator.js';
 import { IEmbeddingService } from '../../../../platform/construct/common/memory/embeddingService.js';
+import { IEnhancedAgentOrchestrator } from '../../../../platform/construct/common/orchestration/agentOrchestrator.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
  * Handles postMessage communication between the Construct webview
  * and the MCP server manager / marketplace / browser automation / memory services.
  *
- * Registered handler types (34 total):
+ * Registered handler types (42 total):
  *   MCP (17): mcp:listServers, mcp:installServer, mcp:executeTool, mcp:getHealth,
  *     mcp:startServer, mcp:stopServer, mcp:fetchCatalog, mcp:getFeatured,
  *     mcp:rateServer, mcp:uninstallServer, mcp:restartServer, mcp:listTools,
@@ -30,6 +31,9 @@ import { ILogService } from '../../../../platform/log/common/log.js';
  *     browser:fill, browser:evaluate, browser:compare, browser:getContext
  *   Memory (7): memory:search, memory:stats, memory:consolidate, memory:forget,
  *     memory:injectContext, memory:recordEvent, memory:storeKnowledge
+ *   Orchestrator (8): orchestrator:createPlan, orchestrator:execute, orchestrator:pause,
+ *     orchestrator:resume, orchestrator:status, orchestrator:setMode,
+ *     orchestrator:approveMilestone, orchestrator:cancelAgent
  */
 export class ConstructWorkflowContent extends Disposable {
 
@@ -45,6 +49,7 @@ export class ConstructWorkflowContent extends Disposable {
                 @IProceduralMemoryService private readonly proceduralMemory: IProceduralMemoryService,
                 @IMemoryOrchestrator private readonly memoryOrchestrator: IMemoryOrchestrator,
                 @IEmbeddingService private readonly embeddingService: IEmbeddingService,
+                @IEnhancedAgentOrchestrator private readonly agentOrchestrator: IEnhancedAgentOrchestrator,
                 @ILogService private readonly logService: ILogService,
         ) {
                 super();
@@ -314,6 +319,57 @@ export class ConstructWorkflowContent extends Disposable {
                                 embedding: []
                         });
                         return { type: 'memory:knowledgeStored' };
+                });
+
+                // --- Multi-Agent Orchestration Handlers (Phase 20) --------------------
+
+                this._handlers.set('orchestrator:createPlan', async (payload: { goal: string; mode?: string }) => {
+                        const mode = payload.mode as any ?? 'milestone';
+                        const plan = await this.agentOrchestrator.createExecutionPlan(payload.goal, mode);
+                        return { type: 'orchestrator:planCreated', plan };
+                });
+
+                this._handlers.set('orchestrator:execute', async (payload: { planId: string }) => {
+                        const plan = this.agentOrchestrator.getExecutionStatus(payload.planId);
+                        if (plan) {
+                                try {
+                                        await this.agentOrchestrator.executePlan(plan);
+                                        return { type: 'orchestrator:executed', planId: plan.id };
+                                } catch (error) {
+                                        return { type: 'orchestrator:executed', planId: plan.id, error: error instanceof Error ? error.message : String(error) };
+                                }
+                        }
+                        return { type: 'orchestrator:executed', planId: payload.planId, error: 'Plan not found' };
+                });
+
+                this._handlers.set('orchestrator:pause', async (payload: { planId: string }) => {
+                        this.agentOrchestrator.pauseExecution(payload.planId);
+                        return { type: 'orchestrator:paused', planId: payload.planId };
+                });
+
+                this._handlers.set('orchestrator:resume', async (payload: { planId: string }) => {
+                        this.agentOrchestrator.resumeExecution(payload.planId);
+                        return { type: 'orchestrator:resumed', planId: payload.planId };
+                });
+
+                this._handlers.set('orchestrator:status', async (payload: { planId: string }) => {
+                        const plan = this.agentOrchestrator.getExecutionStatus(payload.planId);
+                        return { type: 'orchestrator:statusResult', plan };
+                });
+
+                this._handlers.set('orchestrator:setMode', async (payload: { mode: string }) => {
+                        // Mode is set at plan creation time, this acknowledges the setting
+                        return { type: 'orchestrator:modeSet', mode: payload.mode };
+                });
+
+                this._handlers.set('orchestrator:approveMilestone', async (payload: { planId: string; milestoneId: string }) => {
+                        this.agentOrchestrator.approveMilestone(payload.planId, payload.milestoneId);
+                        return { type: 'orchestrator:milestoneApproved', milestoneId: payload.milestoneId };
+                });
+
+                this._handlers.set('orchestrator:cancelAgent', async (payload: { agentId: string }) => {
+                        this.agentOrchestrator.cancelAgent(payload.agentId);
+                        return { type: 'orchestrator:agentCancelled', agentId: payload.agentId };
                 });
         }
 

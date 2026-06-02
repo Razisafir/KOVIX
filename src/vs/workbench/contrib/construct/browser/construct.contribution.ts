@@ -39,6 +39,10 @@ import { SemanticMemoryService } from './services/memory/semanticMemoryService.j
 import { ProceduralMemoryService } from './services/memory/proceduralMemoryService.js';
 import { MemoryOrchestratorService } from './services/memory/memoryOrchestratorService.js';
 import { EmbeddingService } from './services/memory/embeddingService.js';
+import { IEnhancedAgentOrchestrator } from '../../../../platform/construct/common/orchestration/agentOrchestrator.js';
+import { IParallelDispatcher } from '../../../../platform/construct/common/orchestration/parallelDispatcher.js';
+import { AgentPoolService } from './services/orchestration/agentPoolService.js';
+import { ParallelDispatcherService } from './services/orchestration/parallelDispatcherService.js';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 
@@ -172,3 +176,7 @@ registerSingleton(IEmbeddingService, EmbeddingService, InstantiationType.Eager);
 registerSingleton(ISemanticMemoryService, SemanticMemoryService, InstantiationType.Eager);
 registerSingleton(IProceduralMemoryService, ProceduralMemoryService, InstantiationType.Eager);
 registerSingleton(IMemoryOrchestrator, MemoryOrchestratorService, InstantiationType.Eager);
+
+// --- Multi-Agent Orchestration Singletons (Phase 20) ---------------------------
+registerSingleton(IEnhancedAgentOrchestrator, AgentPoolService, InstantiationType.Eager);
+registerSingleton(IParallelDispatcher, ParallelDispatcherService, InstantiationType.Eager);

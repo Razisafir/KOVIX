@@ -1,0 +1,20 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"noUnusedLocals": false,
+		"noImplicitReturns": false,
+		"skipLibCheck": true,
+		"outDir": "../out/vs"
+	},
+	"include": [
+		"./vs/platform/construct/common/mcp/**/*.ts",
+		"./vs/workbench/contrib/construct/browser/services/mcp/**/*.ts",
+		"./vs/workbench/contrib/construct/browser/constructWorkflowContent.ts",
+		"./vs/workbench/contrib/construct/browser/construct.contribution.ts",
+		"./typings"
+	],
+	"exclude": [
+		"./vs/workbench/contrib/construct/browser/constructAgentView.ts"
+	]
+}
