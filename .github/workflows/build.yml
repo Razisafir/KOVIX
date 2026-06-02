@@ -30,13 +30,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Transpile client
-        run: npx gulp transpile-client
-        timeout-minutes: 10
-
-      - name: Build Windows package
-        run: npx gulp vscode-win32-x64-min-ci
-        timeout-minutes: 60
+      - name: Build Windows package (full)
+        run: npx gulp vscode-win32-x64
+        timeout-minutes: 90
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -79,7 +75,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y fakeroot dpkg-dev rpm libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-0 libsecret-1-dev
+          sudo apt-get install -y fakeroot dpkg-dev rpm libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-0 libsecret-1-dev libgtk-3-0 libgbm1
 
       - name: Install dependencies
         run: npm ci
@@ -87,13 +83,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Transpile client
-        run: npx gulp transpile-client
-        timeout-minutes: 10
-
-      - name: Build Linux package
-        run: npx gulp vscode-linux-x64-min-ci
-        timeout-minutes: 60
+      - name: Build Linux package (full)
+        run: npx gulp vscode-linux-x64
+        timeout-minutes: 90
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
