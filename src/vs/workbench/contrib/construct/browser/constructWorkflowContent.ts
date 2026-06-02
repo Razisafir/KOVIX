@@ -14,13 +14,15 @@ import { IProceduralMemoryService } from '../../../../platform/construct/common/
 import { IMemoryOrchestrator } from '../../../../platform/construct/common/memory/memoryOrchestrator.js';
 import { IEmbeddingService } from '../../../../platform/construct/common/memory/embeddingService.js';
 import { IEnhancedAgentOrchestrator } from '../../../../platform/construct/common/orchestration/agentOrchestrator.js';
+import { ISkillsMarketplace } from '../../../../platform/construct/common/skills/skillsMarketplace.js';
+import { ISkillsRegistry } from '../../../../platform/construct/common/skills/skillsRegistry.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
  * Handles postMessage communication between the Construct webview
  * and the MCP server manager / marketplace / browser automation / memory services.
  *
- * Registered handler types (42 total):
+ * Registered handler types (55 total):
  *   MCP (17): mcp:listServers, mcp:installServer, mcp:executeTool, mcp:getHealth,
  *     mcp:startServer, mcp:stopServer, mcp:fetchCatalog, mcp:getFeatured,
  *     mcp:rateServer, mcp:uninstallServer, mcp:restartServer, mcp:listTools,
@@ -34,6 +36,9 @@ import { ILogService } from '../../../../platform/log/common/log.js';
  *   Orchestrator (8): orchestrator:createPlan, orchestrator:execute, orchestrator:pause,
  *     orchestrator:resume, orchestrator:status, orchestrator:setMode,
  *     orchestrator:approveMilestone, orchestrator:cancelAgent
+ *   Skills (13): skills:search, skills:categories, skills:featured, skills:category,
+ *     skills:install, skills:uninstall, skills:installed, skills:detail,
+ *     skills:rate, skills:execute, skills:suggest, skills:register, skills:refresh
  */
 export class ConstructWorkflowContent extends Disposable {
 
@@ -50,6 +55,8 @@ export class ConstructWorkflowContent extends Disposable {
                 @IMemoryOrchestrator private readonly memoryOrchestrator: IMemoryOrchestrator,
                 @IEmbeddingService private readonly embeddingService: IEmbeddingService,
                 @IEnhancedAgentOrchestrator private readonly agentOrchestrator: IEnhancedAgentOrchestrator,
+                @ISkillsMarketplace private readonly skillsMarketplace: ISkillsMarketplace,
+                @ISkillsRegistry private readonly skillsRegistry: ISkillsRegistry,
                 @ILogService private readonly logService: ILogService,
         ) {
                 super();
@@ -370,6 +377,97 @@ export class ConstructWorkflowContent extends Disposable {
                 this._handlers.set('orchestrator:cancelAgent', async (payload: { agentId: string }) => {
                         this.agentOrchestrator.cancelAgent(payload.agentId);
                         return { type: 'orchestrator:agentCancelled', agentId: payload.agentId };
+                });
+
+                // --- Skills Marketplace Handlers (Phase 21) --------------------------
+
+                this._handlers.set('skills:search', async (payload: { query: string; category?: string; sortBy?: string; limit?: number; offset?: number }) => {
+                        const result = await this.skillsMarketplace.searchCatalog({
+                                text: payload.query,
+                                category: payload.category as any,
+                                sortBy: (payload.sortBy as any) ?? 'relevance',
+                                limit: payload.limit ?? 50,
+                                offset: payload.offset ?? 0
+                        });
+                        return { type: 'skills:searchResult', skills: result.skills, total: result.total };
+                });
+
+                this._handlers.set('skills:categories', async () => {
+                        const categories = await this.skillsMarketplace.getAllCategories();
+                        return { type: 'skills:categoriesResult', categories };
+                });
+
+                this._handlers.set('skills:featured', async () => {
+                        const skills = await this.skillsMarketplace.getFeaturedSkills();
+                        return { type: 'skills:featuredResult', skills };
+                });
+
+                this._handlers.set('skills:category', async (payload: { category: string }) => {
+                        const skills = await this.skillsMarketplace.getSkillsByCategory(payload.category as any);
+                        return { type: 'skills:categoryResult', skills };
+                });
+
+                this._handlers.set('skills:install', async (payload: { skillId: string }) => {
+                        await this.skillsMarketplace.installSkill(payload.skillId);
+                        return { type: 'skills:installed', skillId: payload.skillId };
+                });
+
+                this._handlers.set('skills:uninstall', async (payload: { skillId: string }) => {
+                        await this.skillsMarketplace.uninstallSkill(payload.skillId);
+                        return { type: 'skills:uninstalled', skillId: payload.skillId };
+                });
+
+                this._handlers.set('skills:installed', async () => {
+                        const skills = this.skillsMarketplace.getInstalledSkills();
+                        return { type: 'skills:installedResult', skills };
+                });
+
+                this._handlers.set('skills:detail', async (payload: { skillId: string }) => {
+                        const skill = await this.skillsMarketplace.getSkillById(payload.skillId);
+                        return { type: 'skills:detailResult', skill };
+                });
+
+                this._handlers.set('skills:rate', async (payload: { skillId: string; rating: number; comment?: string }) => {
+                        await this.skillsMarketplace.rateSkill(payload.skillId, payload.rating, payload.comment);
+                        return { type: 'skills:rated', skillId: payload.skillId, rating: payload.rating };
+                });
+
+                this._handlers.set('skills:execute', async (payload: { skillId: string; variables: Record<string, string>; projectId: string; projectPath: string }) => {
+                        try {
+                                const result = await this.skillsRegistry.executeSkill(payload.skillId, {
+                                        projectId: payload.projectId,
+                                        projectPath: payload.projectPath,
+                                        variables: payload.variables,
+                                        skillId: payload.skillId,
+                                        stepIndex: 0,
+                                        outputs: {},
+                                        errors: [],
+                                        startTime: Date.now()
+                                });
+                                return { type: 'skills:executed', result };
+                        } catch (error) {
+                                return { type: 'skills:executed', error: error instanceof Error ? error.message : String(error) };
+                        }
+                });
+
+                this._handlers.set('skills:suggest', async (payload: { projectPath: string }) => {
+                        const skills = await this.skillsRegistry.suggestSkillsForProject(payload.projectPath);
+                        return { type: 'skills:suggested', skills };
+                });
+
+                this._handlers.set('skills:register', async (payload: { skill: any }) => {
+                        const validation = this.skillsRegistry.validateSkill(payload.skill);
+                        if (validation.valid) {
+                                this.skillsRegistry.registerSkill(payload.skill);
+                                return { type: 'skills:registered', skillId: payload.skill.id };
+                        } else {
+                                return { type: 'skills:registered', error: validation.errors.join('; ') };
+                        }
+                });
+
+                this._handlers.set('skills:refresh', async () => {
+                        await this.skillsMarketplace.refreshCatalog();
+                        return { type: 'skills:refreshed' };
                 });
         }
 

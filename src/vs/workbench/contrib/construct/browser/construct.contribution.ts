@@ -43,6 +43,10 @@ import { IEnhancedAgentOrchestrator } from '../../../../platform/construct/commo
 import { IParallelDispatcher } from '../../../../platform/construct/common/orchestration/parallelDispatcher.js';
 import { AgentPoolService } from './services/orchestration/agentPoolService.js';
 import { ParallelDispatcherService } from './services/orchestration/parallelDispatcherService.js';
+import { ISkillsMarketplace } from '../../../../platform/construct/common/skills/skillsMarketplace.js';
+import { ISkillsRegistry } from '../../../../platform/construct/common/skills/skillsRegistry.js';
+import { SkillsMarketplaceService } from './services/skills/skillsMarketplaceService.js';
+import { SkillsRegistryService } from './services/skills/skillsRegistryService.js';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 
@@ -180,3 +184,7 @@ registerSingleton(IMemoryOrchestrator, MemoryOrchestratorService, InstantiationT
 // --- Multi-Agent Orchestration Singletons (Phase 20) ---------------------------
 registerSingleton(IEnhancedAgentOrchestrator, AgentPoolService, InstantiationType.Eager);
 registerSingleton(IParallelDispatcher, ParallelDispatcherService, InstantiationType.Eager);
+
+// --- Skills Marketplace Singletons (Phase 21) ----------------------------------
+registerSingleton(ISkillsMarketplace, SkillsMarketplaceService, InstantiationType.Delayed);
+registerSingleton(ISkillsRegistry, SkillsRegistryService, InstantiationType.Delayed);
