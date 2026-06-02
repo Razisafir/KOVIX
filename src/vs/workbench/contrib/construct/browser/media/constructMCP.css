@@ -1,0 +1,485 @@
+/*---------------------------------------------------------------------------------------------
+ *  Construct IDE - MCP Styles
+ *  Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ─── Status Indicators ──────────────────────────────────────────────────── */
+
+.construct-mcp-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+}
+
+.construct-mcp-status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	display: inline-block;
+	flex-shrink: 0;
+}
+
+.construct-mcp-status-dot.connected {
+	background-color: #4CAF50;
+	box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+}
+
+.construct-mcp-status-dot.connecting {
+	background-color: #FFC107;
+	animation: construct-mcp-pulse 1.5s ease-in-out infinite;
+}
+
+.construct-mcp-status-dot.disconnected {
+	background-color: #9E9E9E;
+}
+
+.construct-mcp-status-dot.error {
+	background-color: #F44336;
+	box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
+}
+
+.construct-mcp-status-dot.reconnecting {
+	background-color: #FF9800;
+	animation: construct-mcp-pulse 1.5s ease-in-out infinite;
+}
+
+.construct-mcp-status-dot.stopping {
+	background-color: #9E9E9E;
+	animation: construct-mcp-fadeout 0.5s ease-out forwards;
+}
+
+/* ─── Connection State Animations ────────────────────────────────────────── */
+
+@keyframes construct-mcp-pulse {
+	0% { opacity: 1; transform: scale(1); }
+	50% { opacity: 0.5; transform: scale(1.2); }
+	100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes construct-mcp-fadeout {
+	from { opacity: 1; }
+	to { opacity: 0.3; }
+}
+
+@keyframes construct-mcp-spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+.construct-mcp-connecting-spinner {
+	width: 16px;
+	height: 16px;
+	border: 2px solid rgba(0, 229, 255, 0.2);
+	border-top: 2px solid #00E5FF;
+	border-radius: 50%;
+	animation: construct-mcp-spin 1s linear infinite;
+}
+
+/* ─── Marketplace Card Grid ──────────────────────────────────────────────── */
+
+.construct-mcp-marketplace {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 12px;
+	height: 100%;
+	overflow-y: auto;
+}
+
+.construct-mcp-marketplace-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 0;
+	border-bottom: 1px solid #1A1F2E;
+}
+
+.construct-mcp-marketplace-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: #E0E7FF;
+}
+
+.construct-mcp-marketplace-search {
+	background: #0A0E1A;
+	border: 1px solid #1A1F2E;
+	border-radius: 4px;
+	padding: 6px 10px;
+	color: #E0E7FF;
+	font-size: 12px;
+	width: 200px;
+	outline: none;
+}
+
+.construct-mcp-marketplace-search:focus {
+	border-color: #00E5FF;
+}
+
+.construct-mcp-marketplace-search::placeholder {
+	color: #4A5568;
+}
+
+.construct-mcp-category-tabs {
+	display: flex;
+	gap: 4px;
+	flex-wrap: wrap;
+	padding: 4px 0;
+}
+
+.construct-mcp-category-tab {
+	background: #0A0E1A;
+	border: 1px solid #1A1F2E;
+	border-radius: 4px;
+	padding: 4px 10px;
+	color: #4A5568;
+	font-size: 11px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.construct-mcp-category-tab:hover {
+	border-color: #00E5FF;
+	color: #E0E7FF;
+}
+
+.construct-mcp-category-tab.active {
+	background: #00E5FF15;
+	border-color: #00E5FF;
+	color: #00E5FF;
+}
+
+/* ─── Server Card ─────────────────────────────────────────────────────────── */
+
+.construct-mcp-card-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 10px;
+}
+
+.construct-mcp-card {
+	background: #0A0E1A;
+	border: 1px solid #1A1F2E;
+	border-radius: 8px;
+	padding: 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	cursor: pointer;
+}
+
+.construct-mcp-card:hover {
+	border-color: #00E5FF40;
+	box-shadow: 0 2px 8px rgba(0, 229, 255, 0.1);
+}
+
+.construct-mcp-card.featured {
+	border-color: #00E5FF30;
+	background: linear-gradient(135deg, #0A0E1A 0%, #0D1525 100%);
+}
+
+.construct-mcp-card-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.construct-mcp-card-icon {
+	width: 32px;
+	height: 32px;
+	border-radius: 6px;
+	background: #141B2D;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 16px;
+	flex-shrink: 0;
+}
+
+.construct-mcp-card-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: #E0E7FF;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.construct-mcp-card-author {
+	font-size: 10px;
+	color: #4A5568;
+}
+
+.construct-mcp-card-description {
+	font-size: 11px;
+	color: #8B95A5;
+	line-height: 1.5;
+	display: -webkit-box;
+	-webkit-line-clamp: 3;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+.construct-mcp-card-meta {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 10px;
+	color: #4A5568;
+}
+
+.construct-mcp-card-badge {
+	background: #00E5FF15;
+	color: #00E5FF;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 9px;
+	font-weight: 600;
+}
+
+.construct-mcp-card-badge.verified {
+	background: #4CAF5015;
+	color: #4CAF50;
+}
+
+.construct-mcp-card-badge.featured {
+	background: #FFC10715;
+	color: #FFC107;
+}
+
+.construct-mcp-card-stats {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.construct-mcp-card-stat {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+/* ─── Install Button ──────────────────────────────────────────────────────── */
+
+.construct-mcp-install-btn {
+	background: #00E5FF;
+	color: #0A0E1A;
+	border: none;
+	border-radius: 4px;
+	padding: 6px 14px;
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	align-self: flex-start;
+	margin-top: 4px;
+}
+
+.construct-mcp-install-btn:hover {
+	background: #00D4E8;
+	box-shadow: 0 2px 8px rgba(0, 229, 255, 0.3);
+}
+
+.construct-mcp-install-btn:active {
+	transform: scale(0.97);
+}
+
+.construct-mcp-install-btn.installed {
+	background: #141B2D;
+	color: #4CAF50;
+	border: 1px solid #4CAF5040;
+}
+
+.construct-mcp-install-btn.installed:hover {
+	background: #1A2035;
+	border-color: #4CAF5060;
+}
+
+.construct-mcp-install-btn.installing {
+	background: #FFC107;
+	color: #0A0E1A;
+	pointer-events: none;
+}
+
+.construct-mcp-install-btn.uninstall {
+	background: transparent;
+	color: #F44336;
+	border: 1px solid #F4433640;
+}
+
+.construct-mcp-install-btn.uninstall:hover {
+	background: #F4433615;
+	border-color: #F4433660;
+}
+
+/* ─── Server List (Installed) ─────────────────────────────────────────────── */
+
+.construct-mcp-server-list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.construct-mcp-server-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	border-radius: 4px;
+	transition: background 0.1s ease;
+}
+
+.construct-mcp-server-item:hover {
+	background: #141B2D;
+}
+
+.construct-mcp-server-item-name {
+	flex: 1;
+	font-size: 12px;
+	color: #E0E7FF;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.construct-mcp-server-item-actions {
+	display: flex;
+	gap: 4px;
+}
+
+.construct-mcp-server-action-btn {
+	background: transparent;
+	border: 1px solid #1A1F2E;
+	border-radius: 3px;
+	padding: 3px 8px;
+	color: #8B95A5;
+	font-size: 10px;
+	cursor: pointer;
+	transition: all 0.1s ease;
+}
+
+.construct-mcp-server-action-btn:hover {
+	border-color: #00E5FF;
+	color: #00E5FF;
+}
+
+.construct-mcp-server-action-btn.stop {
+	color: #F44336;
+	border-color: #F4433640;
+}
+
+.construct-mcp-server-action-btn.stop:hover {
+	border-color: #F44336;
+	background: #F4433615;
+}
+
+/* ─── Health Display ──────────────────────────────────────────────────────── */
+
+.construct-mcp-health {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+}
+
+.construct-mcp-health.healthy {
+	color: #4CAF50;
+}
+
+.construct-mcp-health.degraded {
+	color: #FFC107;
+}
+
+.construct-mcp-health.unhealthy {
+	color: #F44336;
+}
+
+.construct-mcp-health.unknown {
+	color: #9E9E9E;
+}
+
+.construct-mcp-health-latency {
+	font-size: 10px;
+	color: #4A5568;
+	font-family: monospace;
+}
+
+/* ─── Tool Execution Result ──────────────────────────────────────────────── */
+
+.construct-mcp-tool-result {
+	padding: 8px 10px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-family: monospace;
+}
+
+.construct-mcp-tool-result.success {
+	background: #4CAF5010;
+	border-left: 2px solid #4CAF50;
+	color: #E0E7FF;
+}
+
+.construct-mcp-tool-result.error {
+	background: #F4433610;
+	border-left: 2px solid #F44336;
+	color: #F44336;
+}
+
+.construct-mcp-tool-result.timeout {
+	background: #FFC10710;
+	border-left: 2px solid #FFC107;
+	color: #FFC107;
+}
+
+/* ─── Rating Stars ───────────────────────────────────────────────────────── */
+
+.construct-mcp-rating {
+	display: inline-flex;
+	gap: 2px;
+	align-items: center;
+}
+
+.construct-mcp-rating-star {
+	color: #4A5568;
+	font-size: 12px;
+	cursor: pointer;
+	transition: color 0.1s ease;
+}
+
+.construct-mcp-rating-star.filled {
+	color: #FFC107;
+}
+
+.construct-mcp-rating-star:hover {
+	color: #FFD54F;
+}
+
+/* ─── Empty State ─────────────────────────────────────────────────────────── */
+
+.construct-mcp-empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 40px 20px;
+	text-align: center;
+	gap: 12px;
+}
+
+.construct-mcp-empty-state-icon {
+	font-size: 32px;
+	color: #4A5568;
+}
+
+.construct-mcp-empty-state-title {
+	font-size: 14px;
+	color: #E0E7FF;
+	font-weight: 600;
+}
+
+.construct-mcp-empty-state-text {
+	font-size: 12px;
+	color: #4A5568;
+	line-height: 1.5;
+}

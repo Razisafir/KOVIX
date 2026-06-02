@@ -20,121 +20,130 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { IViewsService } from '../../../../workbench/services/views/common/viewsService.js';
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { KeyMod, KeyCode } from '../../../../base/common/keyCodes.js';
+import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
+import { IMCPServerManager } from '../../../../platform/construct/common/mcp/mcpServerManager.js';
+import { IMCPMarketplace } from '../../../../platform/construct/common/mcp/mcpMarketplace.js';
+import { MCPServerManagerService } from './services/mcp/mcpServerManagerService.js';
+import { MCPMarketplaceService } from './services/mcp/mcpMarketplaceService.js';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 
 // Register the Construct view container in the sidebar
 const constructViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
-	id: 'construct',
-	title: localize2('construct', "Construct Agent"),
-	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, ['construct', { mergeViewWithContainerWhenSingleView: true }]),
-	icon: constructViewIcon,
-	order: 100,
+        id: 'construct',
+        title: localize2('construct', "Construct Agent"),
+        ctorDescriptor: new SyncDescriptor(ViewPaneContainer, ['construct', { mergeViewWithContainerWhenSingleView: true }]),
+        icon: constructViewIcon,
+        order: 100,
 }, ViewContainerLocation.Sidebar, { doNotRegisterOpenCommand: false });
 
 // Register the agent panel view inside the container
 Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
-	id: 'construct.agentPanel',
-	name: localize2('agentPanel', "Agent"),
-	containerIcon: constructViewIcon,
-	ctorDescriptor: new SyncDescriptor(ConstructAgentViewPane),
-	canToggleVisibility: true,
-	canMoveView: true,
-	order: 1,
+        id: 'construct.agentPanel',
+        name: localize2('agentPanel', "Agent"),
+        containerIcon: constructViewIcon,
+        ctorDescriptor: new SyncDescriptor(ConstructAgentViewPane),
+        canToggleVisibility: true,
+        canMoveView: true,
+        order: 1,
 }], constructViewContainer);
 
 // Status Bar Integration
 class ConstructStatusBarContribution extends Disposable implements IWorkbenchContribution {
-	static readonly ID = 'workbench.contrib.constructStatusBar';
+        static readonly ID = 'workbench.contrib.constructStatusBar';
 
-	private readonly agentStatusEntry: IStatusbarEntryAccessor;
-	private readonly modelEntry: IStatusbarEntryAccessor;
-	private readonly changesEntry: IStatusbarEntryAccessor;
+        private readonly agentStatusEntry: IStatusbarEntryAccessor;
+        private readonly modelEntry: IStatusbarEntryAccessor;
+        private readonly changesEntry: IStatusbarEntryAccessor;
 
-	constructor(
-		@IStatusbarService private readonly statusbarService: IStatusbarService,
-	) {
-		super();
+        constructor(
+                @IStatusbarService private readonly statusbarService: IStatusbarService,
+        ) {
+                super();
 
-		// Agent status (left side)
-		this.agentStatusEntry = this._register(this.statusbarService.addEntry({
-			name: localize('constructAgentStatus', "Construct Agent Status"),
-			text: '$(robot) Ready',
-			ariaLabel: localize('constructAgentStatusAria', "Construct Agent: Ready"),
-			tooltip: localize('constructAgentStatusTooltip', "Construct Agent: Idle — click to open panel"),
-			command: 'construct.focusPanel',
-		}, 'construct.agentStatus', StatusbarAlignment.LEFT, 50));
+                // Agent status (left side)
+                this.agentStatusEntry = this._register(this.statusbarService.addEntry({
+                        name: localize('constructAgentStatus', "Construct Agent Status"),
+                        text: '$(robot) Ready',
+                        ariaLabel: localize('constructAgentStatusAria', "Construct Agent: Ready"),
+                        tooltip: localize('constructAgentStatusTooltip', "Construct Agent: Idle — click to open panel"),
+                        command: 'construct.focusPanel',
+                }, 'construct.agentStatus', StatusbarAlignment.LEFT, 50));
 
-		// Model info (left side)
-		this.modelEntry = this._register(this.statusbarService.addEntry({
-			name: localize('constructModel', "Construct Model"),
-			text: '$(sparkle) Claude Sonnet',
-			ariaLabel: localize('constructModelAria', "Active LLM: Claude 3.5 Sonnet"),
-			tooltip: localize('constructModelTooltip', "Active LLM: Claude 3.5 Sonnet"),
-		}, 'construct.model', StatusbarAlignment.LEFT, 51));
+                // Model info (left side)
+                this.modelEntry = this._register(this.statusbarService.addEntry({
+                        name: localize('constructModel', "Construct Model"),
+                        text: '$(sparkle) Claude Sonnet',
+                        ariaLabel: localize('constructModelAria', "Active LLM: Claude 3.5 Sonnet"),
+                        tooltip: localize('constructModelTooltip', "Active LLM: Claude 3.5 Sonnet"),
+                }, 'construct.model', StatusbarAlignment.LEFT, 51));
 
-		// Pending changes (right side)
-		this.changesEntry = this._register(this.statusbarService.addEntry({
-			name: localize('constructChanges', "Construct Changes"),
-			text: '$(diff-added) 0 pending',
-			ariaLabel: localize('constructChangesAria', "No changes awaiting approval"),
-			tooltip: localize('constructChangesTooltip', "No changes awaiting approval"),
-		}, 'construct.changes', StatusbarAlignment.RIGHT, 50));
-	}
+                // Pending changes (right side)
+                this.changesEntry = this._register(this.statusbarService.addEntry({
+                        name: localize('constructChanges', "Construct Changes"),
+                        text: '$(diff-added) 0 pending',
+                        ariaLabel: localize('constructChangesAria', "No changes awaiting approval"),
+                        tooltip: localize('constructChangesTooltip', "No changes awaiting approval"),
+                }, 'construct.changes', StatusbarAlignment.RIGHT, 50));
+        }
 }
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(ConstructStatusBarContribution, LifecyclePhase.Restored);
 
 // Register Construct commands
 registerAction2(class FocusConstructPanelAction extends Action2 {
-	constructor() {
-		super({
-			id: 'construct.focusPanel',
-			title: localize2('focusConstructPanel', "Show Construct Agent"),
-			keybinding: {
-				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyC,
-				weight: KeybindingWeight.WorkbenchContrib,
-			},
-			f1: true,
-			category: localize2('constructCategory', "Construct"),
-		});
-	}
-	run(accessor: ServicesAccessor): void {
-		accessor.get(IViewsService).openView('construct.agentPanel', true);
-	}
+        constructor() {
+                super({
+                        id: 'construct.focusPanel',
+                        title: localize2('focusConstructPanel', "Show Construct Agent"),
+                        keybinding: {
+                                primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyC,
+                                weight: KeybindingWeight.WorkbenchContrib,
+                        },
+                        f1: true,
+                        category: localize2('constructCategory', "Construct"),
+                });
+        }
+        run(accessor: ServicesAccessor): void {
+                accessor.get(IViewsService).openView('construct.agentPanel', true);
+        }
 });
 
 registerAction2(class NewConstructChatAction extends Action2 {
-	constructor() {
-		super({
-			id: 'construct.newChat',
-			title: localize2('newConstructChat', "New Construct Chat"),
-			f1: true,
-			category: localize2('constructCategory2', "Construct"),
-		});
-	}
-	run(accessor: ServicesAccessor): void {
-		accessor.get(IViewsService).openView('construct.agentPanel', true);
-	}
+        constructor() {
+                super({
+                        id: 'construct.newChat',
+                        title: localize2('newConstructChat', "New Construct Chat"),
+                        f1: true,
+                        category: localize2('constructCategory2', "Construct"),
+                });
+        }
+        run(accessor: ServicesAccessor): void {
+                accessor.get(IViewsService).openView('construct.agentPanel', true);
+        }
 });
 
 registerAction2(class ShowInlineAgentAction extends Action2 {
-	constructor() {
-		super({
-			id: 'construct.showInlineAgent',
-			title: localize2('showInlineAgent', "Show Inline Agent"),
-			keybinding: {
-				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyI,
-				weight: KeybindingWeight.WorkbenchContrib,
-			},
-			f1: true,
-			category: localize2('constructCategory3', "Construct"),
-		});
-	}
-	run(accessor: ServicesAccessor): void {
-		// The inline agent widget is activated through the editor contribution
-		// which is registered separately. This command is a placeholder that
-		// opens the agent panel as a fallback.
-		accessor.get(IViewsService).openView('construct.agentPanel', true);
-	}
+        constructor() {
+                super({
+                        id: 'construct.showInlineAgent',
+                        title: localize2('showInlineAgent', "Show Inline Agent"),
+                        keybinding: {
+                                primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyI,
+                                weight: KeybindingWeight.WorkbenchContrib,
+                        },
+                        f1: true,
+                        category: localize2('constructCategory3', "Construct"),
+                });
+        }
+        run(accessor: ServicesAccessor): void {
+                // The inline agent widget is activated through the editor contribution
+                // which is registered separately. This command is a placeholder that
+                // opens the agent panel as a fallback.
+                accessor.get(IViewsService).openView('construct.agentPanel', true);
+        }
 });
+
+// ─── MCP Service Singletons (Phase 17) ───────────────────────────────────
+registerSingleton(IMCPServerManager, MCPServerManagerService, InstantiationType.Delayed);
+registerSingleton(IMCPMarketplace, MCPMarketplaceService, InstantiationType.Delayed);

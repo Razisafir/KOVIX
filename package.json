@@ -70,6 +70,7 @@
   "dependencies": {
     "@microsoft/1ds-core-js": "^3.2.13",
     "@microsoft/1ds-post-js": "^3.2.13",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@parcel/watcher": "2.1.0",
     "@types/semver": "^7.5.8",
     "@vscode/deviceid": "^0.1.1",
@@ -95,9 +96,12 @@
     "@xterm/headless": "^5.6.0-beta.70",
     "@xterm/xterm": "^5.6.0-beta.70",
     "esbuild": "^0.28.0",
+    "gulp-merge-json": "^2.2.1",
+    "gulp-sort": "^2.0.0",
     "http-proxy-agent": "^7.0.0",
     "https-proxy-agent": "^7.0.2",
     "jschardet": "3.1.4",
+    "jsonc-parser": "^3.3.1",
     "kerberos": "2.1.1",
     "minimist": "^1.2.6",
     "native-is-elevated": "0.7.0",
@@ -108,11 +112,13 @@
     "tas-client-umd": "0.2.0",
     "ternary-stream": "^3.0.0",
     "v8-inspect-profiler": "^0.1.1",
+    "vscode-gulp-watch": "^5.0.3",
     "vscode-oniguruma": "1.7.0",
     "vscode-regexpp": "^3.1.0",
     "vscode-textmate": "9.1.0",
     "yauzl": "^3.0.0",
-    "yazl": "^2.4.3"
+    "yazl": "^2.4.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.46.1",
