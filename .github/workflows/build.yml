@@ -25,34 +25,44 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
         timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Transpile client
         run: npx gulp transpile-client
         timeout-minutes: 10
 
-      - name: Build Windows installer
-        run: npx gulp vscode-win32-x64
+      - name: Build Windows package
+        run: npx gulp vscode-win32-x64-min-ci
         timeout-minutes: 60
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload installer artifact
+      - name: Build Windows system setup
+        run: npx gulp vscode-win32-x64-system-setup
+        timeout-minutes: 15
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List setup output
+        run: dir .build\win32-x64\system-setup\
+
+      - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: construct-ide-windows-x64
-          path: .build/win32-x64/
-          retention-days: 30
+          path: .build/win32-x64/system-setup/*.exe
 
       - name: Create Release
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            .build/win32-x64/Setup.exe
-            .build/win32-x64/*.zip
-          tag_name: v0.2.0-beta
+          files: .build/win32-x64/system-setup/*.exe
+          tag_name: v0.2.0-beta.1
           draft: true
-          name: Construct IDE v0.2.0-beta
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -66,21 +76,35 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot dpkg-dev rpm libkrb5-dev
+
       - name: Install dependencies
-        run: npm install
+        run: npm ci
         timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Transpile client
         run: npx gulp transpile-client
         timeout-minutes: 10
 
       - name: Build Linux package
-        run: npx gulp vscode-linux-x64
+        run: npx gulp vscode-linux-x64-min-ci
         timeout-minutes: 60
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Linux artifact
+      - name: Build Linux DEB
+        run: npx gulp vscode-linux-x64-build-deb
+        timeout-minutes: 15
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Linux package
         uses: actions/upload-artifact@v4
         with:
           name: construct-ide-linux-x64
-          path: .build/linux/x64/
-          retention-days: 30
+          path: .build/linux/deb/amd64/**/*.deb
