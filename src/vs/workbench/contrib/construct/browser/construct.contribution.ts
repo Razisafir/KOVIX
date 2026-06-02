@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Construct IDE - Main Contribution
- *  Licensed under the MIT License.
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { localize, localize2 } from '../../../../nls.js';
@@ -23,8 +23,10 @@ import { KeyMod, KeyCode } from '../../../../base/common/keyCodes.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 import { IMCPServerManager } from '../../../../platform/construct/common/mcp/mcpServerManager.js';
 import { IMCPMarketplace } from '../../../../platform/construct/common/mcp/mcpMarketplace.js';
+import { IBrowserAutomationService } from '../../../../platform/construct/common/mcp/browserAutomation.js';
 import { MCPServerManagerService } from './services/mcp/mcpServerManagerService.js';
 import { MCPMarketplaceService } from './services/mcp/mcpMarketplaceService.js';
+import { BrowserAutomationService } from './services/mcp/browserAutomationService.js';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 
@@ -66,7 +68,7 @@ class ConstructStatusBarContribution extends Disposable implements IWorkbenchCon
                         name: localize('constructAgentStatus', "Construct Agent Status"),
                         text: '$(robot) Ready',
                         ariaLabel: localize('constructAgentStatusAria', "Construct Agent: Ready"),
-                        tooltip: localize('constructAgentStatusTooltip', "Construct Agent: Idle — click to open panel"),
+                        tooltip: localize('constructAgentStatusTooltip', "Construct Agent: Idle -- click to open panel"),
                         command: 'construct.focusPanel',
                 }, 'construct.agentStatus', StatusbarAlignment.LEFT, 50));
 
@@ -144,6 +146,9 @@ registerAction2(class ShowInlineAgentAction extends Action2 {
         }
 });
 
-// ─── MCP Service Singletons (Phase 17) ───────────────────────────────────
+// --- MCP Service Singletons (Phase 17) -----------------------------------------
 registerSingleton(IMCPServerManager, MCPServerManagerService, InstantiationType.Delayed);
 registerSingleton(IMCPMarketplace, MCPMarketplaceService, InstantiationType.Delayed);
+
+// --- Browser Automation Singleton (Phase 18) -----------------------------------
+registerSingleton(IBrowserAutomationService, BrowserAutomationService, InstantiationType.Delayed);
