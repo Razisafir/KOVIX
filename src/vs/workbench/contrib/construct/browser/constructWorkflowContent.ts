@@ -16,6 +16,7 @@ import { IEmbeddingService } from '../../../../platform/construct/common/memory/
 import { IEnhancedAgentOrchestrator } from '../../../../platform/construct/common/orchestration/agentOrchestrator.js';
 import { ISkillsMarketplace } from '../../../../platform/construct/common/skills/skillsMarketplace.js';
 import { ISkillsRegistry } from '../../../../platform/construct/common/skills/skillsRegistry.js';
+import { IVisualAgentManager } from '../../../../platform/construct/common/visual/visualAgentManager.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
@@ -39,6 +40,9 @@ import { ILogService } from '../../../../platform/log/common/log.js';
  *   Skills (13): skills:search, skills:categories, skills:featured, skills:category,
  *     skills:install, skills:uninstall, skills:installed, skills:detail,
  *     skills:rate, skills:execute, skills:suggest, skills:register, skills:refresh
+ *   Visual (8): visual:create3DScene, visual:addObject, visual:exportScene,
+ *     visual:loadFigma, visual:extractStyles, visual:generateComponents,
+ *     visual:takePreview, visual:compare
  */
 export class ConstructWorkflowContent extends Disposable {
 
@@ -57,6 +61,7 @@ export class ConstructWorkflowContent extends Disposable {
                 @IEnhancedAgentOrchestrator private readonly agentOrchestrator: IEnhancedAgentOrchestrator,
                 @ISkillsMarketplace private readonly skillsMarketplace: ISkillsMarketplace,
                 @ISkillsRegistry private readonly skillsRegistry: ISkillsRegistry,
+                @IVisualAgentManager private readonly visualAgentManager: IVisualAgentManager,
                 @ILogService private readonly logService: ILogService,
         ) {
                 super();
@@ -468,6 +473,49 @@ export class ConstructWorkflowContent extends Disposable {
                 this._handlers.set('skills:refresh', async () => {
                         await this.skillsMarketplace.refreshCatalog();
                         return { type: 'skills:refreshed' };
+                });
+
+                // --- Visual / 3D Creation Agent Handlers (Phase 22) --------------------
+
+                this._handlers.set('visual:create3DScene', async (payload: { name: string; projectId?: string }) => {
+                        const scene = await this.visualAgentManager.create3DScene(payload.name, payload.projectId);
+                        return { type: 'visual:sceneCreated', scene };
+                });
+
+                this._handlers.set('visual:addObject', async (payload: { sceneId: string; object: any }) => {
+                        await this.visualAgentManager.addObject(payload.sceneId, payload.object);
+                        const scene = this.visualAgentManager.getScene(payload.sceneId);
+                        return { type: 'visual:objectAdded', scene };
+                });
+
+                this._handlers.set('visual:exportScene', async (payload: { sceneId: string; format: 'gltf' | 'obj' | 'fbx' }) => {
+                        const result = await this.visualAgentManager.exportScene(payload.sceneId, payload.format ?? 'gltf');
+                        return { type: 'visual:sceneExported', result, format: payload.format ?? 'gltf' };
+                });
+
+                this._handlers.set('visual:loadFigma', async (payload: { fileId: string }) => {
+                        const design = await this.visualAgentManager.loadFigmaDesign(payload.fileId);
+                        return { type: 'visual:figmaLoaded', design };
+                });
+
+                this._handlers.set('visual:extractStyles', async (payload: { design: any }) => {
+                        const styles = await this.visualAgentManager.extractStyles(payload.design);
+                        return { type: 'visual:stylesExtracted', styles };
+                });
+
+                this._handlers.set('visual:generateComponents', async (payload: { design: any }) => {
+                        const filePaths = await this.visualAgentManager.generateReactComponents(payload.design);
+                        return { type: 'visual:componentsGenerated', filePaths };
+                });
+
+                this._handlers.set('visual:takePreview', async (payload: { sessionId: string }) => {
+                        const preview = await this.visualAgentManager.takeVisualPreview(payload.sessionId);
+                        return { type: 'visual:previewTaken', preview };
+                });
+
+                this._handlers.set('visual:compare', async (payload: { beforeId: string; afterId: string }) => {
+                        const diff = await this.visualAgentManager.compareVisuals(payload.beforeId, payload.afterId);
+                        return { type: 'visual:compared', diff };
                 });
         }
 

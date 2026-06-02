@@ -47,6 +47,8 @@ import { ISkillsMarketplace } from '../../../../platform/construct/common/skills
 import { ISkillsRegistry } from '../../../../platform/construct/common/skills/skillsRegistry.js';
 import { SkillsMarketplaceService } from './services/skills/skillsMarketplaceService.js';
 import { SkillsRegistryService } from './services/skills/skillsRegistryService.js';
+import { IVisualAgentManager } from '../../../../platform/construct/common/visual/visualAgentManager.js';
+import { VisualOrchestratorService } from './services/visual/visualOrchestratorService.js';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 
@@ -188,3 +190,6 @@ registerSingleton(IParallelDispatcher, ParallelDispatcherService, InstantiationT
 // --- Skills Marketplace Singletons (Phase 21) ----------------------------------
 registerSingleton(ISkillsMarketplace, SkillsMarketplaceService, InstantiationType.Delayed);
 registerSingleton(ISkillsRegistry, SkillsRegistryService, InstantiationType.Delayed);
+
+// --- Visual / 3D Creation Agents Singleton (Phase 22) ---------------------------
+registerSingleton(IVisualAgentManager, VisualOrchestratorService, InstantiationType.Delayed);
