@@ -250,9 +250,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compile
-        run: npm run compile
+        run: node --max-old-space-size=4096 ./node_modules/gulp/bin/gulp.js compile
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download Electron
         run: node build/lib/electron.js
@@ -302,9 +302,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compile
-        run: npm run compile
+        run: node --max-old-space-size=4096 ./node_modules/gulp/bin/gulp.js compile
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download Electron
         run: node build/lib/electron.js
