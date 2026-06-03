@@ -20,6 +20,7 @@ import { IVisualAgentManager } from '../../../../platform/construct/common/visua
 import { ICodebaseIndexer } from '../../../../platform/construct/common/indexing/codebaseIndexer.js';
 import { ITelemetryService } from '../../../../platform/construct/common/telemetry/telemetryService.js';
 import { IDataPipeline } from '../../../../platform/construct/common/telemetry/dataPipeline.js';
+import { ITimelineService } from '../../../../platform/construct/common/timeline/timelineService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
@@ -53,6 +54,10 @@ import { ILogService } from '../../../../platform/log/common/log.js';
  *     telemetry:getBuffer, telemetry:clearBuffer, telemetry:exportData,
  *     telemetry:deleteData, telemetry:getPrivacyReport, telemetry:recordEvent,
  *     telemetry:flush
+ *   Timeline (13): timeline:getTimeline, timeline:getMilestones, timeline:getStats,
+ *     timeline:getHistory, timeline:export, timeline:zoom, timeline:selectAgent,
+ *     timeline:selectMilestone, timeline:approveMilestone, timeline:rejectMilestone,
+ *     timeline:skipMilestone, timeline:subscribe, timeline:unsubscribe
  */
 export class ConstructWorkflowContent extends Disposable {
 
@@ -75,6 +80,7 @@ export class ConstructWorkflowContent extends Disposable {
                 @ICodebaseIndexer private readonly codebaseIndexer: ICodebaseIndexer,
                 @ITelemetryService private readonly telemetryService: ITelemetryService,
                 @IDataPipeline private readonly dataPipeline: IDataPipeline,
+                @ITimelineService private readonly timelineService: ITimelineService,
                 @ILogService private readonly logService: ILogService,
         ) {
                 super();
@@ -643,6 +649,73 @@ export class ConstructWorkflowContent extends Disposable {
                 this._handlers.set('telemetry:flush', async () => {
                         await this.telemetryService.flush();
                         return { type: 'telemetry:flushed' };
+                });
+
+                // --- Timeline Handlers (Phase 25) -----------------------------------
+
+                this._handlers.set('timeline:getTimeline', async (payload: { planId: string }) => {
+                        const entries = this.timelineService.getTimeline(payload.planId);
+                        return { type: 'timeline:timelineResult', entries };
+                });
+
+                this._handlers.set('timeline:getMilestones', async (payload: { planId: string }) => {
+                        const milestones = this.timelineService.getMilestones(payload.planId);
+                        return { type: 'timeline:milestonesResult', milestones };
+                });
+
+                this._handlers.set('timeline:getStats', async (payload: { planId: string }) => {
+                        const stats = this.timelineService.getStats(payload.planId);
+                        return { type: 'timeline:statsResult', stats };
+                });
+
+                this._handlers.set('timeline:getHistory', async () => {
+                        const history = this.timelineService.getHistory();
+                        return { type: 'timeline:historyResult', history };
+                });
+
+                this._handlers.set('timeline:export', async (payload: { planId: string; format: 'json' | 'csv' | 'png' }) => {
+                        const data = await this.timelineService.exportTimeline(payload.planId, payload.format ?? 'json');
+                        return { type: 'timeline:exportResult', data, format: payload.format ?? 'json' };
+                });
+
+                this._handlers.set('timeline:zoom', async (payload: { planId: string; level: number }) => {
+                        this.timelineService.setZoom(payload.planId, payload.level);
+                        return { type: 'timeline:zoomSet', planId: payload.planId, level: payload.level };
+                });
+
+                this._handlers.set('timeline:selectAgent', async (payload: { agentId: string }) => {
+                        this.timelineService.selectAgent(payload.agentId);
+                        return { type: 'timeline:agentSelected', agentId: payload.agentId };
+                });
+
+                this._handlers.set('timeline:selectMilestone', async (payload: { milestoneId: string }) => {
+                        this.timelineService.selectMilestone(payload.milestoneId);
+                        return { type: 'timeline:milestoneSelected', milestoneId: payload.milestoneId };
+                });
+
+                this._handlers.set('timeline:approveMilestone', async (payload: { milestoneId: string }) => {
+                        this.timelineService.updateMilestoneStatus(payload.milestoneId, 2); // MilestoneStatus.Approved
+                        return { type: 'timeline:milestoneApproved', milestoneId: payload.milestoneId };
+                });
+
+                this._handlers.set('timeline:rejectMilestone', async (payload: { milestoneId: string }) => {
+                        this.timelineService.updateMilestoneStatus(payload.milestoneId, 3); // MilestoneStatus.Rejected
+                        return { type: 'timeline:milestoneRejected', milestoneId: payload.milestoneId };
+                });
+
+                this._handlers.set('timeline:skipMilestone', async (payload: { milestoneId: string }) => {
+                        this.timelineService.updateMilestoneStatus(payload.milestoneId, 4); // MilestoneStatus.Skipped
+                        return { type: 'timeline:milestoneSkipped', milestoneId: payload.milestoneId };
+                });
+
+                this._handlers.set('timeline:subscribe', async (payload: { planId: string }) => {
+                        this.timelineService.subscribeToPlan(payload.planId);
+                        return { type: 'timeline:subscribed', planId: payload.planId };
+                });
+
+                this._handlers.set('timeline:unsubscribe', async (payload: { planId: string }) => {
+                        this.timelineService.unsubscribeFromPlan(payload.planId);
+                        return { type: 'timeline:unsubscribed', planId: payload.planId };
                 });
         }
 

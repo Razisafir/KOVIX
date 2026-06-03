@@ -1,0 +1,661 @@
+/*---------------------------------------------------------------------------------------------
+ *  Construct IDE - Timeline Styles
+ *  Visual execution timeline / Gantt chart UI styles.
+ *  Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Timeline View Container
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.construct-timeline-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	overflow: hidden;
+	font-family: var(--vscode-font-family);
+	color: var(--vscode-foreground);
+	background: var(--vscode-editor-background);
+}
+
+/* ─── Toolbar ────────────────────────────────────────────────────────────── */
+
+.construct-timeline-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 12px;
+	height: 40px;
+	border-bottom: 1px solid var(--vscode-widget-border);
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+	flex-shrink: 0;
+}
+
+.construct-timeline-toolbar-group {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.construct-timeline-toolbar-btn {
+	padding: 2px 8px;
+	border: 1px solid var(--vscode-button-border, var(--vscode-widget-border));
+	border-radius: 3px;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	cursor: pointer;
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+.construct-timeline-toolbar-btn:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.construct-timeline-toolbar-btn[data-active] {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border-color: var(--vscode-button-background);
+}
+
+.construct-timeline-toolbar-zoom-label {
+	font-size: 11px;
+	min-width: 40px;
+	text-align: center;
+	color: var(--vscode-descriptionForeground);
+}
+
+.construct-timeline-toolbar-select {
+	padding: 2px 6px;
+	border: 1px solid var(--vscode-widget-border);
+	border-radius: 3px;
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-size: 12px;
+}
+
+.construct-timeline-toolbar-separator {
+	width: 1px;
+	height: 20px;
+	background: var(--vscode-widget-border);
+}
+
+.construct-timeline-toolbar-spacer {
+	flex: 1;
+}
+
+/* ─── History Dropdown ───────────────────────────────────────────────────── */
+
+.construct-timeline-history {
+	padding: 2px 12px;
+	border-bottom: 1px solid var(--vscode-widget-border);
+	flex-shrink: 0;
+}
+
+.construct-timeline-history-select {
+	width: 100%;
+	padding: 4px 8px;
+	border: 1px solid var(--vscode-widget-border);
+	border-radius: 3px;
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-size: 12px;
+}
+
+/* ─── Main Content Area ──────────────────────────────────────────────────── */
+
+.construct-timeline-content {
+	display: flex;
+	flex: 1;
+	overflow: hidden;
+	min-height: 0;
+}
+
+/* ─── Gantt Chart Area ───────────────────────────────────────────────────── */
+
+.construct-timeline-chart {
+	flex: 1;
+	overflow: auto;
+	position: relative;
+}
+
+.timeline-gantt {
+	position: relative;
+}
+
+/* ─── Grid Lines ─────────────────────────────────────────────────────────── */
+
+.timeline-grid {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+
+.timeline-grid-time-axis {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+	height: 28px;
+	border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+.timeline-grid-line {
+	position: absolute;
+	top: 0;
+	width: 1px;
+	background: var(--vscode-widget-border, rgba(255, 255, 255, 0.06));
+	opacity: 0.5;
+}
+
+.timeline-grid-label {
+	position: absolute;
+	top: 4px;
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+	transform: translateX(-50%);
+	white-space: nowrap;
+	font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.timeline-grid-row {
+	position: absolute;
+	left: 0;
+	height: 1px;
+	background: var(--vscode-widget-border, rgba(255, 255, 255, 0.03));
+}
+
+/* ─── Agent Labels (left side) ───────────────────────────────────────────── */
+
+.timeline-labels {
+	position: sticky;
+	left: 0;
+	z-index: 3;
+	background: var(--vscode-editor-background);
+	border-right: 1px solid var(--vscode-widget-border);
+}
+
+.timeline-agent-label {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 0 12px;
+	position: absolute;
+	left: 0;
+	width: 200px;
+	border-bottom: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.03));
+	cursor: pointer;
+	background: var(--vscode-editor-background);
+	font-size: 12px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.timeline-agent-label:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.timeline-agent-label.selected {
+	border-left: 3px solid var(--vscode-focusBorder);
+	background: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.timeline-agent-icon {
+	font-size: 14px;
+	flex-shrink: 0;
+}
+
+.timeline-agent-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.timeline-group-label {
+	display: flex;
+	align-items: center;
+	padding: 0 12px;
+	position: absolute;
+	left: 0;
+	width: 200px;
+	font-weight: 600;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+	border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+/* ─── Agent Bars ─────────────────────────────────────────────────────────── */
+
+.timeline-bar {
+	position: absolute;
+	border-radius: 4px;
+	cursor: pointer;
+	overflow: hidden;
+	transition: background-color 0.2s, width 0.3s ease-out;
+	z-index: 1;
+}
+
+.timeline-bar:hover {
+	filter: brightness(1.1);
+	z-index: 2;
+}
+
+.timeline-bar.selected {
+	outline: 2px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+	z-index: 2;
+}
+
+/* Status-specific bar styles */
+.timeline-bar.status-running {
+	background: linear-gradient(135deg, #3b82f6, #2563eb);
+	animation: timeline-bar-pulse 2s ease-in-out infinite;
+}
+
+.timeline-bar.status-completed {
+	background: #22c55e;
+}
+
+.timeline-bar.status-failed {
+	background: #ef4444;
+}
+
+.timeline-bar.status-paused {
+	background: #f59e0b;
+	background-image: repeating-linear-gradient(
+		45deg,
+		transparent,
+		transparent 4px,
+		rgba(0, 0, 0, 0.1) 4px,
+		rgba(0, 0, 0, 0.1) 8px
+	);
+}
+
+.timeline-bar.status-pending {
+	background: transparent;
+	border: 2px dashed #9ca3af;
+}
+
+@keyframes timeline-bar-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.85; }
+}
+
+.timeline-bar-progress {
+	position: absolute;
+	top: 0;
+	left: 0;
+	height: 100%;
+	background: rgba(255, 255, 255, 0.2);
+	border-radius: 4px 0 0 4px;
+}
+
+.timeline-bar-label {
+	position: absolute;
+	top: 50%;
+	left: 8px;
+	transform: translateY(-50%);
+	font-size: 10px;
+	color: white;
+	text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	pointer-events: none;
+}
+
+/* ─── Milestones ─────────────────────────────────────────────────────────── */
+
+.timeline-milestone {
+	position: absolute;
+	z-index: 1;
+}
+
+.timeline-milestone-diamond {
+	position: absolute;
+	top: 4px;
+	width: 12px;
+	height: 12px;
+	transform: rotate(45deg);
+	z-index: 2;
+}
+
+.timeline-milestone.milestone-pending .timeline-milestone-diamond {
+	background: #9ca3af;
+}
+
+.timeline-milestone.milestone-reached .timeline-milestone-diamond {
+	background: #f59e0b;
+	box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+	animation: milestone-bounce 0.5s ease-out;
+}
+
+.timeline-milestone.milestone-approved .timeline-milestone-diamond {
+	background: #22c55e;
+}
+
+.timeline-milestone.milestone-rejected .timeline-milestone-diamond {
+	background: #ef4444;
+}
+
+.timeline-milestone.milestone-skipped .timeline-milestone-diamond {
+	background: #6b7280;
+}
+
+@keyframes milestone-bounce {
+	0% { transform: rotate(45deg) scale(0); }
+	60% { transform: rotate(45deg) scale(1.3); }
+	100% { transform: rotate(45deg) scale(1); }
+}
+
+.timeline-milestone-line {
+	position: absolute;
+	width: 1px;
+	background: rgba(245, 158, 11, 0.3);
+	z-index: 0;
+}
+
+.timeline-milestone-label {
+	position: absolute;
+	top: 20px;
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+	white-space: nowrap;
+}
+
+/* ─── Dependency Arrows ──────────────────────────────────────────────────── */
+
+.timeline-deps-svg {
+	pointer-events: none;
+	z-index: 0;
+}
+
+.timeline-dep-arrow {
+	fill: none;
+	stroke: var(--vscode-descriptionForeground, #888);
+	stroke-width: 1.5;
+	stroke-dasharray: 4, 4;
+	opacity: 0.5;
+}
+
+.timeline-dep-arrowhead {
+	fill: var(--vscode-descriptionForeground, #888);
+	opacity: 0.5;
+}
+
+/* ─── Current Time Line ──────────────────────────────────────────────────── */
+
+.timeline-now-line {
+	position: absolute;
+	width: 2px;
+	background: #ef4444;
+	z-index: 4;
+	pointer-events: none;
+}
+
+.timeline-now-line::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -3px;
+	width: 8px;
+	height: 8px;
+	background: #ef4444;
+	border-radius: 50%;
+}
+
+.timeline-now-label {
+	position: absolute;
+	top: -18px;
+	left: -12px;
+	font-size: 9px;
+	font-weight: 600;
+	color: #ef4444;
+	background: rgba(239, 68, 68, 0.15);
+	padding: 1px 4px;
+	border-radius: 2px;
+}
+
+/* ─── Details Panel (right sidebar) ──────────────────────────────────────── */
+
+.construct-timeline-details {
+	width: 300px;
+	border-left: 1px solid var(--vscode-widget-border);
+	background: var(--vscode-sideBar-background);
+	overflow-y: auto;
+	flex-shrink: 0;
+}
+
+.timeline-details-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--vscode-widget-border);
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.timeline-details-close {
+	background: none;
+	border: none;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+	font-size: 16px;
+	padding: 2px 6px;
+	border-radius: 3px;
+}
+
+.timeline-details-close:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.timeline-details-section {
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.03));
+}
+
+.timeline-details-label {
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	margin-bottom: 2px;
+}
+
+.timeline-details-value {
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.timeline-details-value.status-running { color: #3b82f6; }
+.timeline-details-value.status-completed { color: #22c55e; }
+.timeline-details-value.status-failed { color: #ef4444; }
+.timeline-details-value.status-paused { color: #f59e0b; }
+.timeline-details-value.status-pending { color: #9ca3af; }
+
+.timeline-details-progress-bar {
+	height: 4px;
+	background: var(--vscode-input-background);
+	border-radius: 2px;
+	overflow: hidden;
+	margin: 4px 0;
+}
+
+.timeline-details-progress-fill {
+	height: 100%;
+	background: var(--vscode-button-background);
+	border-radius: 2px;
+	transition: width 0.3s;
+}
+
+/* ─── Milestone Panel (bottom) ───────────────────────────────────────────── */
+
+.construct-timeline-milestones {
+	border-top: 1px solid var(--vscode-widget-border);
+	max-height: 150px;
+	overflow-y: auto;
+	flex-shrink: 0;
+}
+
+.construct-timeline-milestones-panel {
+	height: 100%;
+}
+
+.timeline-milestones-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 6px 12px;
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+	border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+.timeline-milestones-title {
+	font-weight: 600;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.timeline-milestones-count {
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.timeline-milestones-list {
+	padding: 4px 0;
+}
+
+.timeline-milestones-empty {
+	padding: 12px;
+	text-align: center;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.timeline-milestone-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 12px;
+	font-size: 12px;
+	border-bottom: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.03));
+}
+
+.timeline-milestone-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.timeline-milestone-icon {
+	font-size: 14px;
+	flex-shrink: 0;
+}
+
+.timeline-milestone-name {
+	font-weight: 500;
+	min-width: 100px;
+}
+
+.timeline-milestone-desc {
+	color: var(--vscode-descriptionForeground);
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.timeline-milestone-time {
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+	font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.timeline-milestone-actions {
+	display: flex;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.timeline-milestone-btn {
+	padding: 1px 4px;
+	border: none;
+	border-radius: 2px;
+	cursor: pointer;
+	font-size: 12px;
+	background: transparent;
+}
+
+.timeline-milestone-btn:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.timeline-milestone-btn.approve { color: #22c55e; }
+.timeline-milestone-btn.reject { color: #ef4444; }
+.timeline-milestone-btn.skip { color: #9ca3af; }
+
+/* ─── Empty State ─────────────────────────────────────────────────────────── */
+
+.timeline-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: 40px;
+	text-align: center;
+}
+
+.timeline-empty-icon {
+	font-size: 48px;
+	margin-bottom: 16px;
+	opacity: 0.6;
+}
+
+.timeline-empty-title {
+	font-size: 16px;
+	font-weight: 600;
+	margin-bottom: 8px;
+}
+
+.timeline-empty-text {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	max-width: 400px;
+	line-height: 1.5;
+	margin-bottom: 16px;
+}
+
+.timeline-empty-cta {
+	font-size: 11px;
+	padding: 6px 12px;
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.timeline-empty-cta:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+	.construct-timeline-details {
+		width: 100%;
+		border-left: none;
+		border-top: 1px solid var(--vscode-widget-border);
+	}
+
+	.construct-timeline-content {
+		flex-direction: column;
+	}
+}

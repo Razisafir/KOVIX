@@ -55,6 +55,8 @@ import { ITelemetryService } from '../../../../platform/construct/common/telemet
 import { IDataPipeline } from '../../../../platform/construct/common/telemetry/dataPipeline.js';
 import { TelemetryService } from './services/telemetry/telemetryService.js';
 import { DataPipelineService } from './services/telemetry/dataPipelineService.js';
+import { ITimelineService } from '../../../../platform/construct/common/timeline/timelineService.js';
+import { TimelineService } from './services/timeline/timelineService.js';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 
@@ -206,3 +208,6 @@ registerSingleton(ICodebaseIndexer, CodebaseIndexerService, InstantiationType.Ea
 // --- Telemetry & Data Pipeline Singletons (Phase 24) --------------------------
 registerSingleton(ITelemetryService, TelemetryService, InstantiationType.Eager);
 registerSingleton(IDataPipeline, DataPipelineService, InstantiationType.Eager);
+
+// --- Visual Execution Timeline Singleton (Phase 25) ---------------------------
+registerSingleton(ITimelineService, TimelineService, InstantiationType.Eager);
