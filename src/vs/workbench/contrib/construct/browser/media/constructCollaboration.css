@@ -1,0 +1,630 @@
+/*---------------------------------------------------------------------------------------------
+ *  Construct IDE - Collaboration CSS
+ *  Styles for the real-time collaboration panel, cursor overlays, and presence indicators.
+ *  Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ═══════════════════════════════════════════════════════════════════
+   Collaboration View Panel
+   ═══════════════════════════════════════════════════════════════════ */
+
+.construct-collab-view {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 8px;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', sans-serif;
+	font-size: 13px;
+	color: var(--vscode-foreground);
+	background: var(--vscode-sideBar-background);
+	overflow-y: auto;
+}
+
+/* ─── Section Layout ─────────────────────────────────────────────── */
+
+.construct-collab-section {
+	margin-bottom: 12px;
+	border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.2)));
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.construct-collab-section-header {
+	padding: 6px 10px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+	background: var(--vscode-editor-background, var(--vscode-sideBar-background));
+	border-bottom: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.2)));
+}
+
+.construct-collab-section-content {
+	padding: 8px;
+}
+
+/* ─── Empty State ────────────────────────────────────────────────── */
+
+.construct-collab-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 40px 20px;
+	text-align: center;
+}
+
+.construct-collab-empty-icon {
+	font-size: 48px;
+	margin-bottom: 12px;
+	opacity: 0.6;
+}
+
+.construct-collab-empty-text {
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: 16px;
+	max-width: 220px;
+	line-height: 1.4;
+}
+
+.construct-collab-start-btn {
+	padding: 6px 16px;
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.construct-collab-start-btn:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+/* ─── Session Info ───────────────────────────────────────────────── */
+
+.construct-collab-session-row {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.construct-collab-session-link {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.construct-collab-session-link .link-text {
+	font-family: 'Consolas', 'Courier New', monospace;
+	font-size: 12px;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+	padding: 2px 4px;
+	border-radius: 2px;
+	background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+}
+
+.construct-collab-session-link .link-text:hover {
+	text-decoration: underline;
+}
+
+.construct-collab-session-link .copy-btn,
+.construct-collab-end-btn {
+	padding: 2px 8px;
+	font-size: 11px;
+	border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder));
+	border-radius: 3px;
+	cursor: pointer;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.construct-collab-session-link .copy-btn:hover,
+.construct-collab-end-btn:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.construct-collab-end-btn {
+	margin-top: 4px;
+	background: var(--vscode-errorBackground, rgba(255, 0, 0, 0.1));
+	color: var(--vscode-errorForeground, #f48771);
+	border-color: var(--vscode-errorForeground, #f48771);
+}
+
+.construct-collab-session-meta {
+	display: flex;
+	gap: 12px;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* ─── Participant List ───────────────────────────────────────────── */
+
+.construct-collab-participant-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.construct-collab-participant {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.construct-collab-participant:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.construct-collab-avatar {
+	position: relative;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: white;
+	font-size: 11px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.construct-collab-status-dot {
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	border: 2px solid var(--vscode-sideBar-background);
+}
+
+.construct-collab-status-dot.status-online {
+	background-color: #4caf50;
+}
+
+.construct-collab-status-dot.status-away {
+	background-color: #ff9800;
+}
+
+.construct-collab-status-dot.status-offline {
+	background-color: #9e9e9e;
+}
+
+.construct-collab-status-dot.status-typing {
+	background-color: #2196f3;
+	animation: collab-pulse 1s ease-in-out infinite;
+}
+
+@keyframes collab-pulse {
+	0%, 100% { transform: scale(1); opacity: 1; }
+	50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+.construct-collab-participant-info {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.construct-collab-participant-name {
+	font-size: 12px;
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.construct-collab-participant-role {
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+	text-transform: uppercase;
+	letter-spacing: 0.3px;
+}
+
+/* ─── Chat Panel ─────────────────────────────────────────────────── */
+
+.construct-collab-message-list {
+	max-height: 300px;
+	overflow-y: auto;
+	margin-bottom: 8px;
+	padding-right: 4px;
+}
+
+.construct-collab-message {
+	padding: 6px 8px;
+	margin-bottom: 4px;
+	border-radius: 6px;
+	background: var(--vscode-editor-background, var(--vscode-sideBar-background));
+	animation: collab-message-in 0.2s ease-out;
+}
+
+@keyframes collab-message-in {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.construct-collab-message-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 2px;
+}
+
+.construct-collab-message-name {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+}
+
+.construct-collab-message-time {
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.construct-collab-message-body {
+	font-size: 12px;
+	line-height: 1.4;
+	color: var(--vscode-foreground);
+	word-wrap: break-word;
+}
+
+.construct-collab-message-replies {
+	margin-left: 12px;
+	padding-left: 8px;
+	border-left: 2px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+}
+
+.construct-collab-chat-input {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+.construct-collab-chat-input-field {
+	flex: 1;
+	padding: 4px 8px;
+	font-size: 12px;
+	border: 1px solid var(--vscode-input-border, rgba(128, 128, 128, 0.4));
+	border-radius: 3px;
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	outline: none;
+}
+
+.construct-collab-chat-input-field:focus {
+	border-color: var(--vscode-focusBorder);
+}
+
+.construct-collab-chat-send {
+	padding: 4px 12px;
+	font-size: 11px;
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+}
+
+.construct-collab-chat-send:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+/* ─── Shared Agents ──────────────────────────────────────────────── */
+
+.construct-collab-agent-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.construct-collab-agent {
+	padding: 8px;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+	background: var(--vscode-editor-background, var(--vscode-sideBar-background));
+}
+
+.construct-collab-agent-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 4px;
+}
+
+.construct-collab-agent-name {
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.construct-collab-agent-status {
+	font-size: 10px;
+	padding: 1px 6px;
+	border-radius: 10px;
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 0.3px;
+}
+
+.construct-collab-agent-status.status-0 {
+	/* Idle */
+	background: rgba(128, 128, 128, 0.15);
+	color: var(--vscode-descriptionForeground);
+}
+
+.construct-collab-agent-status.status-1 {
+	/* Running */
+	background: rgba(33, 150, 243, 0.15);
+	color: #2196f3;
+}
+
+.construct-collab-agent-status.status-2 {
+	/* Paused */
+	background: rgba(255, 152, 0, 0.15);
+	color: #ff9800;
+}
+
+.construct-collab-agent-status.status-3 {
+	/* Completed */
+	background: rgba(76, 175, 80, 0.15);
+	color: #4caf50;
+}
+
+.construct-collab-agent-status.status-4 {
+	/* Failed */
+	background: rgba(244, 67, 54, 0.15);
+	color: #f44336;
+}
+
+.construct-collab-agent-task {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: 4px;
+}
+
+.construct-collab-agent-assigned {
+	font-size: 10px;
+	color: var(--vscode-textLink-foreground);
+	margin-bottom: 4px;
+}
+
+.construct-collab-agent-output {
+	font-size: 11px;
+	font-family: 'Consolas', 'Courier New', monospace;
+	padding: 4px 6px;
+	background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+	border-radius: 2px;
+	max-height: 60px;
+	overflow-y: auto;
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.3;
+}
+
+.construct-collab-agents-empty {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	text-align: center;
+	padding: 8px;
+}
+
+/* ─── Activity Feed ──────────────────────────────────────────────── */
+
+.construct-collab-activity-entry {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 0;
+	font-size: 11px;
+	border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.1));
+	animation: collab-activity-in 0.3s ease-out;
+}
+
+@keyframes collab-activity-in {
+	from {
+		opacity: 0;
+		transform: translateX(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+.construct-collab-activity-icon {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.construct-collab-activity-icon.icon-join {
+	background-color: #4caf50;
+}
+
+.construct-collab-activity-icon.icon-leave {
+	background-color: #9e9e9e;
+}
+
+.construct-collab-activity-text {
+	flex: 1;
+	color: var(--vscode-foreground);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.construct-collab-activity-time {
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+	flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Cursor Overlays in Editor
+   ═══════════════════════════════════════════════════════════════════ */
+
+.construct-collab-cursor {
+	position: absolute;
+	pointer-events: none;
+	z-index: 1000;
+	transition: top 0.15s ease, left 0.15s ease;
+}
+
+.construct-collab-cursor-line {
+	width: 2px;
+	height: 18px;
+	position: absolute;
+	top: 0;
+	left: 0;
+}
+
+.construct-collab-cursor-label {
+	position: absolute;
+	top: -18px;
+	left: 0;
+	font-size: 11px;
+	padding: 1px 6px;
+	border-radius: 3px 3px 3px 0;
+	white-space: nowrap;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', sans-serif;
+	line-height: 16px;
+	color: white;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Presence Indicators
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Online: green dot */
+.construct-collab-presence-online {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: #4caf50;
+}
+
+/* Away: yellow dot */
+.construct-collab-presence-away {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: #ff9800;
+}
+
+/* Offline: gray dot */
+.construct-collab-presence-offline {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: #9e9e9e;
+}
+
+/* Typing: pulsing dot */
+.construct-collab-presence-typing {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: #2196f3;
+	animation: collab-typing-pulse 1s ease-in-out infinite;
+}
+
+@keyframes collab-typing-pulse {
+	0%, 100% {
+		transform: scale(1);
+		opacity: 1;
+	}
+	50% {
+		transform: scale(1.5);
+		opacity: 0.5;
+	}
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Selection Highlights in Editor
+   ═══════════════════════════════════════════════════════════════════ */
+
+.construct-collab-selection {
+	opacity: 0.3;
+	border-radius: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   User Join/Leave Animations
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes collab-user-join {
+	from {
+		opacity: 0;
+		transform: translateX(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes collab-user-leave {
+	from {
+		opacity: 1;
+		transform: translateX(0);
+	}
+	to {
+		opacity: 0;
+		transform: translateX(-20px);
+	}
+}
+
+.construct-collab-participant {
+	animation: collab-user-join 0.2s ease-out;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Agent Status Transitions
+   ═══════════════════════════════════════════════════════════════════ */
+
+.construct-collab-agent-status {
+	transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Scrollbar Styling
+   ═══════════════════════════════════════════════════════════════════ */
+
+.construct-collab-message-list::-webkit-scrollbar,
+.construct-collab-agent-output::-webkit-scrollbar {
+	width: 6px;
+}
+
+.construct-collab-message-list::-webkit-scrollbar-thumb,
+.construct-collab-agent-output::-webkit-scrollbar-thumb {
+	background: var(--vscode-scrollbarSlider-background);
+	border-radius: 3px;
+}
+
+.construct-collab-message-list::-webkit-scrollbar-thumb:hover,
+.construct-collab-agent-output::-webkit-scrollbar-thumb:hover {
+	background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+.construct-collab-message-list::-webkit-scrollbar-thumb:active,
+.construct-collab-agent-output::-webkit-scrollbar-thumb:active {
+	background: var(--vscode-scrollbarSlider-activeBackground);
+}

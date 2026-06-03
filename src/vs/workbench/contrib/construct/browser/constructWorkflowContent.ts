@@ -21,6 +21,8 @@ import { ICodebaseIndexer } from '../../../../platform/construct/common/indexing
 import { ITelemetryService } from '../../../../platform/construct/common/telemetry/telemetryService.js';
 import { IDataPipeline } from '../../../../platform/construct/common/telemetry/dataPipeline.js';
 import { ITimelineService } from '../../../../platform/construct/common/timeline/timelineService.js';
+import { ICollaborationService } from '../../../../platform/construct/common/collaboration/collaborationService.js';
+import { CollaborationRole } from '../../../../platform/construct/common/collaboration/collaborationTypes.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
@@ -58,6 +60,10 @@ import { ILogService } from '../../../../platform/log/common/log.js';
  *     timeline:getHistory, timeline:export, timeline:zoom, timeline:selectAgent,
  *     timeline:selectMilestone, timeline:approveMilestone, timeline:rejectMilestone,
  *     timeline:skipMilestone, timeline:subscribe, timeline:unsubscribe
+ *   Collaboration (12): collab:createSession, collab:joinSession, collab:leaveSession,
+ *     collab:endSession, collab:invite, collab:getSession, collab:getMessages,
+ *     collab:sendMessage, collab:updateCursor, collab:shareAgent,
+ *     collab:getPermissions, collab:setPermission
  */
 export class ConstructWorkflowContent extends Disposable {
 
@@ -81,6 +87,7 @@ export class ConstructWorkflowContent extends Disposable {
                 @ITelemetryService private readonly telemetryService: ITelemetryService,
                 @IDataPipeline private readonly dataPipeline: IDataPipeline,
                 @ITimelineService private readonly timelineService: ITimelineService,
+                @ICollaborationService private readonly collaborationService: ICollaborationService,
                 @ILogService private readonly logService: ILogService,
         ) {
                 super();
@@ -716,6 +723,70 @@ export class ConstructWorkflowContent extends Disposable {
                 this._handlers.set('timeline:unsubscribe', async (payload: { planId: string }) => {
                         this.timelineService.unsubscribeFromPlan(payload.planId);
                         return { type: 'timeline:unsubscribed', planId: payload.planId };
+                });
+
+                // --- Collaboration Handlers (Phase 26) ---------------------------------
+
+                this._handlers.set('collab:createSession', async (payload: { projectPath: string }) => {
+                        const session = await this.collaborationService.createSession(payload.projectPath);
+                        return { type: 'collab:sessionCreated', session };
+                });
+
+                this._handlers.set('collab:joinSession', async (payload: { sessionId: string; userInfo: { name: string; color: string } }) => {
+                        const session = await this.collaborationService.joinSession(payload.sessionId, payload.userInfo);
+                        return { type: 'collab:sessionJoined', session };
+                });
+
+                this._handlers.set('collab:leaveSession', async (payload: { sessionId: string }) => {
+                        await this.collaborationService.leaveSession(payload.sessionId);
+                        return { type: 'collab:sessionLeft', sessionId: payload.sessionId };
+                });
+
+                this._handlers.set('collab:endSession', async (payload: { sessionId: string }) => {
+                        await this.collaborationService.endSession(payload.sessionId);
+                        return { type: 'collab:sessionEnded', sessionId: payload.sessionId };
+                });
+
+                this._handlers.set('collab:invite', async (payload: { sessionId: string; email: string; role: string }) => {
+                        const inviteRole = payload.role === 'owner' ? CollaborationRole.Owner : payload.role === 'viewer' ? CollaborationRole.Viewer : CollaborationRole.Editor;
+                        await this.collaborationService.inviteUser(payload.sessionId, payload.email, inviteRole);
+                        return { type: 'collab:invited', email: payload.email };
+                });
+
+                this._handlers.set('collab:getSession', async (payload: { sessionId: string }) => {
+                        const session = this.collaborationService.getSession(payload.sessionId);
+                        return { type: 'collab:sessionResult', session };
+                });
+
+                this._handlers.set('collab:getMessages', async (payload: { sessionId: string; limit?: number }) => {
+                        const messages = this.collaborationService.getMessages(payload.sessionId, payload.limit);
+                        return { type: 'collab:messagesResult', messages };
+                });
+
+                this._handlers.set('collab:sendMessage', async (payload: { sessionId: string; content: string; threadId?: string }) => {
+                        this.collaborationService.sendMessage(payload.sessionId, payload.content, payload.threadId);
+                        return { type: 'collab:messageSent' };
+                });
+
+                this._handlers.set('collab:updateCursor', async (payload: { sessionId: string; position: { file: string; line: number; column: number } }) => {
+                        this.collaborationService.updateCursor(payload.sessionId, payload.position);
+                        return { type: 'collab:cursorUpdated' };
+                });
+
+                this._handlers.set('collab:shareAgent', async (payload: { sessionId: string; agentId: string; userIds?: string[] }) => {
+                        this.collaborationService.shareAgent(payload.sessionId, payload.agentId, payload.userIds);
+                        return { type: 'collab:agentShared', agentId: payload.agentId };
+                });
+
+                this._handlers.set('collab:getPermissions', async (payload: { sessionId: string }) => {
+                        const permissions = this.collaborationService.getPermissions(payload.sessionId);
+                        return { type: 'collab:permissionsResult', permissions };
+                });
+
+                this._handlers.set('collab:setPermission', async (payload: { sessionId: string; userId: string; role: string }) => {
+                        const permRole = payload.role === 'owner' ? CollaborationRole.Owner : payload.role === 'viewer' ? CollaborationRole.Viewer : CollaborationRole.Editor;
+                        this.collaborationService.setPermission(payload.sessionId, payload.userId, permRole);
+                        return { type: 'collab:permissionSet', userId: payload.userId, role: payload.role };
                 });
         }
 
