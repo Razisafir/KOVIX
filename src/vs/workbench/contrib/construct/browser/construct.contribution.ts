@@ -299,6 +299,28 @@ registerAction2(class NewConstructChatAction extends Action2 {
         }
 });
 
+registerAction2(class TestLLMConnectionAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.testConnection',
+                        title: localize2('testLLMConnection', "Test LLM Connection"),
+                        f1: true,
+                        category: localize2('constructCategoryTest', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const llmService = accessor.get(ILLMProviderService);
+                const status = await llmService.validateProvider(llmService.activeProviderId);
+                // Use VS Code's notification service
+                const { INotificationService, Severity } = await import('../../../../platform/notification/common/notification.js');
+                const notificationService = accessor.get(INotificationService);
+                const msg = status === 'connected'
+                        ? `Connection to ${llmService.activeProviderId} successful!`
+                        : `Connection failed: ${status}`;
+                notificationService.notify({ severity: status === 'connected' ? Severity.Info : Severity.Error, message: msg });
+        }
+});
+
 registerAction2(class ShowInlineAgentAction extends Action2 {
         constructor() {
                 super({
