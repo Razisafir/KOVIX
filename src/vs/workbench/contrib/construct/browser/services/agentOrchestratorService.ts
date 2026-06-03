@@ -29,8 +29,6 @@ import { IAIUnifiedStateService } from '../../../../../platform/construct/common
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
 
-// Phase 27: Credit integration for skill execution
-import { ICreditSystem } from '../../../../../platform/construct/common/pricing/creditSystem.js';
 
 // ─── Default Policies ─────────────────────────────────────────────────────────
 
@@ -176,7 +174,6 @@ export class AgentOrchestratorService extends Disposable implements IAgentOrches
                 @IObservabilityService private readonly _observabilityService: IObservabilityService,
                 @IAIUnifiedStateService private readonly _stateService: IAIUnifiedStateService,
                 @ILogService private readonly logService: ILogService,
-                @ICreditSystem private readonly creditSystem: ICreditSystem,
         ) {
                 super();
                 void this._observabilityService; void this._stateService;
@@ -821,16 +818,7 @@ export class AgentOrchestratorService extends Disposable implements IAgentOrches
                 step.status = StepStatus.Executing;
                 step.startedAt = Date.now();
 
-                // Phase 27: Consume credits for skill/step execution
-                try {
-                        this.creditSystem.consumeCredits(1, 'skill_execution', {
-                                sessionId: plan.id,
-                                agentType: agent.name,
-                                description: `Skill step: ${step.label}`,
-                        });
-                } catch {
-                        // Credit failures don't break step execution
-                }
+                // Credit tracking removed for MVP
 
                 this._emitStepStatusChange(step, plan, agent, StepStatus.Ready, StepStatus.Executing);
                 this._emitObservation(agent.id, plan.id, step.id, AgentObservationType.StepExecutionStart,

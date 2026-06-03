@@ -32,8 +32,6 @@ import { IAutonomousExecutionService, ExecutionStage } from '../../../../../plat
 import { ITokenEstimationService } from '../../../../../platform/construct/common/tokenEstimation.js';
 import { IProviderHealthService, HealthSeverity } from '../../../../../platform/construct/common/llmProvider.js';
 
-// Phase 27: Credit integration for browser/UI actions
-import { ICreditSystem } from '../../../../../platform/construct/common/pricing/creditSystem.js';
 
 // -- Storage Keys --
 
@@ -220,7 +218,6 @@ export class RealUIIntegrationService extends Disposable implements IRealUIInteg
                 @IAutonomousExecutionService private readonly autonomousExecutionService: IAutonomousExecutionService,
                 @ITokenEstimationService private readonly tokenEstimationService: ITokenEstimationService,
                 @IProviderHealthService private readonly providerHealthService: IProviderHealthService,
-                @ICreditSystem private readonly creditSystem: ICreditSystem,
         ) {
                 super();
 
@@ -664,14 +661,7 @@ export class RealUIIntegrationService extends Disposable implements IRealUIInteg
         // -- Refresh --
 
         refreshAll(): void {
-                // Phase 27: Consume credits for browser/UI refresh action
-                try {
-                        this.creditSystem.consumeCredits(2, 'browser_action', {
-                                description: 'UI refresh/dashboard update',
-                        });
-                } catch {
-                        // Credit failures don't break UI refresh
-                }
+                        // Credit tracking removed for MVP
 
                 // Re-inject all CSS
                 this.injectThemeCSS();

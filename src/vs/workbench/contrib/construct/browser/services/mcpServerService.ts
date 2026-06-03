@@ -37,8 +37,6 @@ import {
         IMCPServerStatus,
 } from '../../../../../platform/construct/common/mcpServerService.js';
 
-// Phase 27: Credit integration
-import { ICreditSystem } from '../../../../../platform/construct/common/pricing/creditSystem.js';
 
 // =====================================================================================
 // CONSTANTS
@@ -242,7 +240,6 @@ export class MCPServerService extends Disposable implements IMCPServerService {
         constructor(
                 @ILogService private readonly logService: ILogService,
                 @IStorageService private readonly storageService: IStorageService,
-                @ICreditSystem private readonly creditSystem: ICreditSystem,
         ) {
                 super();
 
@@ -492,15 +489,7 @@ export class MCPServerService extends Disposable implements IMCPServerService {
                         const content = result?.content?.map((c: any) => c.text || c.data || '').join('\n') ?? '';
                         const isError = result?.isError ?? false;
 
-                        // Phase 27: Consume credits for successful tool execution
-                        try {
-                                this.creditSystem.consumeCredits(1, 'tool_call', {
-                                        sessionId: serverId,
-                                        description: `MCP tool call: ${toolName}`,
-                                });
-                        } catch {
-                                // Credit failures don't break tool execution
-                        }
+                                        // Credit tracking removed for MVP
 
                         return {
                                 success: !isError,

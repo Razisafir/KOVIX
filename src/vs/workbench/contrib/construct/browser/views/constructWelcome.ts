@@ -7,27 +7,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { ICreditSystem } from '../../../../../platform/construct/common/pricing/creditSystem.js';
-import { SubscriptionTier, TIER_CONFIG } from '../../../../../platform/construct/common/pricing/pricingTypes.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import {
-        WelcomeDemoType,
-        IRecentProject,
-} from '../../../../../platform/construct/common/integration/launchTypes.js';
 
 // ── Constants ─────────────────────────────────────────────────
 
 const CONSTRUCT_VERSION = 'v1.0.0-god-mode';
 const STORAGE_KEY_RECENT_PROJECTS = 'construct.welcome.recentProjects';
-const STORAGE_KEY_TELEMETRY_CONSENTED = 'construct.telemetry.consented';
 const STORAGE_KEY_WELCOME_SHOWN = 'construct.welcome.shown';
 
 // ── Feature Tour Steps ────────────────────────────────────────
 
 interface IFeatureStep {
-        readonly id: WelcomeDemoType;
+        readonly id: string;
         readonly title: string;
         readonly subtitle: string;
         readonly description: string;
@@ -100,12 +93,6 @@ const QUICK_START_TEMPLATES: IQuickStartTemplate[] = [
                 goal: 'Analyze the codebase, find bugs, and fix them with tests',
                 icon: '$(bug)',
         },
-        {
-                label: 'Open 3D Studio',
-                description: 'Create 3D scenes and visual content',
-                goal: 'Open the 3D visual creation studio',
-                icon: '$(cube)',
-        },
 ];
 
 // ══════════════════════════════════════════════════════════════
@@ -114,17 +101,14 @@ const QUICK_START_TEMPLATES: IQuickStartTemplate[] = [
 
 export class ConstructWelcome extends Disposable {
         private _currentStep: number = 0;
-        private _telemetryConsented: boolean | undefined;
 
         constructor(
-                @ICreditSystem private readonly creditSystem: ICreditSystem,
                 @ILogService private readonly logService: ILogService,
                 @IStorageService private readonly storageService: IStorageService,
                 @IConfigurationService private readonly configurationService: IConfigurationService,
         ) {
                 super();
 
-                this._telemetryConsented = this._loadTelemetryConsent();
                 this.logService.info(`[Welcome] Initialized — version: ${CONSTRUCT_VERSION}`);
         }
 
@@ -170,7 +154,7 @@ export class ConstructWelcome extends Disposable {
 
         // ── Demo Simulation ────────────────────────────────────
 
-        startDemo(demoType: WelcomeDemoType): {
+        startDemo(demoType: string): {
                 simulatedOutput: string;
                 durationMs: number;
         } {
@@ -263,11 +247,11 @@ export class ConstructWelcome extends Disposable {
 
         // ── Recent Projects ────────────────────────────────────
 
-        getRecentProjects(): IRecentProject[] {
+        getRecentProjects(): Array<{ name: string; path: string; lastOpened: number }> {
                 try {
                         const saved = this.storageService.get(STORAGE_KEY_RECENT_PROJECTS, StorageScope.PROFILE, undefined);
                         if (saved) {
-                                return JSON.parse(saved) as IRecentProject[];
+                                return JSON.parse(saved);
                         }
                 } catch (err) {
                         this.logService.error('[Welcome] Failed to load recent projects:', err);
@@ -275,7 +259,7 @@ export class ConstructWelcome extends Disposable {
                 return [];
         }
 
-        addRecentProject(project: IRecentProject): void {
+        addRecentProject(project: { name: string; path: string; lastOpened: number }): void {
                 const projects = this.getRecentProjects();
 
                 // Remove duplicate if exists
@@ -295,77 +279,6 @@ export class ConstructWelcome extends Disposable {
                 );
         }
 
-        // ── Telemetry Consent ──────────────────────────────────
-
-        getTelemetryConsent(): boolean | undefined {
-                return this._telemetryConsented;
-        }
-
-        consentTelemetry(consented: boolean): void {
-                this._telemetryConsented = consented;
-
-                this.storageService.store(
-                        STORAGE_KEY_TELEMETRY_CONSENTED,
-                        String(consented),
-                        StorageScope.PROFILE,
-                        StorageTarget.MACHINE,
-                );
-
-                // Update configuration
-                try {
-                        this.configurationService.updateValue('construct.telemetry.enabled', consented);
-                        this.configurationService.updateValue('construct.telemetry.consented', consented);
-                } catch {
-                        // Configuration update may fail in some contexts
-                }
-
-                this.logService.info(`[Welcome] Telemetry consent: ${consented}`);
-        }
-
-        needsTelemetryConsent(): boolean {
-                return this._telemetryConsented === undefined;
-        }
-
-        // ── Pricing Tier ───────────────────────────────────────
-
-        getCurrentTierInfo(): {
-                tier: SubscriptionTier;
-                creditsRemaining: number;
-                creditsTotal: number;
-                priceLabel: string;
-                features: string[];
-                upgradeCTA: string;
-        } {
-                const tier = this.creditSystem.getCurrentTier();
-                const config = TIER_CONFIG[tier];
-
-                let upgradeCTA = '';
-                switch (tier) {
-                        case SubscriptionTier.Free:
-                                upgradeCTA = 'Upgrade to Pro — 500 credits/month';
-                                break;
-                        case SubscriptionTier.Pro:
-                                upgradeCTA = 'Upgrade to Team — 1000 credits/user/month';
-                                break;
-                        case SubscriptionTier.Team:
-                                upgradeCTA = 'Upgrade to Enterprise — Unlimited credits';
-                                break;
-                        case SubscriptionTier.Enterprise:
-                        case SubscriptionTier.GodMode:
-                                upgradeCTA = '';
-                                break;
-                }
-
-                return {
-                        tier,
-                        creditsRemaining: this.creditSystem.getCreditsRemaining(),
-                        creditsTotal: this.creditSystem.getCreditsTotal(),
-                        priceLabel: config.priceLabel,
-                        features: config.features,
-                        upgradeCTA,
-                };
-        }
-
         // ── Welcome State ──────────────────────────────────────
 
         hasSeenWelcome(): boolean {
@@ -381,17 +294,6 @@ export class ConstructWelcome extends Disposable {
         }
 
         // ── Private Helpers ────────────────────────────────────
-
-        private _loadTelemetryConsent(): boolean | undefined {
-                try {
-                        const saved = this.storageService.get(STORAGE_KEY_TELEMETRY_CONSENTED, StorageScope.PROFILE, undefined);
-                        if (saved === 'true') { return true; }
-                        if (saved === 'false') { return false; }
-                } catch {
-                        // Ignore
-                }
-                return undefined;
-        }
 
         override dispose(): void {
                 super.dispose();

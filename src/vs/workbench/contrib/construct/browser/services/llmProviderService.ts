@@ -32,11 +32,7 @@ import {
         FallbackChainConfig, FallbackBehavior,
         KNOWN_PROVIDER_CONFIGS, KNOWN_MODELS,
 } from '../../../../../platform/construct/common/llmProvider.js';
-import { ICostGovernorService } from '../../../../../platform/construct/common/costGovernor.js';
-
-// Phase 27: Credit integration
-import { ICreditSystem } from '../../../../../platform/construct/common/pricing/creditSystem.js';
-import { getMessageActionType, getModelMultiplier } from '../../../../../platform/construct/common/pricing/pricingTypes.js';
+// Credit system and cost governor imports removed for MVP
 
 // =====================================================================
 // BudgetExceededError -- Specific error for budget-exceeded fallback
@@ -88,8 +84,6 @@ export class LLMProviderService extends Disposable implements ILLMProviderServic
                 @ILogService private readonly logService: ILogService,
                 @ICredentialStoreService private readonly credentialStore: ICredentialStoreService,
                 @IProviderHealthService private readonly healthService: IProviderHealthService,
-                @ICostGovernorService private readonly costGovernor: ICostGovernorService,
-                @ICreditSystem private readonly creditSystem: ICreditSystem,
         ) {
                 super();
 
@@ -147,11 +141,7 @@ export class LLMProviderService extends Disposable implements ILLMProviderServic
                         throw new Error(`[LLMProvider] Unknown provider: ${providerId}`);
                 }
 
-                // Phase 30: Check budget BEFORE making the API call
-                const estimatedTokens = request.maxTokens || 4096;
-                if (!this.costGovernor.isCallAllowed(estimatedTokens)) {
-                        throw new BudgetExceededError(this.costGovernor.getBudgetSnapshot());
-                }
+                        // Credit tracking removed for MVP
 
                 const cts = new CancellationTokenSource();
                 this._cancellationSources.set(request.requestId, cts);
@@ -171,43 +161,11 @@ export class LLMProviderService extends Disposable implements ILLMProviderServic
                         const response = await this.executeProviderRequest(config, request, apiKey || '', cts.token);
                         const latencyMs = Date.now() - startTime;
 
-                        // Phase 30: Record actual cost AFTER receiving the response
-                        const inputTokens = response.usage.promptTokens;
-                        const outputTokens = response.usage.completionTokens;
-                        const totalTokens = response.usage.totalTokens;
-                        const inputCost = (inputTokens / 1_000_000) * config.pricingPerMillionInput;
-                        const outputCost = (outputTokens / 1_000_000) * config.pricingPerMillionOutput;
-                        const totalCost = inputCost + outputCost;
-                        this.costGovernor.recordCost({
-                                requestId: request.requestId,
-                                providerId,
-                                model: request.model,
-                                inputTokens,
-                                outputTokens,
-                                costUSD: totalCost,
-                                timestamp: Date.now(),
-                                durationMs: latencyMs,
-                        });
-
-                        // Phase 27: Consume credits for LLM message
-                        try {
-                                const actionType = getMessageActionType(request.model);
-                                const multiplier = getModelMultiplier(request.model);
-                                const baseCredits = actionType === 'message_premium' ? 1 : 1;
-                                const credits = baseCredits * multiplier;
-                                this.creditSystem.consumeCredits(credits, actionType, {
-                                        model: request.model,
-                                        sessionId: request.requestId,
-                                        description: `LLM request to ${providerId}/${request.model}`,
-                                });
-                        } catch {
-                                // Credit failures don't break LLM requests
-                        }
-
+                        // Credit tracking removed for MVP
                         this.healthService.recordSuccess(providerId, latencyMs);
 
                         this._onRequestCompleted.fire(request.requestId);
-                        this.logService.info(`[LLMProvider] Request ${request.requestId} completed in ${latencyMs}ms, tokens: ${totalTokens}, cost: $${totalCost.toFixed(6)}`);
+                        this.logService.info(`[LLMProvider] Request ${request.requestId} completed in ${latencyMs}ms, tokens: ${response.usage.totalTokens}`);
 
                         return response;
                 } catch (error: any) {
@@ -235,12 +193,6 @@ export class LLMProviderService extends Disposable implements ILLMProviderServic
                                 throw new Error(`[LLMProvider] Fallback chain timed out after ${chain.failOpenAfterMs}ms`);
                         }
 
-                        // Phase 30: Check budget before each provider attempt
-                        if (!this.costGovernor.isCallAllowed(request.maxTokens || 4096)) {
-                                this.logService.warn(`[LLMProvider] Budget exceeded, skipping provider: ${providerId}`);
-                                continue;
-                        }
-
                         // Check if we should avoid this provider based on health
                         if (this.healthService.shouldAvoidProvider(providerId) && chain.behavior !== FallbackBehavior.ImmediateFallback) {
                                 this.logService.info(`[LLMProvider] Skipping unhealthy provider: ${providerId}`);
@@ -264,11 +216,6 @@ export class LLMProviderService extends Disposable implements ILLMProviderServic
                                         }
                                 }
                         }
-                }
-
-                // Phase 31: If no provider was attempted (all skipped due to budget), throw BudgetExceededError
-                if (!lastError) {
-                        throw new BudgetExceededError(this.costGovernor.getBudgetSnapshot());
                 }
 
                 throw new Error(`[LLMProvider] All providers in fallback chain failed. Last error: ${lastError?.message || 'unknown'}`);
@@ -472,16 +419,45 @@ export class LLMProviderService extends Disposable implements ILLMProviderServic
                         return body;
                 }
 
-                // Anthropic format
+                // Anthropic format — with proper tool_use / tool_result content blocks
                 if (config.type === LLMProviderType.Anthropic) {
                         const systemMsg = request.messages.find((m: LLMMessage) => m.role === 'system');
                         const nonSystem = request.messages.filter((m: LLMMessage) => m.role !== 'system');
                         const body: Record<string, unknown> = {
                                 model: request.model,
-                                messages: nonSystem.map((m: LLMMessage) => ({
-                                        role: m.role === 'tool' ? 'user' : m.role,
-                                        content: m.content,
-                                })),
+                                messages: nonSystem.map((m: LLMMessage) => {
+                                        // Tool results must be sent as user messages with tool_result content blocks
+                                        if (m.role === 'tool') {
+                                                return {
+                                                        role: 'user',
+                                                        content: [{
+                                                                type: 'tool_result',
+                                                                tool_use_id: m.toolCallId || '',
+                                                                content: m.content,
+                                                        }],
+                                                };
+                                        }
+                                        // Assistant messages with tool calls must include tool_use content blocks
+                                        if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
+                                                const content: any[] = [];
+                                                if (m.content) {
+                                                        content.push({ type: 'text', text: m.content });
+                                                }
+                                                for (const tc of m.toolCalls) {
+                                                        let input: any = {};
+                                                        try { input = JSON.parse(tc.arguments); } catch { /* use empty object */ }
+                                                        content.push({
+                                                                type: 'tool_use',
+                                                                id: tc.id,
+                                                                name: tc.name,
+                                                                input,
+                                                        });
+                                                }
+                                                return { role: 'assistant', content };
+                                        }
+                                        // Regular text messages
+                                        return { role: m.role, content: m.content };
+                                }),
                                 max_tokens: request.maxTokens || 4096,
                         };
                         if (systemMsg) { body.system = systemMsg.content; }

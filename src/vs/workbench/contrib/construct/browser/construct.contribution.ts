@@ -120,14 +120,8 @@ import { AutonomousRepairService } from './services/autonomousRepairService.js';
 import { IMultiAgentExecutionService } from '../../../../platform/construct/common/multiAgentExecution.js';
 import { MultiAgentExecutionService } from './services/multiAgentExecutionService.js';
 
-// Phase 27: Credit-Based Pricing & Cost Governor
-import { ICreditSystem, ICostGovernor } from '../../../../platform/construct/common/pricing/creditSystem.js';
-import { CreditSystemService, CostGovernorEnhancedService } from './services/pricing/creditSystemService.js';
-
-// Phase 28: Final Integration + GOD Mode Launch
-import { IGodModeActivator, ILaunchChecklist } from '../../../../platform/construct/common/integration/godModeActivator.js';
-import { GodModeActivatorService } from './services/integration/godModeActivatorService.js';
-import { LaunchChecklistService } from './services/integration/launchChecklistService.js';
+// Phase 27 & 28: DELETED — Pricing/Stripe, GOD Mode, Launch Checklist, Telemetry
+// These were fake/stub implementations. BYOK model for MVP.
 
 // ─────────────────────────────────────────────────────────────
 // Singleton Registrations — 45 services total (43 pre-Phase-28 + 2 Phase 28)
@@ -206,13 +200,7 @@ registerSingleton(IRealUIIntegrationService, RealUIIntegrationService, Instantia
 registerSingleton(IAutonomousRepairService, AutonomousRepairService, InstantiationType.Delayed);
 registerSingleton(IMultiAgentExecutionService, MultiAgentExecutionService, InstantiationType.Delayed);
 
-// Phase 27 (2): Credit System + Enhanced Cost Governor
-registerSingleton(ICreditSystem, CreditSystemService, InstantiationType.Eager);
-registerSingleton(ICostGovernor, CostGovernorEnhancedService, InstantiationType.Eager);
-
-// Phase 28 (2): GOD Mode Activator + Launch Checklist
-registerSingleton(IGodModeActivator, GodModeActivatorService, InstantiationType.Eager);
-registerSingleton(ILaunchChecklist, LaunchChecklistService, InstantiationType.Eager);
+// Phase 27 & 28: DELETED — no credit system, no GOD mode for MVP
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 

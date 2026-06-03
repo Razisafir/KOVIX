@@ -20,8 +20,6 @@ import {
         SharedMemory,
 } from '../../../../../platform/construct/common/multiAgentExecution.js';
 
-// Phase 27: Credit integration
-import { ICreditSystem } from '../../../../../platform/construct/common/pricing/creditSystem.js';
 
 // --- Storage Keys ---
 
@@ -50,7 +48,6 @@ export class MultiAgentExecutionService extends Disposable implements IMultiAgen
         constructor(
                 @ILogService private readonly logService: ILogService,
                 @IStorageService private readonly storageService: IStorageService,
-                @ICreditSystem private readonly creditSystem: ICreditSystem,
         ) {
                 super();
                 this._loadState();
@@ -69,16 +66,7 @@ export class MultiAgentExecutionService extends Disposable implements IMultiAgen
                         assignedAt: Date.now(),
                 };
 
-                // Phase 27: Consume credits for agent task assignment
-                try {
-                        this.creditSystem.consumeCredits(1, 'message_standard', {
-                                agentType: role,
-                                sessionId: task.id,
-                                description: `Agent task: ${description.substring(0, 80)}`,
-                        });
-                } catch {
-                        // Credit failures don't break task assignment
-                }
+                        // Credit tracking removed for MVP
 
                 this._tasks.set(task.id, task);
                 this._persistState();
