@@ -18,6 +18,8 @@ import { ISkillsMarketplace } from '../../../../platform/construct/common/skills
 import { ISkillsRegistry } from '../../../../platform/construct/common/skills/skillsRegistry.js';
 import { IVisualAgentManager } from '../../../../platform/construct/common/visual/visualAgentManager.js';
 import { ICodebaseIndexer } from '../../../../platform/construct/common/indexing/codebaseIndexer.js';
+import { ITelemetryService } from '../../../../platform/construct/common/telemetry/telemetryService.js';
+import { IDataPipeline } from '../../../../platform/construct/common/telemetry/dataPipeline.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
@@ -47,6 +49,10 @@ import { ILogService } from '../../../../platform/log/common/log.js';
  *   Indexer (10): indexer:search, indexer:structure, indexer:dependencies,
  *     indexer:status, indexer:start, indexer:reindex, indexer:watch,
  *     indexer:stopWatch, indexer:symbolSearch, indexer:crossRef
+ *   Telemetry (10): telemetry:getTier, telemetry:setTier, telemetry:getStatus,
+ *     telemetry:getBuffer, telemetry:clearBuffer, telemetry:exportData,
+ *     telemetry:deleteData, telemetry:getPrivacyReport, telemetry:recordEvent,
+ *     telemetry:flush
  */
 export class ConstructWorkflowContent extends Disposable {
 
@@ -67,6 +73,8 @@ export class ConstructWorkflowContent extends Disposable {
                 @ISkillsRegistry private readonly skillsRegistry: ISkillsRegistry,
                 @IVisualAgentManager private readonly visualAgentManager: IVisualAgentManager,
                 @ICodebaseIndexer private readonly codebaseIndexer: ICodebaseIndexer,
+                @ITelemetryService private readonly telemetryService: ITelemetryService,
+                @IDataPipeline private readonly dataPipeline: IDataPipeline,
                 @ILogService private readonly logService: ILogService,
         ) {
                 super();
@@ -582,6 +590,59 @@ export class ConstructWorkflowContent extends Disposable {
                 this._handlers.set('indexer:crossRef', async (payload: { symbol: string; file: string; projectId: string }) => {
                         const results = await this.codebaseIndexer.findReferences(payload.symbol, payload.file, payload.projectId);
                         return { type: 'indexer:crossRefResult', results };
+                });
+
+                // --- Telemetry & Data Pipeline Handlers (Phase 24) ----------------------
+
+                this._handlers.set('telemetry:getTier', async () => {
+                        const tier = this.telemetryService.getCurrentTier();
+                        return { type: 'telemetry:tierResult', tier };
+                });
+
+                this._handlers.set('telemetry:setTier', async (payload: { tier: 'free' | 'paid' | 'enterprise' }) => {
+                        this.telemetryService.setTier(payload.tier);
+                        return { type: 'telemetry:tierSet', tier: payload.tier };
+                });
+
+                this._handlers.set('telemetry:getStatus', async () => {
+                        const enabled = this.telemetryService.isCollectionEnabled();
+                        const eventCount = this.telemetryService.getEventCount();
+                        return { type: 'telemetry:statusResult', enabled, eventCount };
+                });
+
+                this._handlers.set('telemetry:getBuffer', async () => {
+                        const buffer = this.telemetryService.getLocalBuffer();
+                        return { type: 'telemetry:bufferResult', events: buffer };
+                });
+
+                this._handlers.set('telemetry:clearBuffer', async () => {
+                        this.telemetryService.clearBuffer();
+                        return { type: 'telemetry:bufferCleared' };
+                });
+
+                this._handlers.set('telemetry:exportData', async () => {
+                        const data = await this.telemetryService.exportUserData();
+                        return { type: 'telemetry:exportResult', data };
+                });
+
+                this._handlers.set('telemetry:deleteData', async () => {
+                        await this.telemetryService.deleteUserData();
+                        return { type: 'telemetry:deleted' };
+                });
+
+                this._handlers.set('telemetry:getPrivacyReport', async () => {
+                        const report = this.telemetryService.getPrivacyReport();
+                        return { type: 'telemetry:privacyReport', report };
+                });
+
+                this._handlers.set('telemetry:recordEvent', async (payload: { type: number; data: object }) => {
+                        this.telemetryService.recordEvent(payload.type, payload.data);
+                        return { type: 'telemetry:eventRecorded' };
+                });
+
+                this._handlers.set('telemetry:flush', async () => {
+                        await this.telemetryService.flush();
+                        return { type: 'telemetry:flushed' };
                 });
         }
 

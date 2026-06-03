@@ -1,0 +1,500 @@
+/*---------------------------------------------------------------------------------------------
+ *  Construct IDE - Telemetry & Data Collection Pipeline Styles
+ *  Privacy dashboard, tier indicators, event log, consent management.
+ *  Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Privacy Dashboard Panel
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.construct-privacy-dashboard {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 16px;
+	height: 100%;
+	overflow-y: auto;
+	font-family: var(--vscode-font-family);
+	color: var(--vscode-foreground);
+	background: var(--vscode-editor-background);
+}
+
+/* ─── Tier Indicator ─────────────────────────────────────────────────────── */
+
+.construct-tier-indicator {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 16px;
+	border-radius: 8px;
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.construct-tier-indicator.tier-free {
+	background: rgba(255, 140, 0, 0.15);
+	border: 1px solid rgba(255, 140, 0, 0.4);
+	color: #ff8c00;
+}
+
+.construct-tier-indicator.tier-paid {
+	background: rgba(0, 180, 0, 0.15);
+	border: 1px solid rgba(0, 180, 0, 0.4);
+	color: #00b400;
+}
+
+.construct-tier-indicator.tier-enterprise {
+	background: rgba(128, 0, 255, 0.15);
+	border: 1px solid rgba(128, 0, 255, 0.4);
+	color: #8000ff;
+}
+
+.construct-tier-indicator .tier-icon {
+	font-size: 18px;
+}
+
+.construct-tier-indicator .tier-label {
+	flex: 1;
+}
+
+.construct-tier-indicator .tier-badge {
+	font-size: 11px;
+	padding: 2px 8px;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Privacy Toggles ───────────────────────────────────────────────────── */
+
+.construct-privacy-toggles {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.construct-privacy-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 14px;
+	border-radius: 6px;
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-widget-border);
+	transition: border-color 0.15s;
+}
+
+.construct-privacy-toggle:hover {
+	border-color: var(--vscode-focusBorder);
+}
+
+.construct-privacy-toggle .toggle-info {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.construct-privacy-toggle .toggle-label {
+	font-weight: 500;
+	font-size: 13px;
+}
+
+.construct-privacy-toggle .toggle-description {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	max-width: 400px;
+}
+
+.construct-privacy-toggle .toggle-switch {
+	width: 36px;
+	height: 20px;
+	border-radius: 10px;
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border);
+	position: relative;
+	cursor: pointer;
+	transition: background 0.2s;
+}
+
+.construct-privacy-toggle .toggle-switch.active {
+	background: var(--vscode-button-background);
+	border-color: var(--vscode-button-background);
+}
+
+.construct-privacy-toggle .toggle-switch .toggle-knob {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: white;
+	position: absolute;
+	top: 1px;
+	left: 1px;
+	transition: left 0.2s;
+}
+
+.construct-privacy-toggle .toggle-switch.active .toggle-knob {
+	left: 17px;
+}
+
+/* ─── What We Collect / Don't Collect Table ─────────────────────────────── */
+
+.construct-privacy-table {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+}
+
+.construct-privacy-column {
+	padding: 12px;
+	border-radius: 6px;
+}
+
+.construct-privacy-column.collected {
+	background: rgba(0, 180, 0, 0.08);
+	border: 1px solid rgba(0, 180, 0, 0.2);
+}
+
+.construct-privacy-column.not-collected {
+	background: rgba(255, 60, 60, 0.08);
+	border: 1px solid rgba(255, 60, 60, 0.2);
+}
+
+.construct-privacy-column h4 {
+	margin: 0 0 8px 0;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.construct-privacy-column.collected h4 {
+	color: #00b400;
+}
+
+.construct-privacy-column.not-collected h4 {
+	color: #ff3c3c;
+}
+
+.construct-privacy-column ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.construct-privacy-column li {
+	padding: 4px 0;
+	font-size: 12px;
+	border-bottom: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.05));
+}
+
+.construct-privacy-column li:last-child {
+	border-bottom: none;
+}
+
+.construct-privacy-column.collected li::before {
+	content: "\2713 ";
+	color: #00b400;
+}
+
+.construct-privacy-column.not-collected li::before {
+	content: "\2717 ";
+	color: #ff3c3c;
+}
+
+/* ─── Event Log Viewer ──────────────────────────────────────────────────── */
+
+.construct-event-log {
+	border: 1px solid var(--vscode-widget-border);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.construct-event-log-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 14px;
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+	border-bottom: 1px solid var(--vscode-widget-border);
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.construct-event-log-header .event-count {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	font-weight: 400;
+}
+
+.construct-event-log-list {
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.construct-event-log-item {
+	display: grid;
+	grid-template-columns: 90px 100px 1fr;
+	gap: 8px;
+	padding: 8px 14px;
+	border-bottom: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.03));
+	font-size: 12px;
+	align-items: center;
+}
+
+.construct-event-log-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.construct-event-log-item .event-time {
+	color: var(--vscode-descriptionForeground);
+	font-family: var(--vscode-editor-font-family, monospace);
+	font-size: 11px;
+}
+
+.construct-event-log-item .event-type {
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.construct-event-log-item .event-type.type-conversation {
+	background: rgba(0, 122, 204, 0.2);
+	color: #007acc;
+}
+
+.construct-event-log-item .event-type.type-code_edit {
+	background: rgba(0, 180, 0, 0.2);
+	color: #00b400;
+}
+
+.construct-event-log-item .event-type.type-tool_call {
+	background: rgba(255, 140, 0, 0.2);
+	color: #ff8c00;
+}
+
+.construct-event-log-item .event-type.type-error {
+	background: rgba(255, 60, 60, 0.2);
+	color: #ff3c3c;
+}
+
+.construct-event-log-item .event-type.type-performance {
+	background: rgba(128, 0, 255, 0.2);
+	color: #8000ff;
+}
+
+.construct-event-log-item .event-type.type-feature_usage {
+	background: rgba(0, 180, 180, 0.2);
+	color: #00b4b4;
+}
+
+.construct-event-log-item .event-preview {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--vscode-descriptionForeground);
+}
+
+/* ─── Storage & Upload Status ───────────────────────────────────────────── */
+
+.construct-status-bar {
+	display: flex;
+	gap: 16px;
+	padding: 12px;
+	border-radius: 6px;
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+	border: 1px solid var(--vscode-widget-border);
+}
+
+.construct-status-item {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 1;
+}
+
+.construct-status-item .status-label {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.construct-status-item .status-value {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.construct-storage-bar {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--vscode-input-background);
+	overflow: hidden;
+	margin-top: 4px;
+}
+
+.construct-storage-bar .storage-fill {
+	height: 100%;
+	border-radius: 3px;
+	background: var(--vscode-button-background);
+	transition: width 0.3s;
+}
+
+.construct-storage-bar .storage-fill.warning {
+	background: #ff8c00;
+}
+
+.construct-storage-bar .storage-fill.critical {
+	background: #ff3c3c;
+}
+
+/* ─── GDPR Actions ──────────────────────────────────────────────────────── */
+
+.construct-gdpr-actions {
+	display: flex;
+	gap: 8px;
+	padding: 12px;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-widget-border);
+}
+
+.construct-gdpr-btn {
+	flex: 1;
+	padding: 8px 12px;
+	border: 1px solid var(--vscode-button-border, var(--vscode-widget-border));
+	border-radius: 4px;
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 500;
+	text-align: center;
+	transition: background 0.15s;
+}
+
+.construct-gdpr-btn:hover {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.construct-gdpr-btn.primary {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border-color: var(--vscode-button-background);
+}
+
+.construct-gdpr-btn.primary:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
+.construct-gdpr-btn.danger {
+	background: rgba(255, 60, 60, 0.15);
+	color: #ff3c3c;
+	border-color: rgba(255, 60, 60, 0.3);
+}
+
+.construct-gdpr-btn.danger:hover {
+	background: rgba(255, 60, 60, 0.25);
+}
+
+/* ─── Consent Banner ────────────────────────────────────────────────────── */
+
+.construct-consent-banner {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	padding: 16px;
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-focusBorder);
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.construct-consent-banner .consent-title {
+	font-weight: 600;
+	font-size: 14px;
+}
+
+.construct-consent-banner .consent-text {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	line-height: 1.5;
+}
+
+.construct-consent-banner .consent-actions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.construct-consent-banner .consent-checkbox {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+}
+
+.construct-consent-banner .consent-checkbox input[type="checkbox"] {
+	/* NOT pre-checked — explicit opt-in required */
+	accent-color: var(--vscode-button-background);
+}
+
+/* ─── Status Bar Widget (small) ──────────────────────────────────────────── */
+
+.construct-telemetry-status {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 11px;
+	padding: 0 6px;
+}
+
+.construct-telemetry-status .status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+
+.construct-telemetry-status .status-dot.collecting {
+	background: #ff8c00;
+	animation: pulse-dot 2s infinite;
+}
+
+.construct-telemetry-status .status-dot.paused {
+	background: #888;
+}
+
+.construct-telemetry-status .status-dot.disabled {
+	background: #00b400;
+}
+
+@keyframes pulse-dot {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.4; }
+}
+
+.construct-telemetry-status .buffer-count {
+	color: var(--vscode-descriptionForeground);
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+	.construct-privacy-table {
+		grid-template-columns: 1fr;
+	}
+
+	.construct-status-bar {
+		flex-wrap: wrap;
+	}
+
+	.construct-gdpr-actions {
+		flex-wrap: wrap;
+	}
+
+	.construct-gdpr-btn {
+		min-width: 120px;
+	}
+}

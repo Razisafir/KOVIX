@@ -51,6 +51,10 @@ import { IVisualAgentManager } from '../../../../platform/construct/common/visua
 import { VisualOrchestratorService } from './services/visual/visualOrchestratorService.js';
 import { ICodebaseIndexer } from '../../../../platform/construct/common/indexing/codebaseIndexer.js';
 import { CodebaseIndexerService } from './services/indexing/codebaseIndexerService.js';
+import { ITelemetryService } from '../../../../platform/construct/common/telemetry/telemetryService.js';
+import { IDataPipeline } from '../../../../platform/construct/common/telemetry/dataPipeline.js';
+import { TelemetryService } from './services/telemetry/telemetryService.js';
+import { DataPipelineService } from './services/telemetry/dataPipelineService.js';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 
@@ -198,3 +202,7 @@ registerSingleton(IVisualAgentManager, VisualOrchestratorService, InstantiationT
 
 // --- Codebase Indexing Singleton (Phase 23) ------------------------------------
 registerSingleton(ICodebaseIndexer, CodebaseIndexerService, InstantiationType.Eager);
+
+// --- Telemetry & Data Pipeline Singletons (Phase 24) --------------------------
+registerSingleton(ITelemetryService, TelemetryService, InstantiationType.Eager);
+registerSingleton(IDataPipeline, DataPipelineService, InstantiationType.Eager);
