@@ -1,0 +1,382 @@
+/*---------------------------------------------------------------------------------------------
+ *  Construct IDE - Codebase Indexing Styles
+ *  Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ─── Indexing Progress Panel ─────────────────────────────────────────────── */
+
+.construct-indexing-progress {
+	display: flex;
+	flex-direction: column;
+	padding: 12px;
+	background: var(--vscode-editor-background);
+	gap: 10px;
+}
+
+.construct-indexing-progress .progress-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.construct-indexing-progress .progress-title {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+}
+
+.construct-indexing-progress .progress-stats {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	font-family: var(--vscode-editor-font-family);
+}
+
+.construct-indexing-progress .progress-bar {
+	height: 6px;
+	background: var(--vscode-progressBar-background);
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.construct-indexing-progress .progress-bar-fill {
+	height: 100%;
+	background: var(--vscode-focusBorder);
+	border-radius: 3px;
+	transition: width 0.3s ease;
+}
+
+.construct-indexing-progress .progress-file {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.construct-indexing-progress .progress-eta {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+/* ─── Status Indicators ──────────────────────────────────────────────────── */
+
+.construct-indexing-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 11px;
+	padding: 2px 6px;
+	border-radius: 3px;
+}
+
+.construct-indexing-status.idle {
+	background: var(--vscode-editorWidget-background);
+	color: var(--vscode-descriptionForeground);
+}
+
+.construct-indexing-status.indexing {
+	background: rgba(79, 195, 247, 0.15);
+	color: #4fc3f7;
+}
+
+.construct-indexing-status.complete {
+	background: rgba(129, 199, 132, 0.15);
+	color: #81c784;
+}
+
+.construct-indexing-status.error {
+	background: rgba(239, 83, 80, 0.15);
+	color: #ef5350;
+}
+
+.construct-indexing-status .status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+
+.construct-indexing-status.idle .status-dot { background: var(--vscode-descriptionForeground); }
+.construct-indexing-status.indexing .status-dot { background: #4fc3f7; animation: pulse 1.5s infinite; }
+.construct-indexing-status.complete .status-dot { background: #81c784; }
+.construct-indexing-status.error .status-dot { background: #ef5350; }
+
+@keyframes pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.4; }
+}
+
+/* ─── Search Results Panel ───────────────────────────────────────────────── */
+
+.construct-indexing-results {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--vscode-editor-background);
+}
+
+.construct-indexing-results .results-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.construct-indexing-results .results-count {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.construct-indexing-results .result-item {
+	display: flex;
+	flex-direction: column;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	cursor: pointer;
+	transition: background-color 0.1s;
+}
+
+.construct-indexing-results .result-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.construct-indexing-results .result-item.selected {
+	background: var(--vscode-list-activeSelectionBackground);
+}
+
+.construct-indexing-results .result-file {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--vscode-foreground);
+}
+
+.construct-indexing-results .result-file .file-icon {
+	font-size: 12px;
+	opacity: 0.7;
+}
+
+.construct-indexing-results .result-file .file-path {
+	color: var(--vscode-textLink-foreground);
+}
+
+.construct-indexing-results .result-file .line-number {
+	color: var(--vscode-descriptionForeground);
+	font-family: var(--vscode-editor-font-family);
+	font-size: 11px;
+}
+
+.construct-indexing-results .result-symbol {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 2px;
+}
+
+.construct-indexing-results .result-symbol .symbol-badge {
+	font-size: 10px;
+	padding: 1px 4px;
+	border-radius: 2px;
+	text-transform: uppercase;
+	font-weight: 600;
+}
+
+.construct-indexing-results .result-symbol .symbol-badge.function { background: rgba(79, 195, 247, 0.2); color: #4fc3f7; }
+.construct-indexing-results .result-symbol .symbol-badge.class { background: rgba(255, 213, 79, 0.2); color: #ffd54f; }
+.construct-indexing-results .result-symbol .symbol-badge.interface { background: rgba(129, 199, 132, 0.2); color: #81c784; }
+.construct-indexing-results .result-symbol .symbol-badge.type { background: rgba(206, 147, 216, 0.2); color: #ce93d8; }
+.construct-indexing-results .result-symbol .symbol-badge.enum { background: rgba(255, 167, 38, 0.2); color: #ffa726; }
+.construct-indexing-results .result-symbol .symbol-badge.variable { background: rgba(144, 164, 174, 0.2); color: #90a4ae; }
+.construct-indexing-results .result-symbol .symbol-badge.constant { background: rgba(240, 98, 146, 0.2); color: #f06292; }
+
+.construct-indexing-results .result-symbol .symbol-name {
+	font-family: var(--vscode-editor-font-family);
+	font-size: 12px;
+	color: var(--vscode-foreground);
+}
+
+.construct-indexing-results .result-context {
+	margin-top: 4px;
+	padding: 6px 8px;
+	background: var(--vscode-editorWidget-background);
+	border-radius: 3px;
+	font-family: var(--vscode-editor-font-family);
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--vscode-foreground);
+	overflow-x: auto;
+	white-space: pre;
+	max-height: 120px;
+}
+
+.construct-indexing-results .result-context .highlight {
+	background: rgba(255, 213, 79, 0.3);
+	border-radius: 2px;
+}
+
+.construct-indexing-results .result-relevance {
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+	margin-top: 2px;
+}
+
+/* ─── Dependency Graph Visualization ──────────────────────────────────────── */
+
+.construct-indexing-graph {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--vscode-editor-background);
+}
+
+.construct-indexing-graph .graph-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+
+.construct-indexing-graph .graph-toolbar .toolbar-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 4px 8px;
+	border: 1px solid var(--vscode-panel-border);
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	border-radius: 3px;
+	font-size: 11px;
+}
+
+.construct-indexing-graph .graph-toolbar .toolbar-btn:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.construct-indexing-graph .graph-canvas {
+	flex: 1;
+	position: relative;
+	overflow: hidden;
+}
+
+.construct-indexing-graph .graph-canvas svg {
+	width: 100%;
+	height: 100%;
+}
+
+.construct-indexing-graph .graph-canvas .node {
+	fill: var(--vscode-editorWidget-background);
+	stroke: var(--vscode-focusBorder);
+	stroke-width: 1.5px;
+	cursor: pointer;
+}
+
+.construct-indexing-graph .graph-canvas .node:hover {
+	stroke-width: 2.5px;
+}
+
+.construct-indexing-graph .graph-canvas .node.cycle {
+	stroke: #ef5350;
+	stroke-dasharray: 4 2;
+}
+
+.construct-indexing-graph .graph-canvas .edge {
+	stroke: var(--vscode-panel-border);
+	stroke-width: 1px;
+	fill: none;
+	marker-end: url(#arrowhead);
+}
+
+.construct-indexing-graph .graph-canvas .edge.cycle {
+	stroke: #ef5350;
+	stroke-width: 1.5px;
+}
+
+.construct-indexing-graph .graph-canvas .node-label {
+	font-size: 10px;
+	fill: var(--vscode-foreground);
+	text-anchor: middle;
+	pointer-events: none;
+}
+
+.construct-indexing-graph .graph-legend {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 6px 12px;
+	border-top: 1px solid var(--vscode-panel-border);
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.construct-indexing-graph .graph-legend .legend-item {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.construct-indexing-graph .graph-legend .legend-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+
+/* ─── File Structure Tree ─────────────────────────────────────────────────── */
+
+.construct-indexing-structure {
+	display: flex;
+	flex-direction: column;
+	background: var(--vscode-editor-background);
+}
+
+.construct-indexing-structure .structure-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 8px 3px 16px;
+	font-size: 12px;
+	cursor: pointer;
+	transition: background-color 0.1s;
+}
+
+.construct-indexing-structure .structure-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.construct-indexing-structure .structure-item .collapse-icon {
+	width: 16px;
+	text-align: center;
+	font-size: 10px;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+}
+
+.construct-indexing-structure .structure-item .symbol-icon {
+	font-size: 12px;
+}
+
+.construct-indexing-structure .structure-item .symbol-icon.fn { color: #4fc3f7; }
+.construct-indexing-structure .structure-item .symbol-icon.cls { color: #ffd54f; }
+.construct-indexing-structure .structure-item .symbol-icon.iface { color: #81c784; }
+.construct-indexing-structure .structure-item .symbol-icon.enm { color: #ffa726; }
+.construct-indexing-structure .structure-item .symbol-icon.typ { color: #ce93d8; }
+
+.construct-indexing-structure .structure-item .symbol-name {
+	font-family: var(--vscode-editor-font-family);
+	color: var(--vscode-foreground);
+}
+
+.construct-indexing-structure .structure-item .symbol-signature {
+	font-family: var(--vscode-editor-font-family);
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	margin-left: 4px;
+}
+
+.construct-indexing-structure .structure-item.nested-1 { padding-left: 28px; }
+.construct-indexing-structure .structure-item.nested-2 { padding-left: 40px; }
+.construct-indexing-structure .structure-item.nested-3 { padding-left: 52px; }

@@ -1,0 +1,494 @@
+/*---------------------------------------------------------------------------------------------
+ *  Construct IDE - MCP Styles (VS Code Theme-Compatible)
+ *  Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ─── Server Status Indicators ──────────────────────────────────────────── */
+
+.construct-mcp-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.construct-mcp-status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	position: relative;
+}
+
+.construct-mcp-status-dot::after {
+	content: '';
+	position: absolute;
+	inset: -2px;
+	border-radius: 50%;
+	opacity: 0;
+}
+
+.construct-mcp-status-dot.connected {
+	background-color: #4ade80;
+	box-shadow: 0 0 6px #4ade80;
+}
+
+.construct-mcp-status-dot.connecting {
+	background-color: #fbbf24;
+	animation: mcp-pulse 1.5s ease-in-out infinite;
+}
+
+.construct-mcp-status-dot.error {
+	background-color: #f87171;
+}
+
+.construct-mcp-status-dot.disconnected {
+	background-color: #9ca3af;
+}
+
+.construct-mcp-status-dot.reconnecting {
+	background-color: #fb923c;
+	animation: mcp-pulse 1.5s ease-in-out infinite;
+}
+
+.construct-mcp-status-dot.stopping {
+	background-color: #9ca3af;
+	animation: mcp-fadeout 0.5s ease-out forwards;
+}
+
+@keyframes mcp-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.4; }
+}
+
+@keyframes mcp-fadeout {
+	from { opacity: 1; }
+	to { opacity: 0.3; }
+}
+
+/* Connection State Animation */
+.construct-mcp-connecting {
+	animation: mcp-spin 1s linear infinite;
+}
+
+@keyframes mcp-spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+/* ─── Marketplace Card Grid ──────────────────────────────────────────────── */
+
+.construct-mcp-marketplace {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 16px;
+	padding: 16px;
+}
+
+.construct-mcp-card {
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 8px;
+	padding: 16px;
+	transition: all 0.2s ease;
+	position: relative;
+	overflow: hidden;
+}
+
+.construct-mcp-card:hover {
+	border-color: var(--vscode-focusBorder);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	transform: translateY(-2px);
+}
+
+.construct-mcp-card.featured::before {
+	content: '★ FEATURED';
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	background: linear-gradient(135deg, #f59e0b, #d97706);
+	color: white;
+	font-size: 10px;
+	font-weight: 700;
+	padding: 2px 8px;
+	border-radius: 4px;
+	letter-spacing: 0.5px;
+}
+
+.construct-mcp-card-header {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.construct-mcp-card-icon {
+	width: 40px;
+	height: 40px;
+	border-radius: 8px;
+	background: var(--vscode-button-secondaryBackground);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 20px;
+}
+
+.construct-mcp-card-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+	margin: 0;
+}
+
+.construct-mcp-card-meta {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	margin-top: 2px;
+}
+
+.construct-mcp-card-description {
+	font-size: 13px;
+	color: var(--vscode-foreground);
+	line-height: 1.5;
+	margin-bottom: 12px;
+}
+
+.construct-mcp-card-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 12px;
+}
+
+.construct-mcp-tag {
+	font-size: 11px;
+	padding: 2px 8px;
+	border-radius: 12px;
+	background: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+}
+
+.construct-mcp-card-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: auto;
+}
+
+.construct-mcp-rating {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 13px;
+	color: var(--vscode-foreground);
+}
+
+.construct-mcp-rating-stars {
+	color: #fbbf24;
+}
+
+/* ─── Install Button ──────────────────────────────────────────────────────── */
+
+.construct-mcp-install-btn {
+	background: linear-gradient(135deg, var(--vscode-button-background), var(--vscode-button-hoverBackground));
+	color: var(--vscode-button-foreground);
+	border: none;
+	padding: 6px 16px;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.construct-mcp-install-btn:hover {
+	filter: brightness(1.1);
+	transform: scale(1.02);
+}
+
+.construct-mcp-install-btn.installed {
+	background: var(--vscode-button-secondaryBackground);
+	color: var(--vscode-button-secondaryForeground);
+}
+
+.construct-mcp-install-btn.installing {
+	opacity: 0.7;
+	pointer-events: none;
+}
+
+.construct-mcp-install-btn.uninstall {
+	background: transparent;
+	color: #f87171;
+	border: 1px solid #f8717140;
+}
+
+.construct-mcp-install-btn.uninstall:hover {
+	background: #f8717115;
+	border-color: #f8717160;
+}
+
+/* ─── Server List View ──────────────────────────────────────────────────── */
+
+.construct-mcp-server-list {
+	padding: 8px;
+}
+
+.construct-mcp-server-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.15s ease;
+}
+
+.construct-mcp-server-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.construct-mcp-server-item.active {
+	background: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.construct-mcp-server-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.construct-mcp-server-name {
+	font-weight: 500;
+	font-size: 13px;
+}
+
+.construct-mcp-server-detail {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	margin-top: 2px;
+}
+
+.construct-mcp-server-actions {
+	display: flex;
+	gap: 4px;
+	opacity: 0;
+	transition: opacity 0.15s ease;
+}
+
+.construct-mcp-server-item:hover .construct-mcp-server-actions {
+	opacity: 1;
+}
+
+.construct-mcp-server-action-btn {
+	background: transparent;
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 3px;
+	padding: 3px 8px;
+	color: var(--vscode-foreground);
+	font-size: 10px;
+	cursor: pointer;
+	transition: all 0.1s ease;
+}
+
+.construct-mcp-server-action-btn:hover {
+	border-color: var(--vscode-focusBorder);
+	color: var(--vscode-focusBorder);
+}
+
+.construct-mcp-server-action-btn.stop {
+	color: #f87171;
+	border-color: #f8717140;
+}
+
+.construct-mcp-server-action-btn.stop:hover {
+	border-color: #f87171;
+	background: #f8717115;
+}
+
+/* ─── Health Status Bar ──────────────────────────────────────────────────── */
+
+.construct-mcp-health {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 11px;
+}
+
+.construct-mcp-health.healthy { color: #4ade80; }
+.construct-mcp-health.degraded { color: #fbbf24; }
+.construct-mcp-health.unhealthy { color: #f87171; }
+.construct-mcp-health.unknown { color: #9ca3af; }
+
+.construct-mcp-health-bar {
+	height: 3px;
+	border-radius: 2px;
+	margin-top: 6px;
+	overflow: hidden;
+	background: var(--vscode-progressBar-background);
+}
+
+.construct-mcp-health-bar-fill {
+	height: 100%;
+	border-radius: 2px;
+	transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.construct-mcp-health-bar-fill.healthy {
+	background: #4ade80;
+	width: 100%;
+}
+
+.construct-mcp-health-bar-fill.degraded {
+	background: #fbbf24;
+	width: 60%;
+}
+
+.construct-mcp-health-bar-fill.unhealthy {
+	background: #f87171;
+	width: 30%;
+	animation: mcp-health-pulse 1s ease-in-out infinite;
+}
+
+@keyframes mcp-health-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.5; }
+}
+
+/* ─── Category Filter ──────────────────────────────────────────────────── */
+
+.construct-mcp-categories {
+	display: flex;
+	gap: 8px;
+	padding: 12px 16px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	overflow-x: auto;
+}
+
+.construct-mcp-category-btn {
+	white-space: nowrap;
+	padding: 4px 12px;
+	border-radius: 16px;
+	border: 1px solid var(--vscode-panel-border);
+	background: transparent;
+	color: var(--vscode-foreground);
+	font-size: 12px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.construct-mcp-category-btn:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.construct-mcp-category-btn.active {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+	border-color: var(--vscode-button-background);
+}
+
+/* ─── Search Input ──────────────────────────────────────────────────────── */
+
+.construct-mcp-search {
+	position: relative;
+	padding: 12px 16px;
+}
+
+.construct-mcp-search input {
+	width: 100%;
+	padding: 8px 12px 8px 36px;
+	border-radius: 6px;
+	border: 1px solid var(--vscode-panel-border);
+	background: var(--vscode-input-background);
+	color: var(--vscode-input-foreground);
+	font-size: 13px;
+	outline: none;
+}
+
+.construct-mcp-search input:focus {
+	border-color: var(--vscode-focusBorder);
+}
+
+.construct-mcp-search-icon {
+	position: absolute;
+	left: 24px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--vscode-descriptionForeground);
+}
+
+/* ─── Tool Execution Result ──────────────────────────────────────────────── */
+
+.construct-mcp-tool-result {
+	padding: 8px 10px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.construct-mcp-tool-result.success {
+	background: #4ade8010;
+	border-left: 2px solid #4ade80;
+	color: var(--vscode-foreground);
+}
+
+.construct-mcp-tool-result.error {
+	background: #f8717110;
+	border-left: 2px solid #f87171;
+	color: #f87171;
+}
+
+.construct-mcp-tool-result.timeout {
+	background: #fbbf2410;
+	border-left: 2px solid #fbbf24;
+	color: #fbbf24;
+}
+
+/* ─── Rating Stars ──────────────────────────────────────────────────────── */
+
+.construct-mcp-rating-stars-interactive {
+	display: inline-flex;
+	gap: 2px;
+}
+
+.construct-mcp-rating-star {
+	color: #4a5568;
+	font-size: 14px;
+	cursor: pointer;
+	transition: color 0.1s ease;
+}
+
+.construct-mcp-rating-star.filled {
+	color: #fbbf24;
+}
+
+.construct-mcp-rating-star:hover {
+	color: #fcd34d;
+}
+
+/* ─── Empty State ──────────────────────────────────────────────────────── */
+
+.construct-mcp-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 48px 24px;
+	text-align: center;
+}
+
+.construct-mcp-empty-icon {
+	font-size: 48px;
+	margin-bottom: 16px;
+	opacity: 0.5;
+}
+
+.construct-mcp-empty-title {
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+	margin-bottom: 8px;
+}
+
+.construct-mcp-empty-desc {
+	font-size: 13px;
+	color: var(--vscode-descriptionForeground);
+	max-width: 300px;
+}

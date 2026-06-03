@@ -1,0 +1,25 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { Event } from '../../../../base/common/event.js';
+import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { ISemanticMemoryEntry, IMemorySearchResult } from './memoryTypes.js';
+
+export const ISemanticMemoryService = createDecorator<ISemanticMemoryService>('construct.semanticMemory');
+
+export interface ISemanticMemoryService extends IDisposable {
+	readonly _serviceBrand: undefined;
+
+	storeKnowledge(entry: Omit<ISemanticMemoryEntry, 'id' | 'layer' | 'timestamp'>): Promise<void>;
+	searchKnowledge(projectId: string, query: string, topK?: number): Promise<IMemorySearchResult>;
+	searchByEmbedding(projectId: string, embedding: number[], topK?: number): Promise<IMemorySearchResult>;
+	getKnowledgeByTag(projectId: string, tag: string): ISemanticMemoryEntry[];
+	deleteKnowledge(projectId: string, id: string): void;
+	getAllKnowledge(projectId: string): ISemanticMemoryEntry[];
+
+	readonly onDidStoreKnowledge: Event<ISemanticMemoryEntry>;
+	readonly onDidDeleteKnowledge: Event<{ projectId: string; id: string }>;
+}

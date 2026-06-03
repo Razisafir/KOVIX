@@ -1,0 +1,380 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ===========================================================================
+   Main View Container
+   =========================================================================== */
+
+.construct-browser-view {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background: var(--vscode-editor-background);
+}
+
+/* ===========================================================================
+   Session Tabs
+   =========================================================================== */
+
+.construct-browser-sessions {
+        display: flex;
+        gap: 4px;
+        padding: 4px 12px;
+        border-bottom: 1px solid var(--vscode-panel-border);
+        background: var(--vscode-tab-inactiveBackground);
+        overflow-x: auto;
+}
+
+.construct-browser-session-tab {
+        padding: 4px 12px;
+        border-radius: 4px 4px 0 0;
+        font-size: 12px;
+        cursor: pointer;
+        background: var(--vscode-tab-inactiveBackground);
+        color: var(--vscode-tab-inactiveForeground);
+        border: 1px solid transparent;
+        border-bottom: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+        transition: background 0.15s ease, color 0.15s ease;
+}
+
+.construct-browser-session-tab:hover {
+        background: var(--vscode-tab-activeBackground);
+}
+
+.construct-browser-session-tab.active {
+        background: var(--vscode-tab-activeBackground);
+        color: var(--vscode-tab-activeForeground);
+        border-color: var(--vscode-panel-border);
+}
+
+.construct-browser-session-tab .close {
+        margin-left: 4px;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+        font-size: 14px;
+        line-height: 1;
+}
+
+.construct-browser-session-tab:hover .close {
+        opacity: 1;
+}
+
+.construct-browser-session-tab .close:hover {
+        color: var(--vscode-errorForeground);
+}
+
+/* ===========================================================================
+   Toolbar
+   =========================================================================== */
+
+.construct-browser-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--vscode-panel-border);
+        background: var(--vscode-editor-background);
+        min-height: 40px;
+}
+
+.construct-browser-nav-buttons {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+}
+
+.construct-browser-urlbar {
+        flex: 1;
+        display: flex;
+        align-items: center;
+}
+
+.construct-browser-url-input {
+        width: 100%;
+        padding: 4px 12px;
+        border-radius: 4px;
+        border: 1px solid var(--vscode-panel-border);
+        background: var(--vscode-input-background);
+        color: var(--vscode-input-foreground);
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s ease;
+}
+
+.construct-browser-url-input:focus {
+        border-color: var(--vscode-focusBorder);
+}
+
+.construct-browser-url-input::placeholder {
+        color: var(--vscode-input-placeholderForeground);
+}
+
+.construct-browser-action-buttons {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+}
+
+.construct-browser-btn {
+        padding: 4px 10px;
+        border-radius: 4px;
+        border: 1px solid var(--vscode-button-secondaryBackground);
+        background: var(--vscode-button-secondaryBackground);
+        color: var(--vscode-button-secondaryForeground);
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        min-width: 32px;
+        text-align: center;
+        line-height: 1.4;
+}
+
+.construct-browser-btn:hover {
+        background: var(--vscode-button-hoverBackground);
+        border-color: var(--vscode-focusBorder);
+}
+
+.construct-browser-btn:active {
+        transform: scale(0.95);
+}
+
+/* ===========================================================================
+   Main Content Area
+   =========================================================================== */
+
+.construct-browser-content {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+}
+
+/* ===========================================================================
+   Screenshot Display
+   =========================================================================== */
+
+.construct-browser-screenshot {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--vscode-editor-background);
+        padding: 16px;
+        overflow: auto;
+}
+
+.construct-browser-screenshot-img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 4px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ===========================================================================
+   Gallery Sidebar
+   =========================================================================== */
+
+.construct-browser-gallery {
+        width: 120px;
+        flex-shrink: 0;
+        border-left: 1px solid var(--vscode-panel-border);
+        background: var(--vscode-sideBar-background);
+        padding: 8px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+}
+
+.construct-browser-thumb {
+        cursor: pointer;
+        border-radius: 4px;
+        overflow: hidden;
+        border: 2px solid transparent;
+        transition: border-color 0.15s ease;
+        position: relative;
+}
+
+.construct-browser-thumb:hover {
+        border-color: var(--vscode-focusBorder);
+}
+
+.construct-browser-thumb img {
+        width: 100%;
+        height: auto;
+        display: block;
+}
+
+.construct-browser-thumb-time {
+        font-size: 10px;
+        padding: 2px 4px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        text-align: center;
+}
+
+/* ===========================================================================
+   Accessibility Tree Panel
+   =========================================================================== */
+
+.construct-browser-tree {
+        flex: 0.4;
+        border-left: 1px solid var(--vscode-panel-border);
+        background: var(--vscode-editor-background);
+        padding: 12px;
+        font-family: var(--vscode-editor-font-family, 'monospace');
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        overflow: auto;
+        color: var(--vscode-foreground);
+}
+
+/* ===========================================================================
+   Status Bar
+   =========================================================================== */
+
+.construct-browser-status {
+        padding: 4px 12px;
+        font-size: 11px;
+        color: var(--vscode-descriptionForeground);
+        border-top: 1px solid var(--vscode-panel-border);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 22px;
+}
+
+.construct-browser-status::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+}
+
+.construct-browser-status-idle::before {
+        background: #22c55e;
+}
+
+.construct-browser-status-navigating::before {
+        background: #f59e0b;
+        animation: construct-browser-pulse 1s ease-in-out infinite;
+}
+
+.construct-browser-status-interacting::before {
+        background: #3b82f6;
+        animation: construct-browser-pulse 0.5s ease-in-out infinite;
+}
+
+.construct-browser-status-error::before {
+        background: #ef4444;
+}
+
+.construct-browser-status-closed::before {
+        background: #6b7280;
+}
+
+/* ===========================================================================
+   Empty State
+   =========================================================================== */
+
+.construct-browser-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: 16px;
+        color: var(--vscode-descriptionForeground);
+}
+
+.construct-browser-empty-icon {
+        font-size: 48px;
+        opacity: 0.5;
+}
+
+.construct-browser-empty-text {
+        font-size: 14px;
+        text-align: center;
+        max-width: 300px;
+        line-height: 1.5;
+}
+
+/* ===========================================================================
+   Loading State
+   =========================================================================== */
+
+.construct-browser-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+}
+
+.construct-browser-spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid var(--vscode-panel-border);
+        border-top-color: var(--vscode-progressBar-background);
+        border-radius: 50%;
+        animation: construct-browser-spin 0.8s linear infinite;
+}
+
+/* ===========================================================================
+   Diff Overlay Badge
+   =========================================================================== */
+
+.construct-browser-diff-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+}
+
+.construct-browser-diff-badge.high {
+        background: #ef4444;
+        color: white;
+}
+
+.construct-browser-diff-badge.medium {
+        background: #f59e0b;
+        color: white;
+}
+
+.construct-browser-diff-badge.low {
+        background: #22c55e;
+        color: white;
+}
+
+/* ===========================================================================
+   Animations
+   =========================================================================== */
+
+@keyframes construct-browser-spin {
+        to {
+                transform: rotate(360deg);
+        }
+}
+
+@keyframes construct-browser-pulse {
+        0%, 100% {
+                opacity: 1;
+        }
+        50% {
+                opacity: 0.4;
+        }
+}

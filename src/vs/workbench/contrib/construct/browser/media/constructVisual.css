@@ -1,0 +1,528 @@
+/*---------------------------------------------------------------------------------------------
+ *  Construct IDE - Visual / 3D Creation Agent Styles
+ *  Licensed under the MIT License.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ─── 3D Scene Tree Panel ───────────────────────────────────────────────── */
+
+.construct-visual-scene-tree {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--vscode-editor-background);
+	border-right: 1px solid var(--vscode-panel-border);
+}
+
+.construct-visual-scene-tree .scene-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	font-weight: 600;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-foreground);
+}
+
+.construct-visual-scene-tree .scene-header .scene-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex: 1;
+}
+
+.construct-visual-scene-tree .object-list {
+	flex: 1;
+	overflow-y: auto;
+	padding: 4px 0;
+}
+
+.construct-visual-scene-tree .object-item {
+	display: flex;
+	align-items: center;
+	padding: 4px 8px 4px 12px;
+	cursor: pointer;
+	font-size: 13px;
+	color: var(--vscode-foreground);
+	border-left: 2px solid transparent;
+	transition: background-color 0.1s;
+}
+
+.construct-visual-scene-tree .object-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.construct-visual-scene-tree .object-item.selected {
+	background: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+	border-left-color: var(--vscode-focusBorder);
+}
+
+.construct-visual-scene-tree .object-item .object-icon {
+	margin-right: 6px;
+	font-size: 14px;
+	opacity: 0.8;
+}
+
+.construct-visual-scene-tree .object-item .object-icon.mesh { color: #4fc3f7; }
+.construct-visual-scene-tree .object-item .object-icon.light { color: #ffd54f; }
+.construct-visual-scene-tree .object-item .object-icon.camera { color: #81c784; }
+.construct-visual-scene-tree .object-item .object-icon.group { color: #b0bec5; }
+
+.construct-visual-scene-tree .object-item .object-name {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.construct-visual-scene-tree .object-item .object-visibility {
+	margin-left: 4px;
+	opacity: 0.5;
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.construct-visual-scene-tree .object-item .object-visibility:hover {
+	opacity: 1;
+}
+
+.construct-visual-scene-tree .object-item.nested {
+	padding-left: 28px;
+}
+
+.construct-visual-scene-tree .object-item.nested-2 {
+	padding-left: 44px;
+}
+
+.construct-visual-scene-tree .object-item.nested-3 {
+	padding-left: 60px;
+}
+
+/* ─── Material Editor UI ─────────────────────────────────────────────────── */
+
+.construct-visual-material-editor {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 12px;
+	background: var(--vscode-editor-background);
+}
+
+.construct-visual-material-editor .material-section {
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 4px;
+	overflow: hidden;
+}
+
+.construct-visual-material-editor .material-section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 6px 10px;
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+}
+
+.construct-visual-material-editor .material-section-body {
+	padding: 10px;
+}
+
+.construct-visual-material-editor .color-picker-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.construct-visual-material-editor .color-picker-row label {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	min-width: 70px;
+}
+
+.construct-visual-material-editor .color-swatch {
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-panel-border);
+	cursor: pointer;
+}
+
+.construct-visual-material-editor .color-hex-input {
+	flex: 1;
+	font-family: var(--vscode-editor-font-family);
+	font-size: 12px;
+	padding: 2px 6px;
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border);
+	color: var(--vscode-input-foreground);
+	border-radius: 2px;
+}
+
+.construct-visual-material-editor .texture-slot {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 60px;
+	border: 2px dashed var(--vscode-panel-border);
+	border-radius: 4px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 12px;
+	cursor: pointer;
+	transition: border-color 0.15s;
+}
+
+.construct-visual-material-editor .texture-slot:hover {
+	border-color: var(--vscode-focusBorder);
+}
+
+.construct-visual-material-editor .texture-slot.has-texture {
+	border-style: solid;
+	border-color: var(--vscode-focusBorder);
+}
+
+.construct-visual-material-editor .slider-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 6px;
+}
+
+.construct-visual-material-editor .slider-row label {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	min-width: 70px;
+}
+
+.construct-visual-material-editor .slider-row input[type="range"] {
+	flex: 1;
+	accent-color: var(--vscode-focusBorder);
+}
+
+.construct-visual-material-editor .slider-row .slider-value {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	min-width: 36px;
+	text-align: right;
+	font-family: var(--vscode-editor-font-family);
+}
+
+/* ─── Figma Design Viewer ────────────────────────────────────────────────── */
+
+.construct-visual-figma-viewer {
+	display: grid;
+	grid-template-columns: 200px 1fr 260px;
+	height: 100%;
+	background: var(--vscode-editor-background);
+}
+
+.construct-visual-figma-viewer .figma-page-panel {
+	border-right: 1px solid var(--vscode-panel-border);
+	overflow-y: auto;
+}
+
+.construct-visual-figma-viewer .figma-page-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	cursor: pointer;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	transition: background-color 0.1s;
+}
+
+.construct-visual-figma-viewer .figma-page-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+.construct-visual-figma-viewer .figma-page-item.selected {
+	background: var(--vscode-list-activeSelectionBackground);
+	color: var(--vscode-list-activeSelectionForeground);
+}
+
+.construct-visual-figma-viewer .figma-page-thumbnail {
+	width: 48px;
+	height: 32px;
+	border-radius: 2px;
+	border: 1px solid var(--vscode-panel-border);
+	background: var(--vscode-editorWidget-background);
+	object-fit: cover;
+}
+
+.construct-visual-figma-viewer .figma-page-name {
+	font-size: 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.construct-visual-figma-viewer .figma-canvas {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: auto;
+	background: var(--vscode-editor-background);
+	position: relative;
+}
+
+.construct-visual-figma-viewer .figma-properties-panel {
+	border-left: 1px solid var(--vscode-panel-border);
+	overflow-y: auto;
+	padding: 12px;
+}
+
+.construct-visual-figma-viewer .property-group {
+	margin-bottom: 16px;
+}
+
+.construct-visual-figma-viewer .property-group-title {
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+	margin-bottom: 8px;
+}
+
+.construct-visual-figma-viewer .property-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 4px;
+	font-size: 12px;
+}
+
+.construct-visual-figma-viewer .property-row .property-label {
+	color: var(--vscode-descriptionForeground);
+}
+
+.construct-visual-figma-viewer .property-row .property-value {
+	color: var(--vscode-foreground);
+	font-family: var(--vscode-editor-font-family);
+}
+
+/* ─── Preview Panel ──────────────────────────────────────────────────────── */
+
+.construct-visual-preview {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: var(--vscode-editor-background);
+}
+
+.construct-visual-preview .preview-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 12px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+
+.construct-visual-preview .preview-toolbar .device-selector {
+	font-size: 12px;
+	padding: 2px 8px;
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border);
+	color: var(--vscode-input-foreground);
+	border-radius: 2px;
+}
+
+.construct-visual-preview .preview-toolbar .toolbar-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border: none;
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	border-radius: 4px;
+	transition: background-color 0.1s;
+}
+
+.construct-visual-preview .preview-toolbar .toolbar-btn:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.construct-visual-preview .preview-toolbar .toolbar-btn.active {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
+.construct-visual-preview .preview-canvas {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: auto;
+	background: var(--vscode-editor-background);
+	position: relative;
+}
+
+.construct-visual-preview .preview-canvas img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+
+.construct-visual-preview .preview-canvas .preview-iframe {
+	width: 100%;
+	height: 100%;
+	border: none;
+}
+
+.construct-visual-preview .performance-overlay {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+	padding: 6px 10px;
+	background: rgba(0, 0, 0, 0.75);
+	border-radius: 4px;
+	font-family: var(--vscode-editor-font-family);
+	font-size: 11px;
+	color: #4fc3f7;
+	line-height: 1.6;
+	pointer-events: none;
+}
+
+.construct-visual-preview .performance-overlay .metric-fps { color: #81c784; }
+.construct-visual-preview .performance-overlay .metric-drawcalls { color: #ffd54f; }
+.construct-visual-preview .performance-overlay .metric-memory { color: #ce93d8; }
+
+.construct-visual-preview .preview-canvas.fullscreen {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	z-index: 10000;
+	background: #000;
+}
+
+/* ─── Animation Timeline ─────────────────────────────────────────────────── */
+
+.construct-visual-timeline {
+	display: flex;
+	flex-direction: column;
+	border-top: 1px solid var(--vscode-panel-border);
+	background: var(--vscode-editor-background);
+	height: 180px;
+}
+
+.construct-visual-timeline .timeline-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 8px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+	background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+
+.construct-visual-timeline .timeline-header .playback-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border: none;
+	background: transparent;
+	color: var(--vscode-foreground);
+	cursor: pointer;
+	border-radius: 2px;
+}
+
+.construct-visual-timeline .timeline-header .playback-btn:hover {
+	background: var(--vscode-toolbar-hoverBackground);
+}
+
+.construct-visual-timeline .timeline-header .timeline-time {
+	font-family: var(--vscode-editor-font-family);
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	margin-left: auto;
+}
+
+.construct-visual-timeline .timeline-body {
+	flex: 1;
+	display: flex;
+	overflow-y: auto;
+}
+
+.construct-visual-timeline .timeline-tracks {
+	flex: 1;
+	padding: 4px;
+}
+
+.construct-visual-timeline .timeline-track {
+	display: flex;
+	align-items: center;
+	height: 24px;
+	margin-bottom: 2px;
+}
+
+.construct-visual-timeline .timeline-track .track-label {
+	width: 120px;
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	padding-right: 8px;
+}
+
+.construct-visual-timeline .timeline-track .track-bar {
+	flex: 1;
+	height: 16px;
+	background: var(--vscode-editorWidget-background);
+	border-radius: 2px;
+	position: relative;
+}
+
+.construct-visual-timeline .timeline-track .track-bar .keyframe {
+	position: absolute;
+	top: 2px;
+	width: 10px;
+	height: 10px;
+	background: var(--vscode-focusBorder);
+	border-radius: 2px;
+	transform: rotate(45deg);
+	cursor: pointer;
+	transition: transform 0.1s;
+}
+
+.construct-visual-timeline .timeline-track .track-bar .keyframe:hover {
+	transform: rotate(45deg) scale(1.3);
+}
+
+.construct-visual-timeline .timeline-scrubber {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: var(--vscode-focusBorder);
+	cursor: col-resize;
+	z-index: 1;
+}
+
+/* ─── Responsive Breakpoints ─────────────────────────────────────────────── */
+
+@media (max-width: 800px) {
+	.construct-visual-figma-viewer {
+		grid-template-columns: 1fr;
+	}
+
+	.construct-visual-figma-viewer .figma-page-panel,
+	.construct-visual-figma-viewer .figma-properties-panel {
+		display: none;
+	}
+}
