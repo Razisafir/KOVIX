@@ -102,14 +102,13 @@ jobs:
             libnss3 \
             libgtk-3-0 \
             libxss1 \
-            libasound2 \
+            libasound2t64 \
             libgbm1 \
             libdrm2 \
             libxcomposite1 \
             libxdamage1 \
             libxrandr2 \
             libxtst6 \
-            libgconf-2-4 \
             libatk1.0-0 \
             libatk-bridge2.0-0 \
             libgdk-pixbuf2.0-0 \
