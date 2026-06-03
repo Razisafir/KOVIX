@@ -1,0 +1,12 @@
+name: CONSTRUCT IDE CodeQL Config
+
+# Paths to scan
+paths:
+  - src/vs/workbench/contrib/construct
+  - src/vs/platform/construct
+
+# Paths to ignore
+paths-ignore:
+  - src/vs/workbench/contrib/construct/browser/media
+  - '**/*.test.ts'
+  - '**/*.spec.ts'

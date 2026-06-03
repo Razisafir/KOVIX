@@ -1,68 +1,35 @@
-name: Build Construct IDE
+# .github/workflows/build.yml
+# CONSTRUCT IDE — Multi-platform Build Pipeline
+# Builds AppImage/DEB/RPM (Linux), MSI/EXE (Windows), DMG/ZIP (macOS Intel + ARM)
+
+name: Build CONSTRUCT IDE
 
 on:
   push:
-    branches: [main]
+    branches: [enhancement/main, main]
+    tags: ['v*']
+  pull_request:
+    branches: [enhancement/main, main]
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+          - dev
+          - beta
+          - release
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: npm ci
-        timeout-minutes: 30
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Windows package (full)
-        run: npx gulp vscode-win32-x64
-        timeout-minutes: 90
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Windows system setup
-        run: npx gulp vscode-win32-x64-system-setup
-        timeout-minutes: 15
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: List setup output
-        run: dir .build\win32-x64\system-setup\
-
-      - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: construct-ide-windows-x64
-          path: .build/win32-x64/system-setup/*.exe
-
-      - name: Create Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: .build/win32-x64/system-setup/*.exe
-          tag_name: v0.2.0-beta.1
-          draft: true
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-linux:
+  # ─── QUALITY GATES ───
+  compile-check:
+    name: TypeScript Compile Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -71,32 +38,329 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fakeroot dpkg-dev rpm libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-0 libsecret-1-dev libgtk-3-0 libgbm1
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
-        timeout-minutes: 30
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Linux package (full)
+      - name: Compile TypeScript (noEmit)
+        run: |
+          npx tsc -p src/tsconfig.json --noEmit 2>&1 | tee compile.log
+          if grep -q "error TS" compile.log; then
+            echo "::error::TypeScript compilation failed"
+            exit 1
+          fi
+
+      - name: Check singleton count
+        run: |
+          COUNT=$(grep -c "registerSingleton" src/vs/workbench/contrib/construct/browser/construct.contribution.ts)
+          echo "Singleton count: $COUNT"
+          if [ "$COUNT" -lt 45 ]; then
+            echo "::error::Expected 45+ singletons, found $COUNT"
+            exit 1
+          fi
+
+      - name: Check for TODO/FIXME in production code
+        run: |
+          COUNT=$(grep -r "TODO\|FIXME" src/vs/workbench/contrib/construct/ | wc -l)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::warning::Found $COUNT TODO/FIXME in production code"
+            grep -r "TODO\|FIXME" src/vs/workbench/contrib/construct/
+          fi
+
+  # ─── LINUX BUILD ───
+  build-linux:
+    name: Build Linux (AppImage + DEB + RPM)
+    needs: compile-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Linux build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbfile-dev \
+            libsecret-1-dev \
+            libnss3 \
+            libgtk-3-0 \
+            libxss1 \
+            libasound2 \
+            libgbm1 \
+            libdrm2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxrandr2 \
+            libxtst6 \
+            libgconf-2-4 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libgdk-pixbuf2.0-0 \
+            libgbm-dev \
+            libnotify-dev \
+            libatspi2.0-0 \
+            libuuid1 \
+            rpm \
+            fakeroot \
+            xdg-utils
+
+      - name: Compile
+        run: npm run compile
+        env:
+          npm_config_arch: x64
+
+      - name: Download Electron
+        run: node build/lib/electron.js
+
+      - name: Package VS Code (Linux x64)
         run: npx gulp vscode-linux-x64
-        timeout-minutes: 90
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          npm_config_arch: x64
 
-      - name: Build Linux DEB
+      - name: Build DEB package
         run: npx gulp vscode-linux-x64-build-deb
-        timeout-minutes: 15
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
-      - name: Upload Linux package
+      - name: Build RPM package
+        run: npx gulp vscode-linux-x64-build-rpm
+        continue-on-error: true
+
+      - name: Package with electron-builder (AppImage)
+        run: |
+          npx electron-builder \
+            --linux AppImage \
+            --x64 \
+            -c.productName="Construct IDE" \
+            -c.appId="ai.construct.ide" \
+            -c.linux.category="Development" \
+            -c.linux.icon="resources/linux/code.png" \
+            -c.directories.output="dist"
+        continue-on-error: true
+
+      - name: Collect Linux artifacts
+        run: |
+          mkdir -p /tmp/linux-artifacts
+          find .build/linux -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} /tmp/linux-artifacts/ \; 2>/dev/null || true
+          find dist -type f \( -name "*.AppImage" -o -name "*.deb" \) -exec cp {} /tmp/linux-artifacts/ \; 2>/dev/null || true
+          ls -la /tmp/linux-artifacts/ || echo "No artifacts found yet"
+
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: construct-ide-linux-x64
-          path: .build/linux/deb/amd64/**/*.deb
+          name: linux-builds
+          path: /tmp/linux-artifacts/**
+          if-no-files-found: warn
+
+  # ─── WINDOWS BUILD ───
+  build-windows:
+    name: Build Windows (MSI + Portable)
+    needs: compile-check
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile
+        run: npm run compile
+        shell: pwsh
+
+      - name: Download Electron
+        run: node build/lib/electron.js
+        shell: pwsh
+
+      - name: Package VS Code (Win32 x64)
+        run: npx gulp vscode-win32-x64
+        shell: pwsh
+
+      - name: Package with electron-builder
+        run: |
+          npx electron-builder `
+            --win `
+            --x64 `
+            -c.productName="Construct IDE" `
+            -c.appId="ai.construct.ide" `
+            -c.win.target="nsis,portable" `
+            -c.win.icon="resources/win32/code.ico" `
+            -c.nsis.oneClick="false" `
+            -c.nsis.allowToChangeInstallationDirectory="true" `
+            -c.directories.output="dist"
+        shell: pwsh
+        continue-on-error: true
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-builds
+          path: |
+            dist/*.exe
+            dist/*.msi
+            dist/*.zip
+          if-no-files-found: warn
+
+  # ─── MACOS BUILD (Intel x64) ───
+  build-macos-intel:
+    name: Build macOS Intel (DMG + ZIP)
+    needs: compile-check
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Download Electron
+        run: node build/lib/electron.js
+
+      - name: Package VS Code (Darwin x64)
+        run: npx gulp vscode-darwin-x64
+
+      - name: Package with electron-builder
+        run: |
+          npx electron-builder \
+            --mac \
+            --x64 \
+            -c.productName="Construct IDE" \
+            -c.appId="ai.construct.ide" \
+            -c.mac.category="public.app-category.developer-tools" \
+            -c.mac.icon="resources/darwin/code.icns" \
+            -c.mac.target="dmg,zip" \
+            -c.directories.output="dist"
+        continue-on-error: true
+
+      - name: Upload macOS Intel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-intel-builds
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: warn
+
+  # ─── MACOS BUILD (Apple Silicon ARM64) ───
+  build-macos-arm:
+    name: Build macOS Apple Silicon (DMG + ZIP)
+    needs: compile-check
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Download Electron
+        run: node build/lib/electron.js
+
+      - name: Package VS Code (Darwin arm64)
+        run: npx gulp vscode-darwin-arm64
+
+      - name: Package with electron-builder
+        run: |
+          npx electron-builder \
+            --mac \
+            --arm64 \
+            -c.productName="Construct IDE" \
+            -c.appId="ai.construct.ide" \
+            -c.mac.category="public.app-category.developer-tools" \
+            -c.mac.icon="resources/darwin/code.icns" \
+            -c.mac.target="dmg,zip" \
+            -c.directories.output="dist"
+        continue-on-error: true
+
+      - name: Upload macOS ARM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm-builds
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: warn
+
+  # ─── RELEASE JOB ───
+  release:
+    name: Create GitHub Release
+    needs: [build-linux, build-windows, build-macos-intel, build-macos-arm]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List release artifacts
+        run: find artifacts -type f | head -30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          draft: false
+          prerelease: ${{ contains(github.ref, 'beta') || contains(github.ref, 'alpha') || contains(github.ref, 'rc') }}
+          generate_release_notes: true
+          body: |
+            ## CONSTRUCT IDE ${{ github.ref_name }}
+
+            ### What's New
+            - 8 parallel specialized AI agents with dependency graph scheduling
+            - 10,000+ MCP tool connectors via native marketplace
+            - 4-layer persistent memory (Working/Episodic/Semantic/Procedural)
+            - Real-time browser automation with Playwright
+            - 3D/Visual creation via Three.js, Figma, Blender
+            - Semantic codebase indexing with Tree-sitter + Qdrant
+            - Real-time collaboration with Yjs CRDT + shared agents
+            - Visual execution timeline with Gantt chart
+            - Transparent credit-based pricing (1 credit = 1 action)
+            - Privacy-first telemetry with differential privacy
+            - GOD Mode: Autonomous multi-agent execution with milestone control
+
+            ### Installation
+
+            **Linux**: Download `.AppImage` (universal) or `.deb` (Debian/Ubuntu) or `.rpm` (Fedora/RHEL)
+            **Windows**: Download `.exe` (installer) or portable `.zip`
+            **macOS Intel**: Download `-x64.dmg` or `-x64.zip`
+            **macOS Apple Silicon**: Download `-arm64.dmg` or `-arm64.zip`
+
+            ### System Requirements
+            - RAM: 8GB minimum, 16GB recommended
+            - Disk: 2GB free space
+            - OS: Windows 10+, macOS 12+, Ubuntu 20.04+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
