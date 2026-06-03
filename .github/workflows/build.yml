@@ -251,6 +251,8 @@ jobs:
 
       - name: Compile
         run: npm run compile
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Download Electron
         run: node build/lib/electron.js
@@ -301,6 +303,8 @@ jobs:
 
       - name: Compile
         run: npm run compile
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Download Electron
         run: node build/lib/electron.js
