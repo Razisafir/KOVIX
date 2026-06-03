@@ -1015,13 +1015,9 @@ export class LLMStreamingService extends Disposable implements ILLMStreamingServ
         }
 
         private buildStreamingBody(config: LLMProviderConfig, request: LLMRequest): Record<string, unknown> {
-                const base: Record<string, unknown> = {
-                        model: request.model,
-                        messages: request.messages.map((m: LLMMessage) => ({ role: m.role, content: m.content })),
-                        max_tokens: request.maxTokens || 4096,
-                        stream: true,
-                };
-                if (request.temperature !== undefined) { base.temperature = request.temperature; }
+                // Use the same body builder as non-streaming, but add stream: true
+                const base = this.buildRequestBody(config, request);
+                base.stream = true;
                 return base;
         }
 
@@ -1038,14 +1034,23 @@ export class LLMStreamingService extends Disposable implements ILLMStreamingServ
                         return { type: StreamChunkType.Token, content: '', done: false };
                 }
 
-                // Anthropic SSE
+                // Anthropic SSE — handles both text and tool_use streaming
                 if (config.type === LLMProviderType.Anthropic) {
-                        if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-                                return { type: StreamChunkType.Token, content: parsed.delta.text, done: false };
+                        if (parsed.type === 'content_block_delta') {
+                                if (parsed.delta?.type === 'text_delta' && parsed.delta?.text) {
+                                        return { type: StreamChunkType.Token, content: parsed.delta.text, done: false };
+                                }
+                                if (parsed.delta?.type === 'input_json_delta' && parsed.delta?.partial_json) {
+                                        // Tool input JSON being streamed — we emit these as tool call chunks
+                                        // The agent loop will accumulate them (non-streaming path handles full tool use)
+                                        return { type: StreamChunkType.Token, content: '', done: false };
+                                }
                         }
                         if (parsed.type === 'message_stop') {
                                 return { type: StreamChunkType.Done, done: true };
                         }
+                        // Other Anthropic event types: message_start, content_block_start, content_block_stop, message_delta
+                        // These don't carry user-visible content, so we emit empty chunks
                         return { type: StreamChunkType.Token, content: '', done: false };
                 }
 
