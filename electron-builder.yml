@@ -1,0 +1,320 @@
+# =============================================================================
+# Construct IDE — electron-builder configuration
+# =============================================================================
+# Full desktop build configuration for Windows (NSIS), macOS (DMG),
+# and Linux (AppImage / DEB / RPM) packaging.
+#
+# Docs: https://www.electron.build/configuration/configuration
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Core metadata — must stay in sync with product.json
+# ---------------------------------------------------------------------------
+appId: com.construct.ide
+productName: Construct IDE
+copyright: Copyright (C) 2026 Construct IDE Project. All rights reserved
+
+# ---------------------------------------------------------------------------
+# Build directories & output
+# ---------------------------------------------------------------------------
+directories:
+  output: dist
+  buildResources: resources
+
+# ---------------------------------------------------------------------------
+# Artifact naming: Construct IDE-{version}-{platform}-{arch}
+# ---------------------------------------------------------------------------
+artifactName: "Construct IDE-${version}-${platform}-${arch}.${ext}"
+
+# ---------------------------------------------------------------------------
+# ASAR packaging
+# ---------------------------------------------------------------------------
+asar: true
+asarUnpack:
+  - "**/*.node"
+  - "**/node_modules/sharp/**/*"
+  - "**/node_modules/@vscode/**/*.node"
+  - "**/node_modules/native-keymap/**/*"
+  - "**/node_modules/spdlog/**/*"
+  - "**/node_modules/node-pty/**/*"
+
+# ---------------------------------------------------------------------------
+# File patterns to include / exclude from the packaged app
+# ---------------------------------------------------------------------------
+files:
+  - "out/**/*"
+  - "product.json"
+  - "LICENSE.txt"
+  - "ThirdPartyNotices.txt"
+  - "resources/**/*"
+  - "!resources/linux/rpm"
+  - "!resources/linux/debian"
+  - "!resources/linux/snap"
+  - "!resources/win32/appx"
+  - "!resources/win32/inno-big-*.bmp"
+  - "!resources/win32/inno-small-*.bmp"
+  - "!resources/completions"
+  - "!docs/**/*"
+  - "!scripts/**/*"
+  - "!build/**/*"
+  - "!src/**/*"
+  - "!test/**/*"
+  - "!extensions/**/*"
+  - "!.eslintrc.*"
+  - "!.editorconfig"
+  - "!tsconfig*.json"
+  - "!gulpfile.*"
+
+extraResources:
+  - from: "resources/linux/code-workspace.xml"
+    to: "code-workspace.xml"
+    filter:
+      - "**/*"
+
+# ---------------------------------------------------------------------------
+# File associations — .construct files
+# ---------------------------------------------------------------------------
+fileAssociations:
+  - ext: construct
+    name: Construct Project
+    description: Construct IDE Project File
+    mimeType: application/x-construct
+    role: Editor
+
+# ---------------------------------------------------------------------------
+# Protocol handlers — construct://
+# ---------------------------------------------------------------------------
+protocols:
+  - name: construct
+    schemes:
+      - construct
+    role: Editor
+
+# ---------------------------------------------------------------------------
+# Auto-update configuration
+# ---------------------------------------------------------------------------
+publish:
+  provider: generic
+  url: "https://releases.construct.dev/update/${platform}/${arch}/${version}"
+  channel: latest
+
+# ---------------------------------------------------------------------------
+# Windows — NSIS installer
+# ---------------------------------------------------------------------------
+win:
+  icon: resources/win32/code.ico
+  executableName: Construct IDE
+  legalTrademarks: "Construct IDE is a trademark of the Construct IDE Project."
+  requestedExecutionLevel: asInvoker
+  verifyUpdateCodeSignature: true
+  signAndEditExecutable: true
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  installerLanguages:
+    - en_US
+    - de_DE
+    - es_ES
+    - fr_FR
+    - it_IT
+    - ja_JP
+    - ko_KR
+    - pt_BR
+    - ru_RU
+    - zh_CN
+    - zh_TW
+  language: "1033" # English (US) as default
+  installerIcon: resources/win32/code.ico
+  uninstallerIcon: resources/win32/code.ico
+  installerHeaderIcon: resources/win32/code.ico
+  installerHeader: null # use default header banner
+  installerSidebar: null # use default sidebar bitmap
+  shortcutName: "Construct IDE"
+  artifactName: "Construct IDE-Setup-${version}-${arch}.${ext}"
+  include: build/win32/installer.nsh
+  guid: "Construct IDE" # Matches win32RegValueName from product.json
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
+  menuCategory: true
+  differentialPackage: true
+  # NSIS customizations matching VS Code's installer behavior
+  warningsAsErrors: false
+  # License and README shown during install
+  license: LICENSE.txt
+
+# ---------------------------------------------------------------------------
+# macOS — DMG + hardened runtime
+# ---------------------------------------------------------------------------
+mac:
+  icon: resources/darwin/code.icns
+  category: public.app-category.developer-tools
+  entitlements: build/darwin/entitlements.mac.plist
+  entitlementsInherit: build/darwin/entitlements.mac.plist
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  strictVerify: false
+  extendInfo:
+    CFBundleName: "Construct IDE"
+    CFBundleDisplayName: "Construct IDE"
+    CFBundleShortVersionString: "${version}"
+    CFBundleVersion: "${version}"
+    NSHumanReadableCopyright: "Copyright (C) 2026 Construct IDE Project. All rights reserved."
+    CFBundleDocumentTypes:
+      - CFBundleTypeName: Construct Project
+        CFBundleTypeRole: Editor
+        CFBundleTypeExtensions:
+          - construct
+        LSItemContentTypes:
+          - com.construct.construct
+        LSHandlerRank: Owner
+    CFBundleURLTypes:
+      - CFBundleURLName: "com.construct.ide"
+        CFBundleURLSchemes:
+          - construct
+    LSMinimumSystemVersion: "12.0.0"
+    NSRequiresAquaSystemAppearance: false
+    NSSupportsAutomaticGraphicsSwitching: true
+    NSAppleEventsUsageDescription: "Construct IDE needs to send Apple Events to integrate with other applications."
+    NSDesktopFolderUsageDescription: "Construct IDE needs access to your Desktop folder to open and save files."
+    NSDocumentsFolderUsageDescription: "Construct IDE needs access to your Documents folder to open and save files."
+    NSDownloadsFolderUsageDescription: "Construct IDE needs access to your Downloads folder to open and save files."
+    NSNetworkVolumesUsageDescription: "Construct IDE needs access to network volumes to open and save files."
+    NSRemovableVolumesUsageDescription: "Construct IDE needs access to removable volumes to open and save files."
+    com.apple.security.cs.allow-jit: true
+    com.apple.security.cs.allow-unsigned-executable-memory: true
+    com.apple.security.cs.disable-library-validation: true
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+
+dmg:
+  artifactName: "Construct IDE-${version}-mac-${arch}.${ext}"
+  background: null # use default DMG background
+  backgroundColor: "#2B2B2B"
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 140
+      y: 180
+    - x: 400
+      y: 180
+      type: link
+      path: /Applications
+  title: "Construct IDE ${version}"
+
+# ---------------------------------------------------------------------------
+# Linux — AppImage (primary), DEB, RPM
+# ---------------------------------------------------------------------------
+linux:
+  icon: resources/linux
+  category: Development;IDE;TextEditor;
+  executableName: construct
+  synopsis: "AI-Native Code Editing. Redefined."
+  description: "Construct IDE is an AI-native IDE built on a forked architecture, combining the power of an AI execution kernel with a proven code editor foundation. It provides an authoritative mutation control layer and a causal execution graph engine for transparent, auditable AI-driven development."
+  maintainer: "Construct IDE Project <https://github.com/Razisafir/Real-construct>"
+  vendor: "Construct IDE Project"
+  desktop:
+    entry:
+      Name: "Construct IDE"
+      Comment: "AI-Native Code Editing. Redefined."
+      GenericName: "Text Editor"
+      StartupWMClass: "Construct IDE"
+      Categories: "TextEditor;Development;IDE;"
+      MimeType: "application/x-construct;application/x-construct-workspace;"
+      Keywords: "construct;ai;editor;code;"
+      StartupNotify: "true"
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+        - arm64
+    - target: rpm
+      arch:
+        - x64
+        - arm64
+
+appImage:
+  artifactName: "Construct IDE-${version}-linux-${arch}.AppImage"
+  license: LICENSE.txt
+
+deb:
+  artifactName: "Construct IDE-${version}-linux-${arch}.deb"
+  depends:
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - libsecret-1-0
+    - libgbm1
+    - libasound2
+    - libatk-bridge2.0-0
+    - libgtk-3-0
+  recommends:
+    - libcurl4 | libcurl3
+  category: devel
+  priority: optional
+  afterInstall: build/linux/postinst.sh
+  afterRemove: build/linux/postrm.sh
+
+rpm:
+  artifactName: "Construct IDE-${version}-linux-${arch}.rpm"
+  depends:
+    - libnotify
+    - nss
+    - libXScrnSaver
+    - libXtst
+    - libsecret
+    - mesa-libgbm
+    - alsa-lib
+    - at-spi2-atk
+    - gtk3
+  category: Development/Tools
+
+# ---------------------------------------------------------------------------
+# Snap (optional — for Ubuntu Snap Store)
+# ---------------------------------------------------------------------------
+snap:
+  artifactName: "Construct IDE-${version}-linux-${arch}.snap"
+  plugs:
+    - default
+    - desktop
+    - desktop-legacy
+    - x11
+    - unity7
+    - browser-support
+    - network
+    - gsettings
+    - pulseaudio
+    - opengl
+    - home
+    - removable-media
+
+# ---------------------------------------------------------------------------
+# Compression & performance
+# ---------------------------------------------------------------------------
+compression: maximum
+
+# ---------------------------------------------------------------------------
+# Node.js / Electron version overrides (set during CI)
+# ---------------------------------------------------------------------------
+# electronVersion: "33.0.0"  # Uncomment/adjust to pin Electron version
+# buildVersionFrom: package.json

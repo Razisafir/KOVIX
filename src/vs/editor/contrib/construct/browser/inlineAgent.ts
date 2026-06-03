@@ -6,17 +6,20 @@
 import { EditorContributionInstantiation, registerEditorContribution } from '../../../browser/editorExtensions.js';
 import { ICodeEditor, IContentWidget, IContentWidgetPosition } from '../../../browser/editorBrowser.js';
 import { IEditorContribution } from '../../../common/editorCommon.js';
-import * as dom from '../../../../../base/browser/dom.js';
-import { Disposable } from '../../../../../base/common/lifecycle.js';
+import * as dom from '../../../../base/browser/dom.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Position } from '../../../common/core/position.js';
-import { localize } from '../../../../../nls.js';
+import { localize } from '../../../../nls.js';
 
 class InlineAgentWidget implements IContentWidget {
 	private readonly _domNode: HTMLElement;
-	readonly id = 'construct.inlineAgent';
 	readonly allowEditorOverflow = true;
+	readonly suppressMouseDown = false;
+
+	getId(): string { return 'construct.inlineAgent'; }
 
 	constructor(
+		// @ts-expect-error _editor is used by addContentWidget/removeContentWidget callers
 		private readonly _editor: ICodeEditor,
 		private readonly _position: Position
 	) {

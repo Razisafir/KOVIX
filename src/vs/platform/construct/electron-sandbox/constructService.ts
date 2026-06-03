@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IConstructService } from '../common/construct.js';
-import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
+import { registerSingleton, InstantiationType } from '../../instantiation/common/extensions.js';
 
 class ConstructService implements IConstructService {
 	declare readonly _serviceBrand: undefined;

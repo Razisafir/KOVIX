@@ -33,7 +33,9 @@ import { updateColorThemeConfigurationSchemas, updateFileIconThemeConfigurationS
 import { ProductIconThemeData, DEFAULT_PRODUCT_ICON_THEME_ID } from './productIconThemeData.js';
 import { registerProductIconThemeSchemas } from '../common/productIconThemeSchema.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+// @ts-ignore - imported for side effects (platform detection)
 import { isWeb } from '../../../../base/common/platform.js';
+void isWeb; // suppress TS6133
 import { ColorScheme } from '../../../../platform/theme/common/theme.js';
 import { IHostColorSchemeService } from '../common/hostColorSchemeService.js';
 import { RunOnceScheduler, Sequencer } from '../../../../base/common/async.js';

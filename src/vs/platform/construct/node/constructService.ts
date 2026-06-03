@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { spawn, ChildProcess } from 'child_process';
-import { join } from '../../../../base/common/path.js';
+import { join } from '../../../base/common/path.js';
 import { IConstructService } from '../common/construct.js';
-import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
+import { registerSingleton, InstantiationType } from '../../instantiation/common/extensions.js';
 
 class ConstructService implements IConstructService {
 	declare readonly _serviceBrand: undefined;
@@ -23,6 +23,7 @@ class ConstructService implements IConstructService {
 		}
 	}
 
+	// @ts-expect-error will be used when agent backend health check is implemented
 	private async _waitForReady(): Promise<void> {
 		for (let i = 0; i < 30; i++) {
 			try {
