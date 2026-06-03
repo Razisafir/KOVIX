@@ -17,6 +17,7 @@ import { IEnhancedAgentOrchestrator } from '../../../../platform/construct/commo
 import { ISkillsMarketplace } from '../../../../platform/construct/common/skills/skillsMarketplace.js';
 import { ISkillsRegistry } from '../../../../platform/construct/common/skills/skillsRegistry.js';
 import { IVisualAgentManager } from '../../../../platform/construct/common/visual/visualAgentManager.js';
+import { ICodebaseIndexer } from '../../../../platform/construct/common/indexing/codebaseIndexer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
@@ -43,6 +44,9 @@ import { ILogService } from '../../../../platform/log/common/log.js';
  *   Visual (8): visual:create3DScene, visual:addObject, visual:exportScene,
  *     visual:loadFigma, visual:extractStyles, visual:generateComponents,
  *     visual:takePreview, visual:compare
+ *   Indexer (10): indexer:search, indexer:structure, indexer:dependencies,
+ *     indexer:status, indexer:start, indexer:reindex, indexer:watch,
+ *     indexer:stopWatch, indexer:symbolSearch, indexer:crossRef
  */
 export class ConstructWorkflowContent extends Disposable {
 
@@ -62,6 +66,7 @@ export class ConstructWorkflowContent extends Disposable {
                 @ISkillsMarketplace private readonly skillsMarketplace: ISkillsMarketplace,
                 @ISkillsRegistry private readonly skillsRegistry: ISkillsRegistry,
                 @IVisualAgentManager private readonly visualAgentManager: IVisualAgentManager,
+                @ICodebaseIndexer private readonly codebaseIndexer: ICodebaseIndexer,
                 @ILogService private readonly logService: ILogService,
         ) {
                 super();
@@ -516,6 +521,67 @@ export class ConstructWorkflowContent extends Disposable {
                 this._handlers.set('visual:compare', async (payload: { beforeId: string; afterId: string }) => {
                         const diff = await this.visualAgentManager.compareVisuals(payload.beforeId, payload.afterId);
                         return { type: 'visual:compared', diff };
+                });
+
+                // --- Codebase Indexing Handlers (Phase 23) ----------------------------
+
+                this._handlers.set('indexer:search', async (payload: { query: string; projectId: string; language?: string; fileType?: string; directory?: string; symbolType?: string; topK?: number; semantic?: boolean }) => {
+                        const results = await this.codebaseIndexer.search({
+                                query: payload.query,
+                                projectId: payload.projectId,
+                                language: payload.language,
+                                fileType: payload.fileType,
+                                directory: payload.directory,
+                                symbolType: payload.symbolType as any,
+                                topK: payload.topK,
+                                semantic: payload.semantic
+                        });
+                        return { type: 'indexer:searchResult', results };
+                });
+
+                this._handlers.set('indexer:structure', async (payload: { filePath: string; projectId: string }) => {
+                        const structure = this.codebaseIndexer.getFileStructure(payload.filePath, payload.projectId);
+                        return { type: 'indexer:structureResult', structure };
+                });
+
+                this._handlers.set('indexer:dependencies', async (payload: { projectId: string }) => {
+                        const graph = this.codebaseIndexer.getDependencyGraph(payload.projectId);
+                        return { type: 'indexer:dependenciesResult', graph };
+                });
+
+                this._handlers.set('indexer:status', async (payload: { projectId: string }) => {
+                        const status = this.codebaseIndexer.getIndexStatus(payload.projectId);
+                        return { type: 'indexer:statusResult', status };
+                });
+
+                this._handlers.set('indexer:start', async (payload: { rootPath: string; projectId: string }) => {
+                        await this.codebaseIndexer.indexProject(payload.rootPath, payload.projectId);
+                        return { type: 'indexer:started', projectId: payload.projectId };
+                });
+
+                this._handlers.set('indexer:reindex', async (payload: { rootPath: string; projectId: string }) => {
+                        await this.codebaseIndexer.reindexProject(payload.rootPath, payload.projectId);
+                        return { type: 'indexer:reindexed', projectId: payload.projectId };
+                });
+
+                this._handlers.set('indexer:watch', async (payload: { projectId: string }) => {
+                        this.codebaseIndexer.watchProject(payload.projectId);
+                        return { type: 'indexer:watching', projectId: payload.projectId };
+                });
+
+                this._handlers.set('indexer:stopWatch', async (payload: { projectId: string }) => {
+                        this.codebaseIndexer.stopWatching(payload.projectId);
+                        return { type: 'indexer:stopped', projectId: payload.projectId };
+                });
+
+                this._handlers.set('indexer:symbolSearch', async (payload: { symbol: string; projectId: string }) => {
+                        const results = await this.codebaseIndexer.searchBySymbol(payload.symbol, payload.projectId);
+                        return { type: 'indexer:symbolResult', results };
+                });
+
+                this._handlers.set('indexer:crossRef', async (payload: { symbol: string; file: string; projectId: string }) => {
+                        const results = await this.codebaseIndexer.findReferences(payload.symbol, payload.file, payload.projectId);
+                        return { type: 'indexer:crossRefResult', results };
                 });
         }
 
