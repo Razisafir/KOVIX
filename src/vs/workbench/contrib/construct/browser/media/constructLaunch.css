@@ -1,0 +1,546 @@
+/*---------------------------------------------------------------------------------------------
+ *  Construct IDE - Launch & GOD Mode Styles
+ *  Phase 28: Final integration + GOD Mode launch
+ *
+ *  Styles for GOD Mode activation animation, welcome screen,
+ *  launch checklist, and status bar GOD Mode indicator.
+ *--------------------------------------------------------------------------------------------*/
+
+/* ══════════════════════════════════════════════════════════════
+   GOD Mode Activation Animation
+   ══════════════════════════════════════════════════════════════ */
+
+.construct-godmode-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: radial-gradient(ellipse at center, #0a0a2e 0%, #000000 100%);
+	z-index: 10000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	pointer-events: all;
+}
+
+.construct-godmode-countdown {
+	font-size: 120px;
+	font-family: var(--vscode-editor-font-family, monospace);
+	font-weight: 900;
+	color: #ffffff;
+	text-shadow: 0 0 40px rgba(100, 100, 255, 0.8), 0 0 80px rgba(100, 100, 255, 0.4);
+	animation: construct-godmode-pulse 0.5s ease-in-out infinite, construct-godmode-gradient 3s ease-in-out infinite;
+	-webkit-font-smoothing: antialiased;
+}
+
+.construct-godmode-label {
+	font-size: 24px;
+	color: rgba(255, 255, 255, 0.7);
+	letter-spacing: 4px;
+	text-transform: uppercase;
+	margin-top: 20px;
+	animation: construct-godmode-fade-in 0.5s ease-in;
+}
+
+.construct-godmode-goal {
+	font-size: 18px;
+	color: rgba(255, 255, 255, 0.5);
+	max-width: 600px;
+	text-align: center;
+	margin-top: 12px;
+	animation: construct-godmode-fade-in 1s ease-in;
+}
+
+/* Pulse animation */
+@keyframes construct-godmode-pulse {
+	0% { transform: scale(1); }
+	50% { transform: scale(1.05); }
+	100% { transform: scale(1); }
+}
+
+/* Color shift animation: blue → purple → gold */
+@keyframes construct-godmode-gradient {
+	0% { color: #6666ff; text-shadow: 0 0 40px rgba(100, 100, 255, 0.8); }
+	33% { color: #9966ff; text-shadow: 0 0 40px rgba(153, 102, 255, 0.8); }
+	66% { color: #ffcc00; text-shadow: 0 0 40px rgba(255, 204, 0, 0.8); }
+	100% { color: #6666ff; text-shadow: 0 0 40px rgba(100, 100, 255, 0.8); }
+}
+
+@keyframes construct-godmode-fade-in {
+	from { opacity: 0; transform: translateY(10px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+/* Screen flash effect */
+.construct-godmode-flash {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: #ffffff;
+	z-index: 10001;
+	animation: construct-godmode-flash-anim 0.3s ease-out forwards;
+	pointer-events: none;
+}
+
+@keyframes construct-godmode-flash-anim {
+	0% { opacity: 0; }
+	30% { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+/* CSS-only sparkle particles */
+.construct-godmode-sparkles::before,
+.construct-godmode-sparkles::after {
+	content: '';
+	position: absolute;
+	width: 4px;
+	height: 4px;
+	border-radius: 50%;
+	background: #ffcc00;
+	animation: construct-godmode-sparkle 1.5s ease-in-out infinite;
+}
+
+.construct-godmode-sparkles::before {
+	top: 30%;
+	left: 20%;
+	animation-delay: 0s;
+}
+
+.construct-godmode-sparkles::after {
+	top: 50%;
+	right: 25%;
+	animation-delay: 0.5s;
+}
+
+@keyframes construct-godmode-sparkle {
+	0%, 100% { opacity: 0; transform: scale(0); }
+	50% { opacity: 1; transform: scale(1.5); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Welcome Screen
+   ══════════════════════════════════════════════════════════════ */
+
+.construct-welcome {
+	padding: 24px;
+	max-width: 960px;
+	margin: 0 auto;
+}
+
+.construct-welcome-hero {
+	text-align: center;
+	padding: 40px 20px;
+	background: linear-gradient(135deg, #0a0a2e 0%, #1a1a4e 50%, #2a1a3e 100%);
+	border-radius: 12px;
+	margin-bottom: 32px;
+	position: relative;
+	overflow: hidden;
+}
+
+.construct-welcome-hero::before {
+	content: '';
+	position: absolute;
+	top: -50%;
+	left: -50%;
+	width: 200%;
+	height: 200%;
+	background: radial-gradient(circle, rgba(100, 100, 255, 0.05) 0%, transparent 70%);
+	animation: construct-welcome-shimmer 8s ease-in-out infinite;
+}
+
+@keyframes construct-welcome-shimmer {
+	0%, 100% { transform: translate(0, 0); }
+	50% { transform: translate(10%, 5%); }
+}
+
+.construct-welcome-title {
+	font-size: 48px;
+	font-weight: 900;
+	letter-spacing: 8px;
+	color: #ffffff;
+	margin-bottom: 8px;
+	position: relative;
+	z-index: 1;
+}
+
+.construct-welcome-version {
+	font-size: 14px;
+	color: rgba(255, 255, 255, 0.5);
+	letter-spacing: 2px;
+	margin-bottom: 16px;
+	position: relative;
+	z-index: 1;
+}
+
+.construct-welcome-subtitle {
+	font-size: 16px;
+	color: rgba(255, 255, 255, 0.7);
+	position: relative;
+	z-index: 1;
+}
+
+/* Feature Cards Grid */
+.construct-welcome-features {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 12px;
+	margin-bottom: 32px;
+}
+
+.construct-welcome-feature-card {
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.1));
+	border-radius: 8px;
+	padding: 16px;
+	cursor: pointer;
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.construct-welcome-feature-card:hover {
+	transform: translateY(-4px);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.construct-welcome-feature-icon {
+	font-size: 24px;
+	margin-bottom: 8px;
+	color: var(--vscode-foreground);
+}
+
+.construct-welcome-feature-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+	margin-bottom: 4px;
+}
+
+.construct-welcome-feature-desc {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground, rgba(255, 255, 255, 0.5));
+	line-height: 1.4;
+}
+
+/* Demo Area */
+.construct-welcome-demo {
+	border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.1));
+	border-radius: 8px;
+	padding: 16px;
+	margin-bottom: 32px;
+	background: var(--vscode-textCodeBlock-background, rgba(0, 0, 0, 0.3));
+}
+
+.construct-welcome-demo-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+	margin-bottom: 8px;
+}
+
+.construct-welcome-demo-output {
+	font-family: var(--vscode-editor-font-family, monospace);
+	font-size: 12px;
+	color: var(--vscode-terminal-ansiGreen, #4ec9b0);
+	white-space: pre-wrap;
+	line-height: 1.5;
+	min-height: 100px;
+}
+
+/* Quick Start Buttons */
+.construct-welcome-quickstart {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 12px;
+	margin-bottom: 32px;
+}
+
+.construct-welcome-quickstart-btn {
+	padding: 16px;
+	border: none;
+	border-radius: 8px;
+	cursor: pointer;
+	text-align: left;
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+	background: linear-gradient(135deg, #4a4aff 0%, #7a4aff 100%);
+	color: #ffffff;
+}
+
+.construct-welcome-quickstart-btn:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 4px 16px rgba(100, 100, 255, 0.4);
+}
+
+.construct-welcome-quickstart-icon {
+	font-size: 20px;
+	margin-bottom: 8px;
+}
+
+.construct-welcome-quickstart-label {
+	font-size: 14px;
+	font-weight: 600;
+	display: block;
+	margin-bottom: 4px;
+}
+
+.construct-welcome-quickstart-desc {
+	font-size: 11px;
+	opacity: 0.8;
+	display: block;
+}
+
+/* Recent Projects */
+.construct-welcome-recent {
+	margin-bottom: 24px;
+}
+
+.construct-welcome-recent-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--vscode-foreground);
+	margin-bottom: 8px;
+}
+
+.construct-welcome-recent-item {
+	display: flex;
+	align-items: center;
+	padding: 8px 12px;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+
+.construct-welcome-recent-item:hover {
+	background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.05));
+}
+
+.construct-welcome-recent-icon {
+	margin-right: 8px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.construct-welcome-recent-name {
+	font-size: 13px;
+	color: var(--vscode-foreground);
+}
+
+.construct-welcome-recent-time {
+	font-size: 11px;
+	color: var(--vscode-descriptionForeground);
+	margin-left: auto;
+}
+
+/* Telemetry Consent Banner */
+.construct-welcome-telemetry-banner {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	background: var(--vscode-editor-infoBackground, rgba(0, 122, 204, 0.1));
+	border: 1px solid var(--vscode-editor-infoBorder, rgba(0, 122, 204, 0.3));
+	border-radius: 8px;
+	margin-bottom: 24px;
+}
+
+.construct-welcome-telemetry-text {
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	max-width: 70%;
+}
+
+.construct-welcome-telemetry-actions {
+	display: flex;
+	gap: 8px;
+}
+
+/* Tier Indicator */
+.construct-welcome-tier {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	background: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.1));
+	border-radius: 8px;
+	margin-bottom: 24px;
+}
+
+.construct-welcome-tier-info {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.construct-welcome-tier-badge {
+	font-size: 11px;
+	font-weight: 600;
+	padding: 2px 8px;
+	border-radius: 4px;
+	text-transform: uppercase;
+}
+
+.construct-welcome-tier-badge.free { background: #666; color: #fff; }
+.construct-welcome-tier-badge.pro { background: #4a4aff; color: #fff; }
+.construct-welcome-tier-badge.team { background: #4aff4a; color: #000; }
+.construct-welcome-tier-badge.enterprise { background: #ff9900; color: #000; }
+.construct-welcome-tier-badge.godmode { background: linear-gradient(90deg, #ff0000, #ff9900, #ffff00, #00ff00, #0099ff, #9900ff); color: #fff; }
+
+/* ══════════════════════════════════════════════════════════════
+   Status Bar GOD Mode Indicator
+   ══════════════════════════════════════════════════════════════ */
+
+.construct-statusbar-godmode {
+	display: flex;
+	align-items: center;
+	padding: 0 8px;
+	cursor: pointer;
+	border: 2px solid transparent;
+	border-radius: 4px;
+	transition: border-color 0.3s ease;
+}
+
+.construct-statusbar-godmode.active {
+	animation: construct-statusbar-rainbow 3s linear infinite;
+	border-color: currentColor;
+}
+
+.construct-statusbar-godmode-text {
+	font-weight: 700;
+	font-size: 12px;
+	letter-spacing: 1px;
+}
+
+@keyframes construct-statusbar-rainbow {
+	0% { color: #ff0000; border-color: #ff0000; }
+	17% { color: #ff9900; border-color: #ff9900; }
+	33% { color: #ffff00; border-color: #ffff00; }
+	50% { color: #00ff00; border-color: #00ff00; }
+	67% { color: #0099ff; border-color: #0099ff; }
+	83% { color: #9900ff; border-color: #9900ff; }
+	100% { color: #ff0000; border-color: #ff0000; }
+}
+
+/* Pulsing border for active GOD mode */
+.construct-statusbar-godmode.active .construct-statusbar-godmode-text {
+	animation: construct-statusbar-pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes construct-statusbar-pulse-border {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.7; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Launch Checklist
+   ══════════════════════════════════════════════════════════════ */
+
+.construct-checklist {
+	padding: 16px;
+}
+
+.construct-checklist-progress {
+	height: 8px;
+	background: var(--vscode-editor-background);
+	border-radius: 4px;
+	overflow: hidden;
+	margin-bottom: 16px;
+	display: flex;
+}
+
+.construct-checklist-segment {
+	height: 100%;
+	transition: background 0.3s ease;
+}
+
+.construct-checklist-segment.pass {
+	background: #4ec9b0;
+	animation: construct-checklist-fade-in 0.3s ease-in;
+}
+
+.construct-checklist-segment.fail {
+	background: #f44747;
+	animation: construct-checklist-shake 0.3s ease-in;
+}
+
+.construct-checklist-segment.running {
+	background: #4a4aff;
+	animation: construct-checklist-pulse 1s ease-in-out infinite;
+}
+
+.construct-checklist-segment.pending {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.construct-checklist-item {
+	display: flex;
+	align-items: center;
+	padding: 6px 0;
+	font-size: 13px;
+}
+
+.construct-checklist-item-icon {
+	margin-right: 8px;
+	font-size: 14px;
+}
+
+.construct-checklist-item-icon.pass {
+	color: #4ec9b0;
+	animation: construct-checklist-fade-in 0.3s ease-in;
+}
+
+.construct-checklist-item-icon.fail {
+	color: #f44747;
+	animation: construct-checklist-shake 0.3s ease-in;
+}
+
+.construct-checklist-item-icon.running {
+	color: #4a4aff;
+	animation: construct-checklist-spinner 1s linear infinite;
+}
+
+.construct-checklist-item-phase {
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	margin-right: 8px;
+	min-width: 90px;
+}
+
+.construct-checklist-item-check {
+	color: var(--vscode-foreground);
+	flex: 1;
+}
+
+.construct-checklist-item-duration {
+	color: var(--vscode-descriptionForeground);
+	font-size: 11px;
+	margin-left: 8px;
+}
+
+.construct-checklist-item-error {
+	color: #f44747;
+	font-size: 11px;
+	margin-left: 8px;
+}
+
+@keyframes construct-checklist-fade-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes construct-checklist-shake {
+	0%, 100% { transform: translateX(0); }
+	25% { transform: translateX(-4px); }
+	75% { transform: translateX(4px); }
+}
+
+@keyframes construct-checklist-pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.5; }
+}
+
+@keyframes construct-checklist-spinner {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}

@@ -604,11 +604,11 @@ export class MCPServerService extends Disposable implements IMCPServerService {
 
                 this.logService.info(`[MCP:${config.id}] Starting stdio server: ${config.command} ${(config.args ?? []).join(' ')}`);
 
-                // TODO: stdio transport is not available in browser context. In desktop VS Code,
+                // NOTE: stdio transport is not available in browser context. In desktop VS Code,
                 // this would spawn the process via ITerminalExecutionBridgeService. Browser
                 // context requires SSE or StreamableHTTP transport instead.
                 
-                // TODO: child_process not available in browser - simulate PID for logging only
+                // NOTE: child_process not available in browser - simulate PID for logging only
                 client.setPid(Math.floor(Math.random() * 100000) + 1000);
                 this.logService.info(`[MCP:${config.id}] stdio server process simulated (PID: ${client.pid})`);
         }

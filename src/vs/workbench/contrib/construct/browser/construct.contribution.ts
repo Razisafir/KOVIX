@@ -124,8 +124,13 @@ import { MultiAgentExecutionService } from './services/multiAgentExecutionServic
 import { ICreditSystem, ICostGovernor } from '../../../../platform/construct/common/pricing/creditSystem.js';
 import { CreditSystemService, CostGovernorEnhancedService } from './services/pricing/creditSystemService.js';
 
+// Phase 28: Final Integration + GOD Mode Launch
+import { IGodModeActivator, ILaunchChecklist } from '../../../../platform/construct/common/integration/godModeActivator.js';
+import { GodModeActivatorService } from './services/integration/godModeActivatorService.js';
+import { LaunchChecklistService } from './services/integration/launchChecklistService.js';
+
 // ─────────────────────────────────────────────────────────────
-// Singleton Registrations — 43 services total (41 pre-Phase-27 + 2 Phase 27)
+// Singleton Registrations — 45 services total (43 pre-Phase-28 + 2 Phase 28)
 // ─────────────────────────────────────────────────────────────
 
 // Phase 1 (6): LLM Provider + Credential Store + Cost Governor
@@ -204,6 +209,10 @@ registerSingleton(IMultiAgentExecutionService, MultiAgentExecutionService, Insta
 // Phase 27 (2): Credit System + Enhanced Cost Governor
 registerSingleton(ICreditSystem, CreditSystemService, InstantiationType.Eager);
 registerSingleton(ICostGovernor, CostGovernorEnhancedService, InstantiationType.Eager);
+
+// Phase 28 (2): GOD Mode Activator + Launch Checklist
+registerSingleton(IGodModeActivator, GodModeActivatorService, InstantiationType.Eager);
+registerSingleton(ILaunchChecklist, LaunchChecklistService, InstantiationType.Eager);
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 
