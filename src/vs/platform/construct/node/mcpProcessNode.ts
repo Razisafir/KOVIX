@@ -39,7 +39,7 @@ interface IJsonRpcResponse {
  * - 30-second timeout per request
  * - Auto-restart on crash (max 5 times, 3s backoff)
  *
- * This service runs in the VS Code main process and is exposed to the
+ * This service runs in the CONSTRUCT IDE main process and is exposed to the
  * renderer process via IPC. The browser-layer MCPProcessService delegates
  * to this service when available, falling back to IFileService in browser mode.
  */

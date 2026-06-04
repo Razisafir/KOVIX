@@ -3,7 +3,7 @@
 #   Licensed under the MIT License. See License.txt in the project root for license information.
 # ---------------------------------------------------------------------------------------------
 
-# This is a fork of posh-git that has been modified to add additional features and custom VS Code
+# This is a fork of posh-git that has been modified to add additional features and custom CONSTRUCT IDE
 # specific integrations.
 #
 # Copyright (c) 2010-2018 Keith Dahlby, Keith Hill, and contributors

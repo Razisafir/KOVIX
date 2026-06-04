@@ -194,7 +194,7 @@ interface IRenderMarkdownDocumentOptions {
 /**
  * Renders a string of markdown as a document.
  *
- * Uses VS Code's syntax highlighting code blocks.
+ * Uses CONSTRUCT IDE's syntax highlighting code blocks.
  */
 export async function renderMarkdownDocument(
 	text: string,

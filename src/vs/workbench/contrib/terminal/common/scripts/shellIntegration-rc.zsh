@@ -10,7 +10,7 @@ if [ -n "$VSCODE_SHELL_INTEGRATION" ]; then
 	builtin return
 fi
 
-# This variable allows the shell to both detect that VS Code's shell integration is enabled as well
+# This variable allows the shell to both detect that CONSTRUCT IDE's shell integration is enabled as well
 # as disable it by unsetting the variable.
 VSCODE_SHELL_INTEGRATION=1
 

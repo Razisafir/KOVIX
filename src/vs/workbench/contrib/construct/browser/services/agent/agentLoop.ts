@@ -641,7 +641,7 @@ Guidelines:
          */
         private async refreshExplorer(): Promise<void> {
                 try {
-                        // Primary: VS Code command
+                        // Primary: CONSTRUCT IDE command
                         await this.commandService.executeCommand('workbench.files.action.refreshFilesExplorer');
                 } catch {
                         // Fallback: stat the workspace root to trigger file watcher

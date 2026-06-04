@@ -21,13 +21,13 @@ export function createUpdateURL(platform: string, quality: string, productServic
 export type UpdateNotAvailableClassification = {
 	owner: 'joaomoreno';
 	explicit: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'Whether the user has manually checked for updates, or this was an automatic check.' };
-	comment: 'This is used to understand how often VS Code pings the update server for an update and there\'s none available.';
+	comment: 'This is used to understand how often CONSTRUCT IDE pings the update server for an update and there\'s none available.';
 };
 
 export type UpdateErrorClassification = {
 	owner: 'joaomoreno';
 	messageHash: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The hash of the error message.' };
-	comment: 'This is used to know how often VS Code updates have failed.';
+	comment: 'This is used to know how often CONSTRUCT IDE updates have failed.';
 };
 
 export abstract class AbstractUpdateService implements IUpdateService {

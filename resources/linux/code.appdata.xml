@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop">
-	<id>@@NAME@@.desktop</id>
-	<metadata_license>@@LICENSE@@</metadata_license>
-	<project_license>@@LICENSE@@</project_license>
-	<name>@@NAME_LONG@@</name>
-	<url type="homepage">https://code.visualstudio.com</url>
-	<summary>Visual Studio Code. Code editing. Redefined.</summary>
-	<description>
-		<p>Visual Studio Code is a new choice of tool that combines the simplicity of a code editor with what developers need for the core edit-build-debug cycle. See https://code.visualstudio.com/docs/setup/linux for installation instructions and FAQ.</p>
-	</description>
-	<screenshots>
-		<screenshot type="default">
-			<image>https://code.visualstudio.com/home/home-screenshot-linux-lg.png</image>
-			<caption>Editing TypeScript and searching for extensions</caption>
-		</screenshot>
-	</screenshots>
+        <id>@@NAME@@.desktop</id>
+        <metadata_license>@@LICENSE@@</metadata_license>
+        <project_license>@@LICENSE@@</project_license>
+        <name>@@NAME_LONG@@</name>
+        <url type="homepage">https://github.com/Razisafir/CONSTRUCT-VSCODE</url>
+        <summary>CONSTRUCT IDE. AI-native code editing. Redefined.</summary>
+        <description>
+                <p>CONSTRUCT IDE is a new choice of tool that combines the simplicity of a code editor with what developers need for the core edit-build-debug cycle, powered by AI. See https://github.com/Razisafir/CONSTRUCT-VSCODE for more information.</p>
+        </description>
+        <screenshots>
+                <screenshot type="default">
+                        <image>https://code.visualstudio.com/home/home-screenshot-linux-lg.png</image>
+                        <caption>Editing TypeScript and searching for extensions</caption>
+                </screenshot>
+        </screenshots>
 </component>

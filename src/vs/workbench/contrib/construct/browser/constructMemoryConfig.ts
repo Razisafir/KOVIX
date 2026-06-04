@@ -7,7 +7,7 @@ import { localize } from '../../../../nls';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, IConfigurationNode } from '../../../../platform/configuration/common/configurationRegistry.js';
 
-// Register Construct memory settings as VS Code configuration
+// Register Construct memory settings as CONSTRUCT IDE configuration
 const memoryConfiguration: IConfigurationNode = {
                 id: 'construct.memory',
                 order: 100,

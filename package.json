@@ -1,9 +1,9 @@
 {
-  "name": "code-oss-dev",
+  "name": "construct-ide-dev",
   "version": "1.96.0",
   "distro": "c883c91dadf5f063b26c86ffe01851acee3747c6",
   "author": {
-    "name": "Microsoft Corporation"
+    "name": "CONSTRUCT IDE"
   },
   "license": "MIT",
   "main": "./out/main.js",
@@ -244,10 +244,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/microsoft/vscode.git"
+    "url": "https://github.com/Razisafir/CONSTRUCT-VSCODE.git"
   },
   "bugs": {
-    "url": "https://github.com/microsoft/vscode/issues"
+    "url": "https://github.com/Razisafir/CONSTRUCT-VSCODE/issues"
   },
   "optionalDependencies": {
     "windows-foreground-love": "0.5.0"

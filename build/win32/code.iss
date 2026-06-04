@@ -1325,7 +1325,7 @@ begin
 
   #if "user" == InstallTarget
     if not WizardSilent() and IsAdmin() then begin
-      if MsgBox('This User Installer is not meant to be run as an Administrator. If you would like to install VS Code for all users in this system, download the System Installer instead from https://code.visualstudio.com. Are you sure you want to continue?', mbError, MB_OKCANCEL) = IDCANCEL then begin
+      if MsgBox('This User Installer is not meant to be run as an Administrator. If you would like to install CONSTRUCT IDE for all users in this system, download the System Installer instead from https://code.visualstudio.com. Are you sure you want to continue?', mbError, MB_OKCANCEL) = IDCANCEL then begin
         Result := False;
       end;
     end;
@@ -1359,58 +1359,58 @@ end;
 // Updates
 
 var
-	ShouldRestartTunnelService: Boolean;
+        ShouldRestartTunnelService: Boolean;
 
 function StopTunnelOtherProcesses(): Boolean;
 var
-	WaitCounter: Integer;
-	TaskKilled: Integer;
+        WaitCounter: Integer;
+        TaskKilled: Integer;
 begin
-	Log('Stopping all tunnel services (at ' + ExpandConstant('"{app}\bin\{#TunnelApplicationName}.exe"') + ')');
-	ShellExec('', 'powershell.exe', '-Command "Get-WmiObject Win32_Process | Where-Object { $_.ExecutablePath -eq ' + ExpandConstant('''{app}\bin\{#TunnelApplicationName}.exe''') + ' } | Select @{Name=''Id''; Expression={$_.ProcessId}} | Stop-Process -Force"', '', SW_HIDE, ewWaitUntilTerminated, TaskKilled)
+        Log('Stopping all tunnel services (at ' + ExpandConstant('"{app}\bin\{#TunnelApplicationName}.exe"') + ')');
+        ShellExec('', 'powershell.exe', '-Command "Get-WmiObject Win32_Process | Where-Object { $_.ExecutablePath -eq ' + ExpandConstant('''{app}\bin\{#TunnelApplicationName}.exe''') + ' } | Select @{Name=''Id''; Expression={$_.ProcessId}} | Stop-Process -Force"', '', SW_HIDE, ewWaitUntilTerminated, TaskKilled)
 
-	WaitCounter := 10;
-	while (WaitCounter > 0) and CheckForMutexes('{#TunnelMutex}') do
-	begin
-		Log('Tunnel process is is still running, waiting');
-		Sleep(500);
-		WaitCounter := WaitCounter - 1
-	end;
+        WaitCounter := 10;
+        while (WaitCounter > 0) and CheckForMutexes('{#TunnelMutex}') do
+        begin
+                Log('Tunnel process is is still running, waiting');
+                Sleep(500);
+                WaitCounter := WaitCounter - 1
+        end;
 
-	if CheckForMutexes('{#TunnelMutex}') then
-		begin
-			Log('Unable to stop tunnel processes');
-			Result := False;
-		end
-	else
-		Result := True;
+        if CheckForMutexes('{#TunnelMutex}') then
+                begin
+                        Log('Unable to stop tunnel processes');
+                        Result := False;
+                end
+        else
+                Result := True;
 end;
 
 procedure StopTunnelServiceIfNeeded();
 var
-	StopServiceResultCode: Integer;
-	WaitCounter: Integer;
+        StopServiceResultCode: Integer;
+        WaitCounter: Integer;
 begin
   ShouldRestartTunnelService := False;
- 	if CheckForMutexes('{#TunnelServiceMutex}') then begin
-		// stop the tunnel service
-		Log('Stopping the tunnel service using ' + ExpandConstant('"{app}\bin\{#ApplicationName}.cmd"'));
-		ShellExec('', ExpandConstant('"{app}\bin\{#ApplicationName}.cmd"'), 'tunnel service uninstall', '', SW_HIDE, ewWaitUntilTerminated, StopServiceResultCode);
+        if CheckForMutexes('{#TunnelServiceMutex}') then begin
+                // stop the tunnel service
+                Log('Stopping the tunnel service using ' + ExpandConstant('"{app}\bin\{#ApplicationName}.cmd"'));
+                ShellExec('', ExpandConstant('"{app}\bin\{#ApplicationName}.cmd"'), 'tunnel service uninstall', '', SW_HIDE, ewWaitUntilTerminated, StopServiceResultCode);
 
-		Log('Stopping the tunnel service completed with result code ' + IntToStr(StopServiceResultCode));
+                Log('Stopping the tunnel service completed with result code ' + IntToStr(StopServiceResultCode));
 
-		WaitCounter := 10;
-		while (WaitCounter > 0) and CheckForMutexes('{#TunnelServiceMutex}') do
-		begin
-			Log('Tunnel service is still running, waiting');
-			Sleep(500);
-			WaitCounter := WaitCounter - 1
-		end;
-		if CheckForMutexes('{#TunnelServiceMutex}') then
-			Log('Unable to stop tunnel service')
-		else
-			ShouldRestartTunnelService := True;
-	end
+                WaitCounter := 10;
+                while (WaitCounter > 0) and CheckForMutexes('{#TunnelServiceMutex}') do
+                begin
+                        Log('Tunnel service is still running, waiting');
+                        Sleep(500);
+                        WaitCounter := WaitCounter - 1
+                end;
+                if CheckForMutexes('{#TunnelServiceMutex}') then
+                        Log('Unable to stop tunnel service')
+                else
+                        ShouldRestartTunnelService := True;
+        end
 end;
 
 
@@ -1423,7 +1423,7 @@ begin
   if IsNotBackgroundUpdate() and not StopTunnelOtherProcesses() then
      Result := '{#NameShort} is still running a tunnel process. Please stop the tunnel before installing.'
   else
-  	Result := '';
+        Result := '';
 end;
 
 // VS Code will create a flag file before the update starts (/update=C:\foo\bar)
@@ -1507,7 +1507,7 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   UpdateResultCode: Integer;
-	StartServiceResultCode: Integer;
+        StartServiceResultCode: Integer;
 begin
   if CurStep = ssPostInstall then
   begin

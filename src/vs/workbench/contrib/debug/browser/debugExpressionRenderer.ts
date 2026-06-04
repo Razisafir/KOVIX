@@ -34,7 +34,7 @@ export interface IRenderValueOptions {
 	colorize?: boolean;
 
 	/**
-	 * Indicates areas where VS Code implicitly always supported ANSI escape
+	 * Indicates areas where CONSTRUCT IDE implicitly always supported ANSI escape
 	 * sequences. These should be rendered as ANSI when the DA does not specify
 	 * any value of `supportsANSIStyling`.
 	 * @deprecated

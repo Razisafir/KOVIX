@@ -19,8 +19,8 @@ import { joinPath } from '../../../../../../base/common/resources';
  *
  * Strategy:
  * 1. Attempts to use the node-layer MCPProcessNodeService for real MCP protocol
- *    over stdio (if available via VS Code's remote/node IPC).
- * 2. Falls back to VS Code's IFileService for file operations when the node
+ *    over stdio (if available via CONSTRUCT IDE's remote/node IPC).
+ * 2. Falls back to CONSTRUCT IDE's IFileService for file operations when the node
  *    layer is unavailable (browser-only mode).
  *
  * This ensures the agent loop always has functional file operations regardless
@@ -49,7 +49,7 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
         ) {
                 super();
                 // Attempt to acquire the node-layer MCP service via the instantiation
-                // service. This is only available in desktop VS Code (not vscode.dev).
+                // service. This is only available in desktop CONSTRUCT IDE (not vscode.dev).
                 // We use a deferred acquisition pattern since the node service may not
                 // be registered in all execution contexts.
                 this.logService.info('[MCPProcess] Service created');

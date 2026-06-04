@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-title VSCode Dev
+title CONSTRUCT IDE Dev
 
 pushd %~dp0\..
 
@@ -25,9 +25,9 @@ set ELECTRON_ENABLE_STACK_DUMPING=1
 
 set DISABLE_TEST_EXTENSION="--disable-extension=vscode.vscode-api-tests"
 for %%A in (%*) do (
-	if "%%~A"=="--extensionTestsPath" (
-		set DISABLE_TEST_EXTENSION=""
-	)
+        if "%%~A"=="--extensionTestsPath" (
+                set DISABLE_TEST_EXTENSION=""
+        )
 )
 
 :: Launch Code

@@ -69,7 +69,7 @@ export class ConstructMemoryService extends Disposable implements IConstructMemo
                                                 this.containerTag = `construct-${workspaceName.replace(/[^a-zA-Z0-9._-]/g, '-')}`;
                                 }
 
-                                // Load config from VS Code settings first, fall back to storage
+                                // Load config from CONSTRUCT IDE settings first, fall back to storage
                                 const enabled = this.configurationService.getValue<boolean>('construct.memory.enabled')
                                                 ?? this.storageService.getBoolean(SUPERMEMORY_ENABLED_STORAGE_KEY, StorageScope.WORKSPACE, false);
                                 const autoLearn = this.configurationService.getValue<boolean>('construct.memory.autoLearn')
