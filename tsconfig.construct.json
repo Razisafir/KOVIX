@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "commonjs",
+		"moduleResolution": "node",
+		"lib": ["ES2022"],
+		"outDir": "./out/construct",
+		"rootDir": "src/construct",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"resolveJsonModule": true,
+		"declaration": true,
+		"sourceMap": true,
+		"types": ["node", "jest"]
+	},
+	"include": [
+		"src/construct/services/**/*.ts",
+		"src/construct/agent/**/*.ts"
+	],
+	"exclude": ["node_modules", "out", "test"]
+}

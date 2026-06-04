@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"outDir": "./out/construct-webview",
+		"rootDir": "extensions/construct-webview/src",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"jsx": "react-jsx",
+		"types": ["jest"]
+	},
+	"include": [
+		"extensions/construct-webview/src/**/*.ts",
+		"extensions/construct-webview/src/**/*.tsx"
+	],
+	"exclude": ["node_modules", "out"]
+}
