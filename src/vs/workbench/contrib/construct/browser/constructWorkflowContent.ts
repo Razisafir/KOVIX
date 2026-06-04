@@ -13,13 +13,14 @@ import { ISemanticMemoryService } from '../../../../platform/construct/common/me
 import { IProceduralMemoryService } from '../../../../platform/construct/common/memory/proceduralMemory.js';
 import { IMemoryOrchestrator } from '../../../../platform/construct/common/memory/memoryOrchestrator.js';
 import { IEmbeddingService } from '../../../../platform/construct/common/memory/embeddingService.js';
+import { IConstructMemoryService } from '../../../../platform/construct/common/memory/constructMemory.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
  * Handles postMessage communication between the Construct webview
  * and the MCP server manager / marketplace / browser automation / memory services.
  *
- * Registered handler types (34 total):
+ * Registered handler types (41 total):
  *   MCP (17): mcp:listServers, mcp:installServer, mcp:executeTool, mcp:getHealth,
  *     mcp:startServer, mcp:stopServer, mcp:fetchCatalog, mcp:getFeatured,
  *     mcp:rateServer, mcp:uninstallServer, mcp:restartServer, mcp:listTools,
@@ -30,6 +31,9 @@ import { ILogService } from '../../../../platform/log/common/log.js';
  *     browser:fill, browser:evaluate, browser:compare, browser:getContext
  *   Memory (7): memory:search, memory:stats, memory:consolidate, memory:forget,
  *     memory:injectContext, memory:recordEvent, memory:storeKnowledge
+ *   Supermemory (7): supermemory:initialize, supermemory:disconnect,
+ *     supermemory:addMemory, supermemory:getProfile, supermemory:search,
+ *     supermemory:getContext, supermemory:testConnection
  */
 export class ConstructWorkflowContent extends Disposable {
 
@@ -45,6 +49,7 @@ export class ConstructWorkflowContent extends Disposable {
                 @IProceduralMemoryService private readonly proceduralMemory: IProceduralMemoryService,
                 @IMemoryOrchestrator private readonly memoryOrchestrator: IMemoryOrchestrator,
                 @IEmbeddingService private readonly embeddingService: IEmbeddingService,
+                @IConstructMemoryService private readonly constructMemory: IConstructMemoryService,
                 @ILogService private readonly logService: ILogService,
         ) {
                 super();
@@ -314,6 +319,55 @@ export class ConstructWorkflowContent extends Disposable {
                                 embedding: []
                         });
                         return { type: 'memory:knowledgeStored' };
+                });
+
+                // --- Supermemory Handlers (Phase 19+) ---------------------------
+
+                this._handlers.set('supermemory:initialize', async (payload: { apiKey: string }) => {
+                        try {
+                                await this.constructMemory.initialize(payload.apiKey);
+                                return { type: 'supermemory:initialized', success: true, isInitialized: this.constructMemory.isInitialized };
+                        } catch (error) {
+                                return {
+                                        type: 'supermemory:initialized',
+                                        success: false,
+                                        error: error instanceof Error ? error.message : String(error)
+                                };
+                        }
+                });
+
+                this._handlers.set('supermemory:disconnect', async () => {
+                        this.constructMemory.disconnect();
+                        return { type: 'supermemory:disconnected', isInitialized: this.constructMemory.isInitialized };
+                });
+
+                this._handlers.set('supermemory:addMemory', async (payload: { content: string; metadata?: Record<string, string | number | boolean | string[]> }) => {
+                        await this.constructMemory.addMemory(payload.content, payload.metadata);
+                        return { type: 'supermemory:memoryAdded', success: true };
+                });
+
+                this._handlers.set('supermemory:getProfile', async (payload?: { query?: string }) => {
+                        const profile = await this.constructMemory.getProfile(payload?.query);
+                        return { type: 'supermemory:profile', profile };
+                });
+
+                this._handlers.set('supermemory:search', async (payload: { query: string; searchMode?: 'memories' | 'hybrid' | 'documents'; limit?: number }) => {
+                        const results = await this.constructMemory.searchMemories(
+                                payload.query,
+                                payload.searchMode,
+                                payload.limit
+                        );
+                        return { type: 'supermemory:searchResults', results };
+                });
+
+                this._handlers.set('supermemory:getContext', async (payload: { task: string }) => {
+                        const context = await this.constructMemory.getContextForTask(payload.task);
+                        return { type: 'supermemory:contextResult', context };
+                });
+
+                this._handlers.set('supermemory:testConnection', async () => {
+                        const healthy = await this.constructMemory.testConnection();
+                        return { type: 'supermemory:connectionTest', healthy, isInitialized: this.constructMemory.isInitialized };
                 });
         }
 

@@ -11,6 +11,7 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 import { ViewPaneContainer } from '../../../../workbench/browser/parts/views/viewPaneContainer.js';
 import { ConstructAgentViewPane } from './constructAgentView.js';
+import { ConstructMemoryViewPane } from './constructMemoryView.js';
 import { IStatusbarService, StatusbarAlignment, IStatusbarEntryAccessor } from '../../../../workbench/services/statusbar/browser/statusbar.js';
 import { IWorkbenchContribution, Extensions as WorkbenchExtensions, IWorkbenchContributionsRegistry } from '../../../../workbench/common/contributions.js';
 import { LifecyclePhase } from '../../../../workbench/services/lifecycle/common/lifecycle.js';
@@ -33,14 +34,21 @@ import { ISemanticMemoryService } from '../../../../platform/construct/common/me
 import { IProceduralMemoryService } from '../../../../platform/construct/common/memory/proceduralMemory.js';
 import { IMemoryOrchestrator } from '../../../../platform/construct/common/memory/memoryOrchestrator.js';
 import { IEmbeddingService } from '../../../../platform/construct/common/memory/embeddingService.js';
+import { IConstructMemoryService } from '../../../../platform/construct/common/memory/constructMemory.js';
 import { WorkingMemoryService } from './services/memory/workingMemoryService.js';
 import { EpisodicMemoryService } from './services/memory/episodicMemoryService.js';
 import { SemanticMemoryService } from './services/memory/semanticMemoryService.js';
 import { ProceduralMemoryService } from './services/memory/proceduralMemoryService.js';
 import { MemoryOrchestratorService } from './services/memory/memoryOrchestratorService.js';
 import { EmbeddingService } from './services/memory/embeddingService.js';
+import { ConstructMemoryService } from './services/memory/constructMemoryService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import './constructMemoryConfig.js';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
+const constructMemoryIcon = registerIcon('construct-memory-icon', Codicon.brain, localize('constructMemoryIcon', 'View icon of the Construct Memory view.'));
 
 // Register the Construct view container in the sidebar
 const constructViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
@@ -60,6 +68,14 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
         canToggleVisibility: true,
         canMoveView: true,
         order: 1,
+}, {
+        id: 'construct.memoryPanel',
+        name: localize2('memoryPanel', "Memory"),
+        containerIcon: constructMemoryIcon,
+        ctorDescriptor: new SyncDescriptor(ConstructMemoryViewPane),
+        canToggleVisibility: true,
+        canMoveView: true,
+        order: 2,
 }], constructViewContainer);
 
 // Status Bar Integration
@@ -104,7 +120,8 @@ class ConstructStatusBarContribution extends Disposable implements IWorkbenchCon
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(ConstructStatusBarContribution, LifecyclePhase.Restored);
 
-// Register Construct commands
+// --- Construct Commands --------------------------------------------------------
+
 registerAction2(class FocusConstructPanelAction extends Action2 {
         constructor() {
                 super({
@@ -151,10 +168,139 @@ registerAction2(class ShowInlineAgentAction extends Action2 {
                 });
         }
         run(accessor: ServicesAccessor): void {
-                // The inline agent widget is activated through the editor contribution
-                // which is registered separately. This command is a placeholder that
-                // opens the agent panel as a fallback.
                 accessor.get(IViewsService).openView('construct.agentPanel', true);
+        }
+});
+
+// --- Memory Commands (Phase 19+Supermemory) ------------------------------------
+
+registerAction2(class OpenMemoryPanelAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.openMemoryPanel',
+                        title: localize2('openMemoryPanel', "Open Memory Panel"),
+                        f1: true,
+                        category: localize2('constructCategory4', "Construct"),
+                });
+        }
+        run(accessor: ServicesAccessor): void {
+                accessor.get(IViewsService).openView('construct.memoryPanel', true);
+        }
+});
+
+registerAction2(class SearchMemoriesAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.searchMemories',
+                        title: localize2('searchMemories', "Search Memories"),
+                        f1: true,
+                        category: localize2('constructCategory5', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const quickInput = accessor.get(IQuickInputService);
+                const memoryService = accessor.get(IConstructMemoryService);
+                const logService = accessor.get(ILogService);
+
+                const query = await new Promise<string | undefined>((resolve) => {
+                        const input = quickInput.createInputBox();
+                        input.placeholder = 'Search memories...';
+                        input.onDidAccept(() => {
+                                resolve(input.value);
+                                input.dispose();
+                        });
+                        input.onDidHide(() => {
+                                resolve(undefined);
+                                input.dispose();
+                        });
+                        input.show();
+                });
+
+                if (!query) { return; }
+
+                try {
+                        const results = await memoryService.searchMemories(query, 'hybrid', 10);
+                        if (results.length === 0) {
+                                quickInput.pick([{ label: 'No memories found', alwaysShow: true }]);
+                                return;
+                        }
+
+                        const picks = results.map(r => ({
+                                label: r.content.length > 100 ? r.content.substring(0, 100) + '...' : r.content,
+                                detail: r.metadata?.type ? String(r.metadata.type) : undefined,
+                                description: r.score ? `${(r.score * 100).toFixed(0)}% match` : undefined,
+                        }));
+
+                        await quickInput.pick(picks, { placeHolder: `${results.length} memories found` });
+                } catch (error) {
+                        logService.error('[Construct] Search failed:', error);
+                }
+        }
+});
+
+registerAction2(class AddMemoryAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.addMemory',
+                        title: localize2('addMemory', "Add Memory"),
+                        f1: true,
+                        category: localize2('constructCategory6', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const quickInput = accessor.get(IQuickInputService);
+                const memoryService = accessor.get(IConstructMemoryService);
+                const notificationService = accessor.get(INotificationService);
+
+                const content = await new Promise<string | undefined>((resolve) => {
+                        const input = quickInput.createInputBox();
+                        input.placeholder = 'Enter a fact or memory to store...';
+                        input.onDidAccept(() => {
+                                resolve(input.value);
+                                input.dispose();
+                        });
+                        input.onDidHide(() => {
+                                resolve(undefined);
+                                input.dispose();
+                        });
+                        input.show();
+                });
+
+                if (!content) { return; }
+
+                try {
+                        await memoryService.addMemory(content, { type: 'manual', source: 'command' });
+                        notificationService.info(`Memory added: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`);
+                } catch (error) {
+                        notificationService.error(`Failed to add memory: ${error instanceof Error ? error.message : String(error)}`);
+                }
+        }
+});
+
+registerAction2(class TestLLMConnectionAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.testMemoryConnection',
+                        title: localize2('testMemoryConnection', "Test Memory Connection"),
+                        f1: true,
+                        category: localize2('constructCategory7', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const memoryService = accessor.get(IConstructMemoryService);
+                const notificationService = accessor.get(INotificationService);
+
+                if (!memoryService.isInitialized) {
+                        notificationService.warn('Supermemory is not connected. Please configure your API key in settings.');
+                        return;
+                }
+
+                const healthy = await memoryService.testConnection();
+                if (healthy) {
+                        notificationService.info('🧠 Supermemory connection: Healthy');
+                } else {
+                        notificationService.error('🧠 Supermemory connection: Failed. Check your API key.');
+                }
         }
 });
 
@@ -172,3 +318,6 @@ registerSingleton(IEmbeddingService, EmbeddingService, InstantiationType.Eager);
 registerSingleton(ISemanticMemoryService, SemanticMemoryService, InstantiationType.Eager);
 registerSingleton(IProceduralMemoryService, ProceduralMemoryService, InstantiationType.Eager);
 registerSingleton(IMemoryOrchestrator, MemoryOrchestratorService, InstantiationType.Eager);
+
+// --- Supermemory Integration Singleton (Phase 19+) ----------------------------
+registerSingleton(IConstructMemoryService, ConstructMemoryService, InstantiationType.Delayed);
