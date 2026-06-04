@@ -5,8 +5,8 @@
 
 import { IConstructService } from '../common/construct.js';
 import { IMCPProcessNodeService } from '../common/mcp/mcpProcessNode.js';
-import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
-import { registerMainProcessRemoteService } from '../../../../platform/ipc/electron-sandbox/services.js';
+import { registerSingleton, InstantiationType } from '../../instantiation/common/extensions';
+import { registerMainProcessRemoteService } from '../../ipc/electron-sandbox/services';
 
 class ConstructService implements IConstructService {
 	declare readonly _serviceBrand: undefined;

@@ -5,7 +5,7 @@
 
 import { Disposable } from "../../../../../../base/common/lifecycle.js";
 import { ILogService } from "../../../../../../platform/log/common/log.js";
-import { IFileService } from "../../../../../../platform/files/common/files.js";
+import { IFileService } from "../../../../../../platform/files/common/files";
 import { IWorkspaceContextService } from "../../../../../../platform/workspace/common/workspace.js";
 import {
 	IDiffApplier,
@@ -13,7 +13,7 @@ import {
 } from "../../../../../../platform/construct/common/editor/diffApplier.js";
 import { URI } from "../../../../../../base/common/uri.js";
 import { VSBuffer } from "../../../../../../base/common/buffer.js";
-import { joinPath } from "../../../../../../base/common/resources.js";
+import { joinPath } from "../../../../../../base/common/resources";
 
 export class DiffApplierService extends Disposable implements IDiffApplier {
 	readonly _serviceBrand: undefined;

@@ -5,8 +5,8 @@
 
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { IMCPMarketplaceItem } from './mcpTypes.js';
+import { createDecorator } from '../../../instantiation/common/instantiation.js';
+import { IMCPMarketplaceItem } from './mcpTypes';
 
 export const IMCPMarketplace = createDecorator<IMCPMarketplace>('construct.mcpMarketplace');
 

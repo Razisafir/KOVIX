@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event, Emitter } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
-import { IMCPServerManager } from '../../../../platform/construct/common/mcp/mcpServerManager.js';
-import { IMCPServerDefinition, MCPTransportType } from '../../../../platform/construct/common/mcp/mcpTypes.js';
+import { Emitter } from '../../../../../../base/common/event.js';
+import { Disposable } from '../../../../../../base/common/lifecycle.js';
+import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../../../platform/log/common/log.js';
+import { IMCPServerManager } from '../../../../../../platform/construct/common/mcp/mcpServerManager.js';
+import { IMCPServerDefinition, MCPTransportType } from '../../../../../../platform/construct/common/mcp/mcpTypes';
 import {
         IBrowserAutomationService,
         IBrowserSession,
@@ -17,7 +17,7 @@ import {
         IBrowserDiff,
         IBrowserConsoleEntry,
         IBrowserActionRecord
-} from '../../../../platform/construct/common/mcp/browserAutomation.js';
+} from '../../../../../../platform/construct/common/mcp/browserAutomation.js';
 
 // --- Constants -------------------------------------------------------------
 
@@ -30,18 +30,26 @@ const MAX_CONSOLE_ERRORS_FOR_CONTEXT = 5;
 
 // --- Internal Session State ------------------------------------------------
 
-interface ISessionInternal extends IBrowserSession {
+// Extend ISessionInternal to include mutable fields that are managed internally
+type SessionInternal = IBrowserSession & {
         screenshots: IBrowserScreenshot[];
         actions: IBrowserActionRecord[];
         consoleLogs: IBrowserConsoleEntry[];
-}
+        status: BrowserSessionStatus;
+        url: string;
+        title: string;
+        lastActivity: number;
+        viewport: { width: number; height: number };
+        screenshot?: string;
+        accessibilityTree?: string;
+};
 
 // --- Service Implementation ------------------------------------------------
 
 export class BrowserAutomationService extends Disposable implements IBrowserAutomationService {
         readonly _serviceBrand: undefined;
 
-        private readonly sessions = new Map<string, ISessionInternal>();
+        private readonly sessions = new Map<string, SessionInternal>();
         private playwrightInstalled = false;
         private nextId = 0;
 
@@ -65,7 +73,7 @@ export class BrowserAutomationService extends Disposable implements IBrowserAuto
         // --- Constructor ----------------------------------------------------
 
         constructor(
-                @IInstantiationService private readonly instantiationService: IInstantiationService,
+                @IInstantiationService _instantiationService: IInstantiationService,
                 @ILogService private readonly logService: ILogService,
                 @IMCPServerManager private readonly mcpServerManager: IMCPServerManager
         ) {
@@ -82,7 +90,7 @@ export class BrowserAutomationService extends Disposable implements IBrowserAuto
                 const id = `browser-${++this.nextId}`;
                 const vp = viewport ?? DEFAULT_VIEWPORT;
 
-                const session: ISessionInternal = {
+                const session: SessionInternal = {
                         id,
                         url: url ?? 'about:blank',
                         title: 'New Tab',
@@ -472,7 +480,7 @@ export class BrowserAutomationService extends Disposable implements IBrowserAuto
         /**
          * Get an active (non-closed) session or throw.
          */
-        private getActiveSession(sessionId: string): ISessionInternal {
+        private getActiveSession(sessionId: string): SessionInternal {
                 const session = this.sessions.get(sessionId);
                 if (!session) {
                         throw new Error(`Browser session ${sessionId} not found`);
@@ -580,7 +588,7 @@ export class BrowserAutomationService extends Disposable implements IBrowserAuto
         /**
          * Strip internal fields (screenshots, actions, consoleLogs) for public API.
          */
-        private toPublicSession(session: ISessionInternal): IBrowserSession {
+        private toPublicSession(session: SessionInternal): IBrowserSession {
                 return {
                         id: session.id,
                         url: session.url,

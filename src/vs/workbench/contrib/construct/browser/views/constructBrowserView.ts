@@ -3,22 +3,21 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as dom from '../../../../base/browser/dom.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IViewPaneOptions } from '../../../../workbench/browser/parts/views/viewPane.js';
-import { ViewPane } from '../../../../workbench/browser/parts/views/viewPane.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IViewDescriptorService } from '../../../../workbench/common/views.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
-import { IBrowserAutomationService, IBrowserSession, IBrowserScreenshot, BrowserSessionStatus } from '../../../../platform/construct/common/mcp/browserAutomation.js';
+import * as dom from '../../../../../base/browser/dom.js';
+import { IViewPaneOptions } from '../../../../../workbench/browser/parts/views/viewPane.js';
+import { ViewPane } from '../../../../../workbench/browser/parts/views/viewPane.js';
+import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
+import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IViewDescriptorService } from '../../../../../workbench/common/views';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
+import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
+import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
+import { IBrowserAutomationService, IBrowserSession, IBrowserScreenshot } from '../../../../../platform/construct/common/mcp/browserAutomation.js';
 
 // --- View Constants --------------------------------------------------------
 
@@ -26,7 +25,6 @@ export class ConstructBrowserView extends ViewPane {
         static readonly ID = 'workbench.view.construct.browser';
         static readonly TITLE = 'Browser Preview';
 
-        private container: HTMLElement | undefined;
         private currentSessionId: string | undefined;
         private urlInput: HTMLInputElement | undefined;
         private screenshotContainer: HTMLElement | undefined;
@@ -62,7 +60,6 @@ export class ConstructBrowserView extends ViewPane {
 
         protected override renderBody(container: HTMLElement): void {
                 super.renderBody(container);
-                this.container = container;
                 container.classList.add('construct-browser-view');
 
                 // -- Session Tabs ----------------------------------------------

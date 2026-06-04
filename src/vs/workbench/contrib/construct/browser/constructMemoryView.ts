@@ -3,13 +3,23 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IViewPaneOptions } from '../../../../workbench/browser/parts/views/viewPane.js';
-import { ViewPane } from '../../../../workbench/browser/parts/views/viewPane.js';
+import { IViewPaneOptions, ViewPane } from '../../../../workbench/browser/parts/views/viewPane.js';
 import * as dom from '../../../../base/browser/dom.js';
 import { IConstructMemoryService, IConstructMemoryItem, IConstructMemoryProfile } from '../../../../platform/construct/common/memory/constructMemory.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IMemoryOrchestrator } from '../../../../platform/construct/common/memory/memoryOrchestrator.js';
-import { IMemoryStats } from '../../../../platform/construct/common/memory/memoryTypes.js';
+import { IMemoryStats } from '../../../../platform/construct/common/memory/memoryTypes';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IViewDescriptorService } from '../../../../workbench/common/views';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+
 
 /**
  * Categories for the memory tree view.
@@ -39,7 +49,6 @@ interface IMemoryTreeItem {
 
 export class ConstructMemoryViewPane extends ViewPane {
 
-		private treeContainer!: HTMLElement;
 		private searchBox!: HTMLInputElement;
 		private treeContent!: HTMLElement;
 		private statsBar!: HTMLElement;
@@ -54,8 +63,18 @@ export class ConstructMemoryViewPane extends ViewPane {
 				@IConstructMemoryService private readonly constructMemory: IConstructMemoryService,
 				@IMemoryOrchestrator private readonly memoryOrchestrator: IMemoryOrchestrator,
 				@ILogService private readonly logService: ILogService,
+				@IKeybindingService keybindingService: IKeybindingService,
+				@IContextMenuService contextMenuService: IContextMenuService,
+				@IConfigurationService configurationService: IConfigurationService,
+				@IContextKeyService contextKeyService: IContextKeyService,
+				@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+				@IInstantiationService instantiationService: IInstantiationService,
+				@IOpenerService openerService: IOpenerService,
+				@IThemeService themeService: IThemeService,
+				@ITelemetryService telemetryService: ITelemetryService,
+				@IHoverService hoverService: IHoverService,
 		) {
-				super(options);
+				super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
 		}
 
 		protected override renderBody(container: HTMLElement): void {

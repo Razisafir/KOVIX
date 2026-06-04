@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { createDecorator } from '../../../instantiation/common/instantiation.js';
 import { Event } from '../../../../base/common/event.js';
 
 export const IAnthropicProvider = createDecorator<IAnthropicProvider>('construct.anthropicProvider');

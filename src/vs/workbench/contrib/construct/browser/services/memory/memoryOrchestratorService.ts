@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event, Emitter } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
-import { IMemoryOrchestrator } from '../../../../platform/construct/common/memory/memoryOrchestrator.js';
+import { Emitter } from '../../../../../../base/common/event.js';
+import { Disposable } from '../../../../../../base/common/lifecycle.js';
+import { ILogService } from '../../../../../../platform/log/common/log.js';
+import { IMemoryOrchestrator } from '../../../../../../platform/construct/common/memory/memoryOrchestrator.js';
 import {
         IMemoryQuery,
         IMemorySearchResult,
@@ -17,13 +17,13 @@ import {
         IEpisodicMemoryEntry,
         ISemanticMemoryEntry,
         IProceduralMemoryEntry
-} from '../../../../platform/construct/common/memory/memoryTypes.js';
-import { IWorkingMemoryService } from '../../../../platform/construct/common/memory/workingMemory.js';
-import { IEpisodicMemoryService } from '../../../../platform/construct/common/memory/episodicMemory.js';
-import { ISemanticMemoryService } from '../../../../platform/construct/common/memory/semanticMemory.js';
-import { IProceduralMemoryService } from '../../../../platform/construct/common/memory/proceduralMemory.js';
-import { IEmbeddingService } from '../../../../platform/construct/common/memory/embeddingService.js';
-import { IConstructMemoryService } from '../../../../platform/construct/common/memory/constructMemory.js';
+} from '../../../../../../platform/construct/common/memory/memoryTypes';
+import { IWorkingMemoryService } from '../../../../../../platform/construct/common/memory/workingMemory.js';
+import { IEpisodicMemoryService } from '../../../../../../platform/construct/common/memory/episodicMemory.js';
+import { ISemanticMemoryService } from '../../../../../../platform/construct/common/memory/semanticMemory.js';
+import { IProceduralMemoryService } from '../../../../../../platform/construct/common/memory/proceduralMemory.js';
+import { IEmbeddingService } from '../../../../../../platform/construct/common/memory/embeddingService.js';
+import { IConstructMemoryService } from '../../../../../../platform/construct/common/memory/constructMemory.js';
 
 const DEFAULT_MAX_TOKENS = 4000;
 const TOKEN_PER_CHAR = 0.25;
@@ -43,7 +43,7 @@ export class MemoryOrchestratorService extends Disposable implements IMemoryOrch
                 @IEpisodicMemoryService private readonly episodicMemory: IEpisodicMemoryService,
                 @ISemanticMemoryService private readonly semanticMemory: ISemanticMemoryService,
                 @IProceduralMemoryService private readonly proceduralMemory: IProceduralMemoryService,
-                @IEmbeddingService private readonly embeddingService: IEmbeddingService,
+                @IEmbeddingService _embeddingService: IEmbeddingService,
                 @IConstructMemoryService private readonly constructMemory: IConstructMemoryService
         ) {
                 super();
@@ -128,7 +128,7 @@ export class MemoryOrchestratorService extends Disposable implements IMemoryOrch
                                 return {
                                         entries: events,
                                         total: events.length,
-                                        relevanceScores: events.map((_, i) => 0.9 - i * 0.05),
+                                        relevanceScores: events.map((_e: IEpisodicMemoryEntry, i: number) => 0.9 - i * 0.05),
                                         queryTimeMs: 0
                                 };
                         }
@@ -159,7 +159,7 @@ export class MemoryOrchestratorService extends Disposable implements IMemoryOrch
                                 return {
                                         entries: patterns.slice(0, query.topK ?? 10),
                                         total: patterns.length,
-                                        relevanceScores: patterns.map(p => (p as IProceduralMemoryEntry).successCount / Math.max((p as IProceduralMemoryEntry).totalAttempts, 1)),
+                                        relevanceScores: patterns.map((p: IProceduralMemoryEntry) => (p as IProceduralMemoryEntry).successCount / Math.max((p as IProceduralMemoryEntry).totalAttempts, 1)),
                                         queryTimeMs: 0
                                 };
                         }
@@ -195,11 +195,11 @@ export class MemoryOrchestratorService extends Disposable implements IMemoryOrch
                         }
                 }
 
-                const successfulEvents = oldEvents.filter(e => e.success);
+                const successfulEvents = oldEvents.filter((e: IEpisodicMemoryEntry) => e.success);
                 if (successfulEvents.length > 0) {
                         await this.proceduralMemory.extractPatternsFromEpisodes(
                                 projectId,
-                                successfulEvents.map(e => `${e.action}: ${e.outcome}`)
+                                successfulEvents.map((e: IEpisodicMemoryEntry) => `${e.action}: ${e.outcome}`)
                         );
                 }
 
@@ -251,7 +251,7 @@ export class MemoryOrchestratorService extends Disposable implements IMemoryOrch
         async injectContextIntoPrompt(prompt: string, projectId: string, maxTokens: number = DEFAULT_MAX_TOKENS): Promise<string> {
                 const parts: string[] = [];
 
-                // If Supermemory is enabled and initialized, get persistent context first
+                // Not needed: embeddingService unused but kept for DI consistency
                 if (this.constructMemory.isInitialized && this.constructMemory.config.enabled) {
                         try {
                                 const supermemoryContext = await this.constructMemory.getContextForTask(prompt);
@@ -304,7 +304,7 @@ export class MemoryOrchestratorService extends Disposable implements IMemoryOrch
                 const parts: string[] = [];
 
                 // Working memory (current session)
-                const working = queryResult.entries.find(e => e.layer === MemoryLayer.Working) as IWorkingMemoryEntry | undefined;
+                const working = queryResult.entries.find((e: IMemoryEntry) => e.layer === MemoryLayer.Working) as IWorkingMemoryEntry | undefined;
                 if (working) {
                         parts.push('Current Context:');
                         if (working.activeFiles.length > 0) {
@@ -317,7 +317,7 @@ export class MemoryOrchestratorService extends Disposable implements IMemoryOrch
                 }
 
                 // Episodic (recent actions)
-                const episodic = queryResult.entries.filter(e => e.layer === MemoryLayer.Episodic) as IEpisodicMemoryEntry[];
+                const episodic = queryResult.entries.filter((e: IMemoryEntry) => e.layer === MemoryLayer.Episodic) as IEpisodicMemoryEntry[];
                 if (episodic.length > 0) {
                         parts.push('Recent Actions:');
                         for (const e of episodic.slice(0, 3)) {
@@ -327,7 +327,7 @@ export class MemoryOrchestratorService extends Disposable implements IMemoryOrch
                 }
 
                 // Semantic (knowledge)
-                const semantic = queryResult.entries.filter(e => e.layer === MemoryLayer.Semantic) as ISemanticMemoryEntry[];
+                const semantic = queryResult.entries.filter((e: IMemoryEntry) => e.layer === MemoryLayer.Semantic) as ISemanticMemoryEntry[];
                 if (semantic.length > 0) {
                         parts.push('Relevant Knowledge:');
                         for (const s of semantic) {
@@ -337,7 +337,7 @@ export class MemoryOrchestratorService extends Disposable implements IMemoryOrch
                 }
 
                 // Procedural (patterns)
-                const procedural = queryResult.entries.filter(e => e.layer === MemoryLayer.Procedural) as IProceduralMemoryEntry[];
+                const procedural = queryResult.entries.filter((e: IMemoryEntry) => e.layer === MemoryLayer.Procedural) as IProceduralMemoryEntry[];
                 if (procedural.length > 0) {
                         parts.push('Known Patterns:');
                         for (const p of procedural.slice(0, 2)) {

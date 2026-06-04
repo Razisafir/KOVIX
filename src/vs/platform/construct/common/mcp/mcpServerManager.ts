@@ -5,7 +5,7 @@
 
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
-import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { createDecorator } from '../../../instantiation/common/instantiation.js';
 import {
 	IMCPServerDefinition,
 	IMCPTool,
@@ -15,7 +15,7 @@ import {
 	IMCPConnectionEvent,
 	IMCPExecutionResult,
 	IMCPResourceResult
-} from './mcpTypes.js';
+} from './mcpTypes';
 
 export const IMCPServerManager = createDecorator<IMCPServerManager>('construct.mcpServerManager');
 

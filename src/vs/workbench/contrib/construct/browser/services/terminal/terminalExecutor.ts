@@ -123,7 +123,7 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                         });
 
                         // Listen for terminal exit
-                        const exitListener = instance.onExit((e: { code?: number } | number) => {
+                        const exitListener = instance.onExit((e: number | { code?: number } | undefined) => {
                                 dataListener.dispose();
                                 exitListener.dispose();
 

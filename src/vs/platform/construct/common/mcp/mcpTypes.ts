@@ -3,134 +3,131 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from '../../../../base/common/event.js';
-import { IDisposable } from '../../../../base/common/lifecycle.js';
-
 // --- Transport & Connection Enums ------------------------------------------
 
 export const enum MCPTransportType {
-	Stdio = 'stdio',
-	SSE = 'sse'
+        Stdio = 'stdio',
+        SSE = 'sse'
 }
 
 export const enum MCPConnectionState {
-	Disconnected = 'disconnected',
-	Connecting = 'connecting',
-	Connected = 'connected',
-	Reconnecting = 'reconnecting',
-	Error = 'error',
-	Stopping = 'stopping'
+        Disconnected = 'disconnected',
+        Connecting = 'connecting',
+        Connected = 'connected',
+        Reconnecting = 'reconnecting',
+        Error = 'error',
+        Stopping = 'stopping'
 }
 
 export const enum MCPHealthStatus {
-	Healthy = 'healthy',
-	Degraded = 'degraded',
-	Unhealthy = 'unhealthy',
-	Unknown = 'unknown'
+        Healthy = 'healthy',
+        Degraded = 'degraded',
+        Unhealthy = 'unhealthy',
+        Unknown = 'unknown'
 }
 
 // --- Server Definition -----------------------------------------------------
 
 export interface IMCPServerDefinition {
-	readonly name: string;
-	readonly command: string;
-	readonly args: string[];
-	readonly env: Record<string, string>;
-	readonly transport: MCPTransportType;
-	readonly version?: string;
-	readonly description?: string;
-	readonly categories: string[];
-	readonly installPath?: string;
-	readonly isBuiltin?: boolean;
-	readonly enabled?: boolean;
-	readonly autoRestart?: boolean;
-	readonly icon?: string;
-	/** Keys that should be stored in ISecretStorage (never plaintext) */
-	readonly secretEnvKeys?: string[];
+        readonly name: string;
+        readonly command: string;
+        readonly args: string[];
+        readonly env: Record<string, string>;
+        readonly transport: MCPTransportType;
+        readonly version?: string;
+        readonly description?: string;
+        readonly categories: string[];
+        readonly installPath?: string;
+        readonly isBuiltin?: boolean;
+        readonly enabled?: boolean;
+        readonly autoRestart?: boolean;
+        readonly icon?: string;
+        /** Keys that should be stored in ISecretStorage (never plaintext) */
+        readonly secretEnvKeys?: string[];
 }
 
 // --- Tool, Resource, Prompt ------------------------------------------------
 
 export interface IMCPTool {
-	readonly name: string;
-	readonly description: string;
-	readonly inputSchema: object;
-	readonly serverName: string;
+        readonly name: string;
+        readonly description: string;
+        readonly inputSchema: object;
+        readonly serverName: string;
 }
 
 export interface IMCPResource {
-	readonly uri: string;
-	readonly mimeType: string;
-	readonly name: string;
-	readonly description: string;
-	readonly serverName: string;
+        readonly uri: string;
+        readonly mimeType: string;
+        readonly name: string;
+        readonly description: string;
+        readonly serverName: string;
 }
 
 export interface IMCPPrompt {
-	readonly name: string;
-	readonly description: string;
-	readonly arguments?: Array<{ name: string; description: string; required?: boolean }>;
-	readonly serverName: string;
+        readonly name: string;
+        readonly description: string;
+        readonly arguments?: Array<{ name: string; description: string; required?: boolean }>;
+        readonly serverName: string;
 }
 
 // --- Health & Connection Events --------------------------------------------
 
 export interface IMCPHealthStatus {
-	readonly serverName: string;
-	readonly status: MCPHealthStatus;
-	readonly lastPing: number;
-	readonly errorCount: number;
-	readonly latencyMs: number;
-	readonly message?: string;
+        readonly serverName: string;
+        readonly status: MCPHealthStatus;
+        readonly lastPing: number;
+        readonly errorCount: number;
+        readonly latencyMs: number;
+        readonly message?: string;
 }
 
 export interface IMCPConnectionEvent {
-	readonly serverName: string;
-	readonly state: MCPConnectionState;
-	readonly timestamp: number;
-	readonly error?: string;
+        readonly serverName: string;
+        readonly state: MCPConnectionState;
+        readonly timestamp: number;
+        readonly error?: string;
 }
 
 // --- Marketplace -----------------------------------------------------------
 
 export interface IMCPMarketplaceItem {
-	readonly id: string;
-	readonly name: string;
-	readonly description: string;
-	readonly author: string;
-	readonly version: string;
-	readonly categories: string[];
-	readonly tags: string[];
-	readonly rating: number;
-	readonly downloadCount: number;
-	readonly command: string;
-	readonly args: string[];
-	readonly env: Record<string, string>;
-	readonly transport: MCPTransportType;
-	readonly featured?: boolean;
-	readonly iconUrl?: string;
-	readonly documentationUrl?: string;
-	readonly repositoryUrl?: string;
+        readonly id: string;
+        readonly name: string;
+        readonly description: string;
+        readonly author: string;
+        readonly version: string;
+        readonly categories: string[];
+        readonly tags: string[];
+        readonly rating: number;
+        readonly downloadCount: number;
+        readonly command: string;
+        readonly args: string[];
+        readonly env: Record<string, string>;
+        readonly transport: MCPTransportType;
+        readonly featured?: boolean;
+        readonly iconUrl?: string;
+        readonly documentationUrl?: string;
+        readonly repositoryUrl?: string;
 }
 
 // --- Execution Results -----------------------------------------------------
 
 export interface IMCPExecutionResult {
-	readonly success: boolean;
-	readonly data?: any;
-	readonly error?: string;
-	readonly durationMs: number;
-	readonly toolName: string;
-	readonly serverName: string;
+        readonly success: boolean;
+        readonly data?: any;
+        readonly error?: string;
+        readonly durationMs: number;
+        readonly toolName: string;
+        readonly serverName: string;
 }
 
 export interface IMCPResourceResult {
-	readonly success: boolean;
-	readonly content?: string;
-	readonly mimeType?: string;
-	readonly error?: string;
-	readonly serverName: string;
-	readonly uri: string;
+        readonly success: boolean;
+        readonly content?: string;
+        readonly mimeType?: string;
+        readonly error?: string;
+        readonly serverName: string;
+        readonly uri: string;
 }
 
 // --- Constants -------------------------------------------------------------

@@ -190,8 +190,8 @@ function createTypeScriptBuilder(config, projectFile, cmd) {
                                         sourceMap = JSON.parse(smg.toString());
                                         // const filename = '/Users/jrieken/Code/vscode/src2/' + vinyl.relative + '.map';
                                         // fs.promises.mkdir(path.dirname(filename), { recursive: true }).then(async () => {
-                                        // 	await fs.promises.writeFile(filename, smg.toString());
-                                        // 	await fs.promises.writeFile('/Users/jrieken/Code/vscode/src2/' + vinyl.relative, vinyl.contents);
+                                        //      await fs.promises.writeFile(filename, smg.toString());
+                                        //      await fs.promises.writeFile('/Users/jrieken/Code/vscode/src2/' + vinyl.relative, vinyl.contents);
                                         // });
                                     }
                                 }
@@ -355,7 +355,7 @@ function createTypeScriptBuilder(config, projectFile, cmd) {
             // print stats
             const headNow = process.memoryUsage().heapUsed;
             const MB = 1024 * 1024;
-            _log('[tsb]', `time:  ${colors.yellow((Date.now() - t1) + 'ms')} + \nmem:  ${colors.cyan(Math.ceil(headNow / MB) + 'MB')} ${colors.bgcyan('delta: ' + Math.ceil((headNow - headUsed) / MB))}`);
+            _log('[tsb]', `time:  ${colors.yellow((Date.now() - t1) + 'ms')} + \nmem:  ${colors.cyan(Math.ceil(headNow / MB) + 'MB')} ${colors.cyan('delta: ' + Math.ceil((headNow - headUsed) / MB))}`);
             headUsed = headNow;
         });
     }
