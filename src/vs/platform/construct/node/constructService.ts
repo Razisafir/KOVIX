@@ -6,6 +6,8 @@
 import { spawn, ChildProcess } from 'child_process';
 import { join } from '../../../../base/common/path.js';
 import { IConstructService } from '../common/construct.js';
+import { IMCPProcessNodeService } from '../common/mcp/mcpProcessNode.js';
+import { MCPProcessNodeService } from './mcpProcessNode.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
 
 class ConstructService implements IConstructService {
@@ -44,3 +46,9 @@ class ConstructService implements IConstructService {
 }
 
 registerSingleton(IConstructService, ConstructService, InstantiationType.Eager);
+
+// Register the MCP node service for IPC exposure to the renderer.
+// The browser-layer MCPProcessService will attempt to use this service
+// via IPC when running in desktop mode. In browser-only mode (vscode.dev),
+// it falls back to IFileService.
+registerSingleton(IMCPProcessNodeService, MCPProcessNodeService, InstantiationType.Delayed);

@@ -1,7 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Construct IDE - MCP Server Registry
- *  Licensed under the MIT License.
- *  Cline-compatible JSON format for .claude-mcp/settings.json
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -64,7 +63,7 @@ export class MCPServerRegistry extends Disposable {
 		this.loadMarketplaceData();
 	}
 
-	// ─── Loading ──────────────────────────────────────────────────────────
+	// --- Loading ----------------------------------------------------------
 
 	private loadServers(): void {
 		try {
@@ -109,7 +108,7 @@ export class MCPServerRegistry extends Disposable {
 		}
 	}
 
-	// ─── Server CRUD ──────────────────────────────────────────────────────
+	// --- Server CRUD ------------------------------------------------------
 
 	async addServer(def: IMCPServerDefinition): Promise<void> {
 		if (!def.name || !def.command) {
@@ -210,7 +209,7 @@ export class MCPServerRegistry extends Disposable {
 			(value.length > 20 && !value.includes(' '));
 	}
 
-	// ─── Cline Compatibility ──────────────────────────────────────────────
+	// --- Cline Compatibility ----------------------------------------------
 
 	/** Export in .claude-mcp/settings.json format. */
 	toClineFormat(): IClineMcpSettings {
@@ -241,7 +240,7 @@ export class MCPServerRegistry extends Disposable {
 		}
 	}
 
-	// ─── Marketplace Data ─────────────────────────────────────────────────
+	// --- Marketplace Data -------------------------------------------------
 
 	async setRating(itemId: string, rating: number): Promise<void> {
 		this.marketplaceRatings.set(itemId, Math.max(1, Math.min(5, rating)));
@@ -281,7 +280,7 @@ export class MCPServerRegistry extends Disposable {
 		);
 	}
 
-	// ─── Lifecycle ────────────────────────────────────────────────────────
+	// --- Lifecycle --------------------------------------------------------
 
 	override dispose(): void {
 		this.servers.clear();

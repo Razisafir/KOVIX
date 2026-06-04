@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Construct IDE - MCP Marketplace Service
- *  Licensed under the MIT License.
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -41,7 +41,7 @@ export class MCPMarketplaceService extends Disposable implements IMCPMarketplace
 		this.loadCachedCatalog();
 	}
 
-	// ─── Catalog Access ───────────────────────────────────────────────────
+	// --- Catalog Access ---------------------------------------------------
 
 	private loadCachedCatalog(): void {
 		try {
@@ -288,7 +288,7 @@ export class MCPMarketplaceService extends Disposable implements IMCPMarketplace
 		return Array.from(categories).sort();
 	}
 
-	// ─── Installation ─────────────────────────────────────────────────────
+	// --- Installation -----------------------------------------------------
 
 	async installFromMarketplace(itemId: string): Promise<void> {
 		const catalog = await this.fetchCatalog();
@@ -334,7 +334,7 @@ export class MCPMarketplaceService extends Disposable implements IMCPMarketplace
 		return item ? servers.some(s => s.name === item.name) : false;
 	}
 
-	// ─── Rating & Metadata ────────────────────────────────────────────────
+	// --- Rating & Metadata ------------------------------------------------
 
 	async rateServer(itemId: string, rating: number): Promise<void> {
 		// Rating stored in registry's IStorageService
@@ -347,11 +347,11 @@ export class MCPMarketplaceService extends Disposable implements IMCPMarketplace
 	}
 
 	getServerReviews(itemId: string): Array<{ rating: number; comment: string; timestamp: number }> {
-		// Placeholder — reviews would be fetched from a backend service
+		// Placeholder -- reviews would be fetched from a backend service
 		return [];
 	}
 
-	// ─── Cache Management ─────────────────────────────────────────────────
+	// --- Cache Management -------------------------------------------------
 
 	async refreshCatalog(): Promise<void> {
 		this.cacheTimestamp = 0;
@@ -362,7 +362,7 @@ export class MCPMarketplaceService extends Disposable implements IMCPMarketplace
 		return this.cacheTimestamp;
 	}
 
-	// ─── Lifecycle ────────────────────────────────────────────────────────
+	// --- Lifecycle --------------------------------------------------------
 
 	override dispose(): void {
 		this.catalog = [];

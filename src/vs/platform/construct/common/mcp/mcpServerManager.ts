@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Construct IDE - MCP Server Manager Interface
- *  Licensed under the MIT License.
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../../base/common/event.js';
@@ -22,7 +22,7 @@ export const IMCPServerManager = createDecorator<IMCPServerManager>('construct.m
 export interface IMCPServerManager extends IDisposable {
 	readonly _serviceBrand: undefined;
 
-	// ─── Discovery & Lifecycle ──────────────────────────────────────────
+	// --- Discovery & Lifecycle ------------------------------------------
 
 	/** Discover available MCP servers (installed + auto-detected). */
 	discoverServers(): Promise<IMCPServerDefinition[]>;
@@ -48,7 +48,7 @@ export interface IMCPServerManager extends IDisposable {
 	/** Get the current health status of a server. */
 	getServerHealth(name: string): IMCPHealthStatus;
 
-	// ─── Tool Execution ─────────────────────────────────────────────────
+	// --- Tool Execution -------------------------------------------------
 
 	/** Execute an MCP tool. 30-second timeout enforced. */
 	executeTool(serverName: string, toolName: string, args: any): Promise<IMCPExecutionResult>;
@@ -56,7 +56,7 @@ export interface IMCPServerManager extends IDisposable {
 	/** List tools from one server, or all connected servers. */
 	listTools(serverName?: string): Promise<IMCPTool[]>;
 
-	// ─── Resource Access ────────────────────────────────────────────────
+	// --- Resource Access ------------------------------------------------
 
 	/** Read a resource (5-minute TTL cache). */
 	readResource(serverName: string, uri: string): Promise<IMCPResourceResult>;
@@ -64,7 +64,7 @@ export interface IMCPServerManager extends IDisposable {
 	/** List resources from one server, or all connected servers. */
 	listResources(serverName?: string): Promise<IMCPResource[]>;
 
-	// ─── Prompts ────────────────────────────────────────────────────────
+	// --- Prompts --------------------------------------------------------
 
 	/** List prompts from one server, or all connected servers. */
 	listPrompts(serverName?: string): Promise<IMCPPrompt[]>;
@@ -72,7 +72,7 @@ export interface IMCPServerManager extends IDisposable {
 	/** Get a rendered prompt. */
 	getPrompt(serverName: string, promptName: string, args?: Record<string, string>): Promise<string>;
 
-	// ─── Events ─────────────────────────────────────────────────────────
+	// --- Events ---------------------------------------------------------
 
 	readonly onDidChangeConnection: Event<IMCPConnectionEvent>;
 	readonly onDidDiscoverTools: Event<IMCPTool[]>;
@@ -80,7 +80,7 @@ export interface IMCPServerManager extends IDisposable {
 	readonly onDidDiscoverPrompts: Event<IMCPPrompt[]>;
 	readonly onDidUpdateHealth: Event<IMCPHealthStatus>;
 
-	// ─── Bulk Operations ────────────────────────────────────────────────
+	// --- Bulk Operations ------------------------------------------------
 
 	/** Start all installed servers. */
 	startAllServers(): Promise<void>;

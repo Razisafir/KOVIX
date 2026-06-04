@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Construct IDE - MCP Server Manager Service
- *  Licensed under the MIT License.
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event, Emitter } from '../../../../base/common/event.js';
@@ -68,7 +68,7 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
 		this._register(this.connectionPool.onHealthUpdate(e => this._onDidUpdateHealth.fire(e)));
 	}
 
-	// ─── Discovery & Lifecycle ────────────────────────────────────────────
+	// --- Discovery & Lifecycle --------------------------------------------
 
 	async discoverServers(): Promise<IMCPServerDefinition[]> {
 		const servers = this.registry.getAllServers();
@@ -199,7 +199,7 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
 		};
 	}
 
-	// ─── Tool Execution ───────────────────────────────────────────────────
+	// --- Tool Execution ---------------------------------------------------
 
 	async executeTool(serverName: string, toolName: string, args: any): Promise<IMCPExecutionResult> {
 		const startTime = Date.now();
@@ -277,7 +277,7 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
 		return allTools;
 	}
 
-	// ─── Resource Access ──────────────────────────────────────────────────
+	// --- Resource Access --------------------------------------------------
 
 	async readResource(serverName: string, uri: string): Promise<IMCPResourceResult> {
 		const cacheKey = `${serverName}:${uri}`;
@@ -361,7 +361,7 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
 		return allResources;
 	}
 
-	// ─── Prompts ──────────────────────────────────────────────────────────
+	// --- Prompts ----------------------------------------------------------
 
 	async listPrompts(serverName?: string): Promise<IMCPPrompt[]> {
 		if (serverName) {
@@ -407,7 +407,7 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
 		return result.messages?.map((m: any) => m.content?.text ?? '').join('\n') ?? '';
 	}
 
-	// ─── Bulk Operations ──────────────────────────────────────────────────
+	// --- Bulk Operations --------------------------------------------------
 
 	async startAllServers(): Promise<void> {
 		const servers = this.registry.getAllServers();
@@ -431,7 +431,7 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
 		return this.connectionPool.getConnectionState(name);
 	}
 
-	// ─── Private Helpers ──────────────────────────────────────────────────
+	// --- Private Helpers --------------------------------------------------
 
 	private async discoverCapabilities(serverName: string): Promise<void> {
 		try {

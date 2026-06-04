@@ -228,6 +228,8 @@ export class ConstructAgentViewPane extends ViewPane {
 			if (this.currentCancellationToken.token.isCancellationRequested) {
 				this.setExecutionState('stopped');
 				this.updateMessageContent(planningMsg, '[STOP] Stopped by user');
+				// Transition back to idle after showing stopped state
+				setTimeout(() => { this.setExecutionState('idle'); }, 1500);
 				return;
 			}
 
@@ -241,6 +243,9 @@ export class ConstructAgentViewPane extends ViewPane {
 			const msg = error instanceof Error ? error.message : String(error);
 			this.updateMessageContent(planningMsg, `[FAIL] Planning failed: ${msg}`);
 			this.logService.error('[AgentView] Planning error:', msg);
+
+			// Transition back to idle after showing error
+			setTimeout(() => { this.setExecutionState('idle'); }, 2000);
 		}
 	}
 
@@ -400,6 +405,10 @@ export class ConstructAgentViewPane extends ViewPane {
 
 			this.setExecutionState(this.currentCancellationToken.token.isCancellationRequested ? 'stopped' : 'complete');
 
+			// Transition back to idle after a brief delay so the user can
+			// see the final state indicator, then send another message.
+			setTimeout(() => { this.setExecutionState('idle'); }, 1500);
+
 			// Auto-learn the task completion
 			if (this.constructMemory.config.enabled && this.constructMemory.config.autoLearn) {
 				this.constructMemory.addMemory(`Agent completed task: ${task}`, {
@@ -413,6 +422,9 @@ export class ConstructAgentViewPane extends ViewPane {
 			const msg = error instanceof Error ? error.message : String(error);
 			this.updateMessageContent(execMsg, `[FAIL] Error: ${msg}`);
 			this.logService.error('[AgentView] Execution error:', msg);
+
+			// Transition back to idle after showing error
+			setTimeout(() => { this.setExecutionState('idle'); }, 2000);
 		}
 	}
 

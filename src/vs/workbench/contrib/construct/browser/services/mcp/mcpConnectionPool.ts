@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Construct IDE - MCP Connection Pool
- *  Licensed under the MIT License.
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -54,7 +54,7 @@ export class MCPConnectionPool extends Disposable {
 		this.startHealthChecks();
 	}
 
-	// ─── Health Checks ────────────────────────────────────────────────────
+	// --- Health Checks ----------------------------------------------------
 
 	private startHealthChecks(): void {
 		const timer = setInterval(() => this.runHealthChecks(), this.healthCheckIntervalMs);
@@ -83,7 +83,7 @@ export class MCPConnectionPool extends Disposable {
 		}
 	}
 
-	// ─── Connection Management ────────────────────────────────────────────
+	// --- Connection Management --------------------------------------------
 
 	get activeConnectionCount(): number {
 		let count = 0;
@@ -291,7 +291,7 @@ export class MCPConnectionPool extends Disposable {
 		this.emitConnectionEvent(serverName, MCPConnectionState.Disconnected);
 	}
 
-	// ─── Tool Execution with Retry ────────────────────────────────────────
+	// --- Tool Execution with Retry ----------------------------------------
 
 	async executeWithRetry<T>(
 		serverName: string,
@@ -387,7 +387,7 @@ export class MCPConnectionPool extends Disposable {
 		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 
-	// ─── Accessors ────────────────────────────────────────────────────────
+	// --- Accessors --------------------------------------------------------
 
 	getClient(serverName: string): any | undefined {
 		return this.connections.get(serverName)?.client;
@@ -407,7 +407,7 @@ export class MCPConnectionPool extends Disposable {
 		return this.connections.size;
 	}
 
-	// ─── Event Helpers ────────────────────────────────────────────────────
+	// --- Event Helpers ----------------------------------------------------
 
 	private emitConnectionEvent(name: string, state: MCPConnectionState, error?: string): void {
 		this._onConnectionChange.fire({
@@ -430,7 +430,7 @@ export class MCPConnectionPool extends Disposable {
 		});
 	}
 
-	// ─── Lifecycle ────────────────────────────────────────────────────────
+	// --- Lifecycle --------------------------------------------------------
 
 	override dispose(): void {
 		this.healthCheckTimer?.dispose();

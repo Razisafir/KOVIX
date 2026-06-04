@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IConstructService } from '../common/construct.js';
+import { IMCPProcessNodeService } from '../common/mcp/mcpProcessNode.js';
 import { registerSingleton, InstantiationType } from '../../../../platform/instantiation/common/extensions.js';
+import { registerMainProcessRemoteService } from '../../../../platform/ipc/electron-sandbox/services.js';
 
 class ConstructService implements IConstructService {
 	declare readonly _serviceBrand: undefined;
@@ -23,3 +25,10 @@ class ConstructService implements IConstructService {
 }
 
 registerSingleton(IConstructService, ConstructService, InstantiationType.Delayed);
+
+// Register the MCP node service as a remote service that communicates
+// with the main process via IPC. The ProxyChannel automatically creates
+// a transparent proxy that delegates all method calls to the main process.
+// In browser-only mode (vscode.dev), this service will be unavailable and
+// the browser-layer MCPProcessService falls back to IFileService.
+registerMainProcessRemoteService(IMCPProcessNodeService, 'constructMcp');

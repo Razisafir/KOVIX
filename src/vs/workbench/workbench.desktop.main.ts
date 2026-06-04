@@ -87,6 +87,8 @@ import '../platform/extensionManagement/electron-sandbox/extensionsProfileScanne
 
 import { registerSingleton } from '../platform/instantiation/common/extensions.js';
 // Construct service is registered via workbench.common.main.ts (browser-safe version)
+// Construct MCP node service (desktop only) -- registers the IPC proxy
+import '../platform/construct/electron-sandbox/constructService.js';
 import { IUserDataInitializationService, UserDataInitializationService } from './services/userData/browser/userDataInit.js';
 import { SyncDescriptor } from '../platform/instantiation/common/descriptors.js';
 

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
+import { Emitter } from '../../../../../../base/common/event.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { IStorageService } from '../../../../../../platform/storage/common/storage.js';
 import { IAnthropicProvider, IAnthropicProviderConfig, IAnthropicTool, IAnthropicMessage, StreamEvent } from '../../../../../../platform/construct/common/llm/anthropicProvider.js';

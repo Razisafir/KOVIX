@@ -118,6 +118,8 @@ import { IAuxiliaryWindowsMainService } from '../../platform/auxiliaryWindow/ele
 import { AuxiliaryWindowsMainService } from '../../platform/auxiliaryWindow/electron-main/auxiliaryWindowsMainService.js';
 import { normalizeNFC } from '../../base/common/normalization.js';
 import { ICSSDevelopmentService, CSSDevelopmentService } from '../../platform/cssDev/node/cssDevService.js';
+import { IMCPProcessNodeService } from '../../platform/construct/common/mcp/mcpProcessNode.js';
+import { MCPProcessNodeService } from '../../platform/construct/node/mcpProcessNode.js';
 
 /**
  * The main VS Code application. There will only ever be one instance,
@@ -1116,6 +1118,9 @@ export class CodeApplication extends Disposable {
 		// Dev Only: CSS service (for ESM)
 		services.set(ICSSDevelopmentService, new SyncDescriptor(CSSDevelopmentService, undefined, true));
 
+		// Construct MCP Node Service (spawns real MCP filesystem server)
+		services.set(IMCPProcessNodeService, new SyncDescriptor(MCPProcessNodeService, undefined, true));
+
 		// Init services that require it
 		await Promises.settled([
 			backupMainService.initialize(),
@@ -1232,6 +1237,10 @@ export class CodeApplication extends Disposable {
 		// Utility Process Worker
 		const utilityProcessWorkerChannel = ProxyChannel.fromService(accessor.get(IUtilityProcessWorkerMainService), disposables);
 		mainProcessElectronServer.registerChannel(ipcUtilityProcessWorkerChannelName, utilityProcessWorkerChannel);
+
+		// Construct MCP Node Service (exposes MCP filesystem server to renderer)
+		const constructMcpChannel = ProxyChannel.fromService(accessor.get(IMCPProcessNodeService), disposables);
+		mainProcessElectronServer.registerChannel('constructMcp', constructMcpChannel);
 	}
 
 	private async openFirstWindow(accessor: ServicesAccessor, initialProtocolUrls: IInitialProtocolUrls | undefined): Promise<ICodeWindow[]> {

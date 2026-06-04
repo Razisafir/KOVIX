@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Construct IDE - MCP Types and Interfaces
- *  Licensed under the MIT License.
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 
-// ─── Transport & Connection Enums ──────────────────────────────────────────
+// --- Transport & Connection Enums ------------------------------------------
 
 export const enum MCPTransportType {
 	Stdio = 'stdio',
@@ -29,7 +29,7 @@ export const enum MCPHealthStatus {
 	Unknown = 'unknown'
 }
 
-// ─── Server Definition ─────────────────────────────────────────────────────
+// --- Server Definition -----------------------------------------------------
 
 export interface IMCPServerDefinition {
 	readonly name: string;
@@ -49,7 +49,7 @@ export interface IMCPServerDefinition {
 	readonly secretEnvKeys?: string[];
 }
 
-// ─── Tool, Resource, Prompt ────────────────────────────────────────────────
+// --- Tool, Resource, Prompt ------------------------------------------------
 
 export interface IMCPTool {
 	readonly name: string;
@@ -73,7 +73,7 @@ export interface IMCPPrompt {
 	readonly serverName: string;
 }
 
-// ─── Health & Connection Events ────────────────────────────────────────────
+// --- Health & Connection Events --------------------------------------------
 
 export interface IMCPHealthStatus {
 	readonly serverName: string;
@@ -91,7 +91,7 @@ export interface IMCPConnectionEvent {
 	readonly error?: string;
 }
 
-// ─── Marketplace ───────────────────────────────────────────────────────────
+// --- Marketplace -----------------------------------------------------------
 
 export interface IMCPMarketplaceItem {
 	readonly id: string;
@@ -113,7 +113,7 @@ export interface IMCPMarketplaceItem {
 	readonly repositoryUrl?: string;
 }
 
-// ─── Execution Results ─────────────────────────────────────────────────────
+// --- Execution Results -----------------------------------------------------
 
 export interface IMCPExecutionResult {
 	readonly success: boolean;
@@ -133,7 +133,7 @@ export interface IMCPResourceResult {
 	readonly uri: string;
 }
 
-// ─── Constants ─────────────────────────────────────────────────────────────
+// --- Constants -------------------------------------------------------------
 
 export const MCP_REGISTRY_URL = 'https://raw.githubusercontent.com/modelcontextprotocol/servers/main/registry.json';
 export const MCP_CONFIG_KEY = 'construct.mcp.servers';

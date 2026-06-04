@@ -9,6 +9,7 @@ import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IMCPProcess } from '../../../../../../platform/construct/common/mcp/mcpProcess.js';
+import { IMCPProcessNodeService } from '../../../../../../platform/construct/common/mcp/mcpProcessNode.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../../../base/common/buffer.js';
 import { joinPath } from '../../../../../../base/common/resources.js';
@@ -32,6 +33,7 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 	private _rootPath: string = '';
 	private _rootUri: URI | null = null;
 	private _useNodeLayer = false;
+	private _nodeService: IMCPProcessNodeService | null = null;
 
 	private readonly _onDidConnect = this._register(new Emitter<void>());
 	readonly onDidConnect = this._onDidConnect.event;
@@ -46,7 +48,52 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 	) {
 		super();
-		this.logService.info('[MCPProcess] Service created (IFileService fallback mode)');
+		// Attempt to acquire the node-layer MCP service via the instantiation
+		// service. This is only available in desktop VS Code (not vscode.dev).
+		// We use a deferred acquisition pattern since the node service may not
+		// be registered in all execution contexts.
+		this.logService.info('[MCPProcess] Service created');
+	}
+
+	/**
+	 * Try to acquire the node-layer MCPProcessNodeService.
+	 * This is called during initialize() and will set _useNodeLayer to true
+	 * if the node service is available and can be started.
+	 */
+	private async tryAcquireNodeService(): Promise<boolean> {
+		try {
+			// Dynamic import to avoid hard dependency in browser-only contexts.
+			// The electron-sandbox constructService.ts registers the remote service,
+			// but it may not be available in all contexts.
+			const { IMCPProcessNodeService: nodeServiceId } = await import('../../../../../../platform/construct/common/mcp/mcpProcessNode.js');
+			// Use the service accessor pattern -- try to get the service from
+			// the global instantiation service
+			const instantiationService = (globalThis as Record<string, unknown>).__vsc_instantiationService as {
+				invokeFunction: (fn: (accessor: { get: <T>(id: unknown) => T }) => T) => T;
+			} | undefined;
+
+			if (instantiationService) {
+				const nodeService = instantiationService.invokeFunction(accessor => {
+					try {
+						return accessor.get(nodeServiceId);
+					} catch {
+						return null;
+					}
+				});
+
+				if (nodeService && typeof nodeService.start === 'function') {
+					this._nodeService = nodeService;
+					this.logService.info('[MCPProcess] Node-layer MCPProcessNodeService acquired via IPC');
+					return true;
+				}
+			}
+
+			this.logService.info('[MCPProcess] Node-layer service not available, using IFileService fallback');
+			return false;
+		} catch {
+			this.logService.info('[MCPProcess] Node-layer service not available, using IFileService fallback');
+			return false;
+		}
 	}
 
 	get connected(): boolean {
@@ -67,6 +114,21 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
 			this._rootUri = rootFolder.uri;
 			this._rootPath = rootFolder.uri.fsPath;
+
+			// Try to acquire and start the node-layer service
+			this._useNodeLayer = await this.tryAcquireNodeService();
+
+			if (this._useNodeLayer && this._nodeService) {
+				try {
+					await this._nodeService.start(this._rootPath);
+					this.logService.info('[MCPProcess] Node-layer MCP server started');
+				} catch (err) {
+					this.logService.warn('[MCPProcess] Node-layer start failed, falling back to IFileService:', err instanceof Error ? err.message : String(err));
+					this._useNodeLayer = false;
+					this._nodeService = null;
+				}
+			}
+
 			this._connected = true;
 			this._onDidConnect.fire();
 
@@ -98,6 +160,21 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
 	async readFile(path: string): Promise<string> {
 		this.ensureConnected();
+
+		// Try node layer first
+		if (this._useNodeLayer && this._nodeService) {
+			try {
+				const result = await this._nodeService.callTool('read_file', { path }) as { content: string } | string;
+				if (typeof result === 'string') {
+					return result;
+				}
+				return result.content ?? String(result);
+			} catch (err) {
+				this.logService.warn('[MCPProcess] Node readFile failed, falling back to IFileService:', err instanceof Error ? err.message : String(err));
+			}
+		}
+
+		// Fallback to IFileService
 		const uri = this.resolveUri(path);
 		try {
 			const content = await this.fileService.readFile(uri);
@@ -111,6 +188,19 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
 	async writeFile(path: string, content: string): Promise<void> {
 		this.ensureConnected();
+
+		// Try node layer first
+		if (this._useNodeLayer && this._nodeService) {
+			try {
+				await this._nodeService.callTool('write_file', { path, content });
+				this.logService.info(`[MCPProcess] File written via MCP: ${path}`);
+				return;
+			} catch (err) {
+				this.logService.warn('[MCPProcess] Node writeFile failed, falling back to IFileService:', err instanceof Error ? err.message : String(err));
+			}
+		}
+
+		// Fallback to IFileService
 		const uri = this.resolveUri(path);
 		try {
 			// Ensure parent directory exists
@@ -126,6 +216,21 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
 	async listDirectory(path: string): Promise<string[]> {
 		this.ensureConnected();
+
+		// Try node layer first
+		if (this._useNodeLayer && this._nodeService) {
+			try {
+				const result = await this._nodeService.callTool('list_directory', { path }) as string[] | { entries: string[] };
+				if (Array.isArray(result)) {
+					return result;
+				}
+				return result.entries ?? [];
+			} catch (err) {
+				this.logService.warn('[MCPProcess] Node listDirectory failed, falling back to IFileService:', err instanceof Error ? err.message : String(err));
+			}
+		}
+
+		// Fallback to IFileService
 		const uri = this.resolveUri(path);
 		try {
 			const result = await this.fileService.resolve(uri);
@@ -145,6 +250,19 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
 	async createDirectory(path: string): Promise<void> {
 		this.ensureConnected();
+
+		// Try node layer first
+		if (this._useNodeLayer && this._nodeService) {
+			try {
+				await this._nodeService.callTool('create_directory', { path });
+				this.logService.info(`[MCPProcess] Directory created via MCP: ${path}`);
+				return;
+			} catch (err) {
+				this.logService.warn('[MCPProcess] Node createDirectory failed, falling back to IFileService:', err instanceof Error ? err.message : String(err));
+			}
+		}
+
+		// Fallback to IFileService
 		const uri = this.resolveUri(path);
 		try {
 			await this.fileService.createFolder(uri);
@@ -158,6 +276,19 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
 	async deleteFile(path: string): Promise<void> {
 		this.ensureConnected();
+
+		// Try node layer first
+		if (this._useNodeLayer && this._nodeService) {
+			try {
+				await this._nodeService.callTool('delete_file', { path });
+				this.logService.info(`[MCPProcess] File deleted via MCP: ${path}`);
+				return;
+			} catch (err) {
+				this.logService.warn('[MCPProcess] Node deleteFile failed, falling back to IFileService:', err instanceof Error ? err.message : String(err));
+			}
+		}
+
+		// Fallback to IFileService
 		const uri = this.resolveUri(path);
 		try {
 			await this.fileService.del(uri, { recursive: false, useTrash: true });
@@ -171,6 +302,18 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
 	async exists(path: string): Promise<boolean> {
 		this.ensureConnected();
+
+		// Try node layer first
+		if (this._useNodeLayer && this._nodeService) {
+			try {
+				const result = await this._nodeService.callTool('exists', { path }) as { exists: boolean } | boolean;
+				return typeof result === 'boolean' ? result : result.exists ?? false;
+			} catch (err) {
+				this.logService.warn('[MCPProcess] Node exists failed, falling back to IFileService:', err instanceof Error ? err.message : String(err));
+			}
+		}
+
+		// Fallback to IFileService
 		const uri = this.resolveUri(path);
 		try {
 			return await this.fileService.exists(uri);
@@ -205,6 +348,11 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 		if (this._connected) {
 			this._connected = false;
 			this._onDidDisconnect.fire();
+		}
+		// Stop the node-layer MCP server if it was started
+		if (this._nodeService) {
+			this._nodeService.stop().catch(() => { /* non-critical */ });
+			this._nodeService = null;
 		}
 		super.dispose();
 	}

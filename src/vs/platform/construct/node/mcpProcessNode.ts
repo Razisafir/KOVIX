@@ -6,6 +6,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IMCPProcessNodeService } from '../common/mcp/mcpProcessNode.js';
 
 /**
  * JSON-RPC 2.0 request structure for MCP protocol.
@@ -37,8 +38,14 @@ interface IJsonRpcResponse {
  * - Line-delimited JSON parsing from stdout
  * - 30-second timeout per request
  * - Auto-restart on crash (max 5 times, 3s backoff)
+ *
+ * This service runs in the VS Code main process and is exposed to the
+ * renderer process via IPC. The browser-layer MCPProcessService delegates
+ * to this service when available, falling back to IFileService in browser mode.
  */
-export class MCPProcessNodeService extends Disposable {
+export class MCPProcessNodeService extends Disposable implements IMCPProcessNodeService {
+	declare readonly _serviceBrand: undefined;
+
 	private process: ChildProcess | null = null;
 	private requestId = 0;
 	private readonly pendingRequests = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
@@ -64,6 +71,18 @@ export class MCPProcessNodeService extends Disposable {
 		await this.spawnServer();
 		await this.initializeHandshake();
 		this.logService.info(`[MCPProcessNode] Started with root: ${rootPath}`);
+	}
+
+	/**
+	 * Stop the MCP server process.
+	 */
+	async stop(): Promise<void> {
+		if (this.process && !this.process.killed) {
+			this.process.kill();
+			this.process = null;
+		}
+		this.initialized = false;
+		this.logService.info('[MCPProcessNode] Stopped');
 	}
 
 	/**
