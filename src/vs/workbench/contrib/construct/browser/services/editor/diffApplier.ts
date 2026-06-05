@@ -50,8 +50,34 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                 if (!this._workspaceRoot) {
                         return true; // No workspace, allow all paths
                 }
+
+                // Normalize the path to prevent traversal attacks
+                const normalizedPath = uri.path.replace(/\\/g, '/').replace(/\/+/g, '/');
+                const workspacePath = this._workspaceRoot.path.replace(/\\/g, '/').replace(/\/+/g, '/');
+
+                // Reject paths with traversal that would escape the workspace
+                // e.g., "../../etc/passwd" or "src/../../../etc/shadow"
+                const relativePath = normalizedPath.startsWith(workspacePath)
+                        ? normalizedPath.substring(workspacePath.length)
+                        : normalizedPath;
+
+                // Check for path traversal: if resolving the relative path goes above workspace root
+                const segments = relativePath.split('/').filter(s => s.length > 0);
+                let depth = 0;
+                for (const segment of segments) {
+                        if (segment === '..') {
+                                depth--;
+                                if (depth < 0) {
+                                        this.logService.warn(`[DiffApplier] Path traversal rejected: ${filePath}`);
+                                        return false;
+                                }
+                        } else if (segment !== '.') {
+                                depth++;
+                        }
+                }
+
                 // Check if the URI is within the workspace root
-                return uri.path.startsWith(this._workspaceRoot.path);
+                return normalizedPath.startsWith(workspacePath);
         }
 
         async applyDiff(filePath: string, diff: string): Promise<IDiffApplyResult> {
@@ -59,7 +85,7 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                 if (!this.isWithinWorkspace(filePath)) {
                         return {
                                 success: false,
-                                error: `Path "${filePath}" is outside the workspace root. Operation rejected for security.`,
+                                error: `Cannot write outside workspace: "${filePath}". All file operations must be within the workspace root for security.`,
                         };
                 }
 
@@ -79,9 +105,10 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                         // Apply the unified diff
                         const patched = this.applyUnifiedDiff(original, diff);
                         if (patched === null) {
+                                const preview = diff.substring(0, 200);
                                 return {
                                         success: false,
-                                        error: `Failed to apply diff to "${filePath}". The diff may not match the file content.`,
+                                        error: `Failed to apply diff to "${filePath}". The diff hunk headers may not match the file content. Diff preview: ${preview}`,
                                 };
                         }
 
@@ -112,20 +139,32 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
 
         async writeFile(filePath: string, content: string): Promise<void> {
                 if (!this.isWithinWorkspace(filePath)) {
-                        throw new Error(`Path "${filePath}" is outside the workspace root.`);
+                        throw new Error(`Cannot write outside workspace: "${filePath}". All file operations must be within the workspace root for security.`);
                 }
 
                 const uri = this.resolveUri(filePath);
                 await this.ensureParentDirectory(uri);
-                await this.fileService.writeFile(uri, VSBuffer.fromString(content));
-                this.logService.info(`[DiffApplier] File written: ${filePath}`);
+
+                // Strip BOM if present in content (don't add BOM on write)
+                let normalizedContent = content;
+                if (normalizedContent.charCodeAt(0) === 0xFEFF) {
+                        normalizedContent = normalizedContent.substring(1);
+                }
+
+                await this.fileService.writeFile(uri, VSBuffer.fromString(normalizedContent));
+                this.logService.info(`[DiffApplier] File written: ${filePath} (${normalizedContent.length} chars)`);
         }
 
         async readFile(filePath: string): Promise<string> {
                 const uri = this.resolveUri(filePath);
                 try {
                         const content = await this.fileService.readFile(uri);
-                        return content.value.toString();
+                        let text = content.value.toString();
+                        // Strip UTF-8 BOM if present (EF BB BF)
+                        if (text.charCodeAt(0) === 0xFEFF) {
+                                text = text.substring(1);
+                        }
+                        return text;
                 } catch (error) {
                         throw new Error(
                                 `Failed to read file "${filePath}": ${error instanceof Error ? error.message : String(error)}`,
@@ -300,6 +339,10 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
 
         /**
          * Ensure the parent directory of a URI exists.
+         * Creates all intermediate directories recursively.
+         * VS Code's IFileService.createFolder may not create intermediate
+         * directories on all providers, so we walk up the path and create
+         * each missing directory from the workspace root downward.
          */
         private async ensureParentDirectory(uri: URI): Promise<void> {
                 const parentPath = uri.path.substring(0, uri.path.lastIndexOf("/")) || "/";
@@ -308,13 +351,41 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                         authority: uri.authority,
                         path: parentPath,
                 });
-                try {
-                        const exists = await this.fileService.exists(parent);
-                        if (!exists) {
-                                await this.fileService.createFolder(parent);
+
+                // Build a list of directories that need to exist, from root to leaf
+                const dirsToCreate: URI[] = [];
+                let current = parent;
+
+                while (current.path !== '/' && current.path.length > 1) {
+                        try {
+                                const exists = await this.fileService.exists(current);
+                                if (exists) {
+                                        break; // Found an existing directory, stop walking up
+                                }
+                                dirsToCreate.unshift(current); // Add to front (create in root-to-leaf order)
+                        } catch {
+                                dirsToCreate.unshift(current);
                         }
-                } catch {
-                        // Parent directory might be a root path
+
+                        // Move up one level
+                        const upPath = current.path.substring(0, current.path.lastIndexOf("/")) || "/";
+                        current = URI.from({
+                                scheme: current.scheme,
+                                authority: current.authority,
+                                path: upPath,
+                        });
+                }
+
+                // Create directories from root to leaf
+                for (const dir of dirsToCreate) {
+                        try {
+                                await this.fileService.createFolder(dir);
+                                this.logService.info(`[DiffApplier] Created directory: ${dir.path}`);
+                        } catch (error) {
+                                // If the directory was created by a concurrent operation, that's fine
+                                const msg = error instanceof Error ? error.message : String(error);
+                                this.logService.warn(`[DiffApplier] Could not create directory ${dir.path}: ${msg}`);
+                        }
                 }
         }
 

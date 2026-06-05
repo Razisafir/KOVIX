@@ -141,10 +141,11 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
         }
 
         async runPlanningPhase(task: string, signal?: AbortSignal): Promise<IPlanResult> {
-                this.logService.info(`[AgentLoop] Planning phase started: ${task}`);
+                this.logService.info(`[AgentLoop] Planning phase starting, task: ${task}`);
 
                 // Ensure MCP process is connected for planning reads
                 if (!this.mcpProcess.connected) {
+                        this.logService.info('[AgentLoop] Initializing MCP process for planning reads');
                         await this.mcpProcess.initialize();
                 }
 
@@ -255,15 +256,18 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                                                         type: 'tool_result',
                                                                         tool_use_id: block.id ?? '',
                                                                         content: cached.output,
+                                                                        is_error: cached.isError,
                                                                 });
                                                         } else {
                                                                 // Fallback: should not happen, but execute once if cache miss
                                                                 this.logService.warn(`[AgentLoop] Cache miss for tool ${block.id}, executing as fallback`);
                                                                 const result = await this.executeTool(block.name ?? '', block.input, true);
+                                                                const isError = result.startsWith('Error:');
                                                                 toolResults.push({
                                                                         type: 'tool_result',
                                                                         tool_use_id: block.id ?? '',
                                                                         content: result,
+                                                                        is_error: isError,
                                                                 });
                                                         }
                                                 }
@@ -276,6 +280,11 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
                                 // End turn -- planning complete
                                 break;
+                        }
+
+                        // Warn if max rounds reached during planning
+                        if (roundCount >= MAX_ROUNDS) {
+                                this.logService.warn(`[AgentLoop] Planning reached max rounds (${MAX_ROUNDS}) without completion`);
                         }
 
                         // Parse the plan from the response
@@ -301,11 +310,13 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
                 this._isRunning = true;
                 this._onDidStart.fire(task);
-                this.logService.info(`[AgentLoop] Execution started: ${task}`);
+                this.logService.info(`[AgentLoop] Agent loop starting, task: ${task}`);
+                this.logService.info(`[AgentLoop] Max rounds: ${MAX_ROUNDS}, Tools available: ${AGENT_TOOLS.length}`);
 
                 try {
                         // Ensure MCP process is connected
                         if (!this.mcpProcess.connected) {
+                                this.logService.info('[AgentLoop] Initializing MCP process for execution');
                                 await this.mcpProcess.initialize();
                         }
 
@@ -324,7 +335,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
                         while (roundCount < MAX_ROUNDS) {
                                 roundCount++;
-                                this.logService.info(`[AgentLoop] Round ${roundCount}/${MAX_ROUNDS}`);
+                                this.logService.info(`[AgentLoop] Iteration ${roundCount}/${MAX_ROUNDS}, calling LLM with ${AGENT_TOOLS.length} tools`);
 
                                 const assistantContent: IAnthropicContentBlock[] = [];
                                 const toolResults: { toolUseId: string; toolName: string; result: string; success: boolean; filePath?: string }[] = [];
@@ -377,11 +388,15 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                                                 block.input = event.toolInput ?? {};
                                                         }
 
+                                                        this.logService.info(`[AgentLoop] Tool requested: ${event.toolName} with input: ${JSON.stringify(event.toolInput).substring(0, 200)}`);
+
                                                         yield { type: 'tool_executing', toolId: event.toolId, toolName: event.toolName, detail: 'Executing...' };
 
                                                         // Execute the tool immediately for real-time feedback
                                                         const toolResult = await this.executeTool(event.toolName, event.toolInput, false);
                                                         const success = !toolResult.startsWith('Error:');
+
+                                                        this.logService.info(`[AgentLoop] Tool result: ${success ? 'success' : 'error'} — ${toolResult.substring(0, 200)}`);
 
                                                         yield { type: 'tool_result', toolId: event.toolId, toolName: event.toolName, result: toolResult, success };
 
@@ -455,6 +470,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                                 type: 'tool_result' as const,
                                                 tool_use_id: tr.toolUseId,
                                                 content: tr.result,
+                                                is_error: !tr.success,
                                         }));
                                         conversationMessages.push({ role: 'user', content: toolResultBlocks });
                                 }
@@ -465,6 +481,12 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                 }
                         }
 
+                        // Warn if max rounds was reached without natural completion
+                        if (roundCount >= MAX_ROUNDS) {
+                                this.logService.warn(`[AgentLoop] Max rounds (${MAX_ROUNDS}) reached without end_turn. Task may be incomplete.`);
+                                yield { type: 'error', text: `Agent loop reached maximum iterations (${MAX_ROUNDS}). The task may be incomplete.`, recoverable: true };
+                        }
+
                         // Store task summary in memory
                         if (this.constructMemory.isInitialized && this.constructMemory.config.autoLearn) {
                                 this.constructMemory.addMemory(
@@ -473,6 +495,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                 ).catch(() => { /* non-critical */ });
                         }
 
+                        this.logService.info(`[AgentLoop] Agent loop complete after ${roundCount} iteration(s)`);
                         yield { type: 'complete', summary: finalSummary || 'Task completed.' };
                         this._onDidComplete.fire({ summary: finalSummary });
                 } catch (error) {
@@ -528,7 +551,8 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         const command = args.command;
                                         if (!command) { return 'Error: command is required'; }
                                         const cwd = args.cwd;
-                                        const result = await this.terminalExecutor.execute(command, cwd, 60000);
+                                        // Timeout is auto-inferred by TerminalExecutor (120s for npm/yarn, 60s for others)
+                                        const result = await this.terminalExecutor.execute(command, cwd);
                                         let output = '';
                                         if (result.stdout) { output += result.stdout; }
                                         if (result.stderr) { output += (output ? '\n' : '') + result.stderr; }

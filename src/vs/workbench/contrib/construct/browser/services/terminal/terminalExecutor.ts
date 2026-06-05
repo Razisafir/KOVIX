@@ -14,6 +14,7 @@ import { URI } from '../../../../../../base/common/uri.js';
 /**
  * Security blocklist patterns -- checked before every command execution.
  * Blocks destructive commands that could damage the system.
+ * Each pattern is tested against the lowercased, trimmed command.
  */
 const BLOCKLIST_PATTERNS: RegExp[] = [
         /rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+|--)recursive.*\s+\//,         // rm -rf / or rm --recursive /
@@ -24,8 +25,11 @@ const BLOCKLIST_PATTERNS: RegExp[] = [
         /\bmkfs\b/,                                                       // mkfs
         /\bdd\s+.*of=\/dev\//,                                            // dd if=...of=/dev/...
         /chmod\s+777\s+\//,                                               // chmod 777 /
-        /chmod\s+777\s+\//,                                               // chmod 777 / (duplicate removed in lint)
-        /\bchmod\s+777\s+\//,                                            // chmod 777 /
+        />\s*\/etc\//,                                                   // writing to /etc/ (e.g., echo "..." > /etc/...)
+        /:\(\)\s*\{\s*:\|:&\s*\}/,                                // fork bomb: :(){ :|:& };:
+        /\bshutdown\b/,                                                  // shutdown
+        /\breboot\b/,                                                    // reboot
+        /\binit\s+[06]\b/,                                              // init 0 / init 6
 ];
 
 /** Marker used to capture exit code from shell output. */
@@ -57,7 +61,7 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
         async execute(
                 command: string,
                 cwd?: string,
-                timeout: number = 60000,
+                timeout?: number,
                 signal?: AbortSignal
         ): Promise<ITerminalExecResult> {
                 // Security check
@@ -65,7 +69,9 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                         throw new Error(`Command blocked by security policy: "${command}". This command matches a dangerous pattern.`);
                 }
 
-                this.logService.info(`[TerminalExecutor] Executing: ${command}`);
+                // Smart timeout: npm/yarn/pnpm commands get 120s, others get 60s
+                const effectiveTimeout = timeout ?? this.inferTimeout(command);
+                this.logService.info(`[TerminalExecutor] Executing: ${command} (timeout: ${effectiveTimeout}ms)`);
 
                 // Resolve working directory
                 const workspaceRoot = this.workspaceContextService.getWorkspace().folders[0]?.uri;
@@ -74,6 +80,10 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                 // Build the command with exit code capture using a cross-shell compatible wrapper.
                 // The EXIT_CODE_MARKER pattern is parsed from output to determine the exit code.
                 const isWindows = navigator.platform.toLowerCase().includes('win');
+                const isMac = navigator.platform.toLowerCase().includes('mac');
+
+                // On macOS, prefer zsh (default since Catalina); fall back to bash on Linux
+                const shellExe = isWindows ? 'cmd' : (isMac ? '/bin/zsh' : '/bin/bash');
                 const wrappedCommand = isWindows
                         ? `${command} & echo ${EXIT_CODE_MARKER}%errorlevel%`
                         : `${command}; __exit_code__=$?; echo "${EXIT_CODE_MARKER}$__exit_code__"`;
@@ -81,7 +91,7 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                 // Create a dedicated terminal for this command
                 const launchConfig: IShellLaunchConfig = {
                         name: `Construct: ${command.substring(0, 40)}...`,
-                        executable: isWindows ? 'cmd' : '/bin/bash',
+                        executable: shellExe,
                         args: isWindows ? ['/c', wrappedCommand] : ['-c', wrappedCommand],
                         cwd: cwdUri,
                         isFeatureTerminal: true,
@@ -141,7 +151,7 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                         // Timeout
                         const timer = setTimeout(() => {
                                 if (!settled) {
-                                        this.logService.warn(`[TerminalExecutor] Command timed out after ${timeout}ms: ${command}`);
+                                        this.logService.warn(`[TerminalExecutor] Command timed out after ${effectiveTimeout}ms: ${command}`);
                                         dataListener.dispose();
                                         exitListener.dispose();
                                         cleanup();
@@ -151,7 +161,7 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                                                 exitCode: 124, // Standard timeout exit code
                                         });
                                 }
-                        }, timeout);
+                        }, effectiveTimeout);
 
                         // Abort signal
                         if (signal) {
@@ -196,6 +206,35 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                 return text
                         .replace(/\n{3,}/g, '\n\n')
                         .trim();
+        }
+
+        /**
+         * Infer an appropriate timeout based on the command being executed.
+         * Package manager commands (npm, yarn, pnpm) get 120s because they
+         * often need to download and install large dependencies.
+         * Build commands get 120s as well.
+         * All other commands default to 60s.
+         */
+        private inferTimeout(command: string): number {
+                const slowCommands = [
+                        'npm ', 'npm install', 'npm create', 'npm run',
+                        'yarn ', 'yarn install', 'yarn create', 'yarn run',
+                        'pnpm ', 'pnpm install', 'pnpm create', 'pnpm run',
+                        'npx ',
+                        'cargo ', 'cargo build', 'cargo install',
+                        'pip install', 'pip3 install',
+                        'dotnet build', 'dotnet restore',
+                        'make', 'cmake',
+                        'docker build',
+                ];
+                const lowerCmd = command.toLowerCase().trim();
+                for (const slow of slowCommands) {
+                        if (lowerCmd.startsWith(slow.toLowerCase())) {
+                                this.logService.info(`[TerminalExecutor] Using extended timeout (120s) for: ${command.substring(0, 60)}`);
+                                return 120000;
+                        }
+                }
+                return 60000;
         }
 
         override dispose(): void {

@@ -48,7 +48,7 @@ export class AnthropicProviderService extends Disposable implements IAnthropicPr
                         maxTokens: DEFAULT_MAX_TOKENS,
                 };
 
-                this.logService.info('[AnthropicProvider] Initialized');
+                this.logService.info(`[AnthropicProvider] Initialized (model: ${this._config.model}, maxTokens: ${this._config.maxTokens})`);
         }
 
         get config(): IAnthropicProviderConfig {
@@ -57,8 +57,13 @@ export class AnthropicProviderService extends Disposable implements IAnthropicPr
 
         updateConfig(config: Partial<IAnthropicProviderConfig>): void {
                 if (config.apiKey !== undefined) {
-                        this._config.apiKey = config.apiKey;
-                        this.storageService.store(STORAGE_KEY_API_KEY, config.apiKey, 0 /* StorageScope.APPLICATION */, 1 /* StorageTarget.MACHINE */);
+                        // Validate API key format: Anthropic keys start with 'sk-ant-'
+                        const key = config.apiKey.trim();
+                        if (key && !key.startsWith('sk-ant-')) {
+                                this.logService.warn(`[AnthropicProvider] API key does not match expected format (should start with 'sk-ant-'). Key provided starts with: '${key.substring(0, 10)}...'`);
+                        }
+                        this._config.apiKey = key;
+                        this.storageService.store(STORAGE_KEY_API_KEY, key, 0 /* StorageScope.APPLICATION */, 1 /* StorageTarget.MACHINE */);
                 }
                 if (config.model !== undefined) {
                         this._config.model = config.model;
@@ -76,8 +81,21 @@ export class AnthropicProviderService extends Disposable implements IAnthropicPr
                 systemPrompt?: string
         ): AsyncGenerator<StreamEvent> {
                 if (!this._config.apiKey) {
+                        this.logService.error('[AnthropicProvider] No API key configured');
+                        this._onKeyInvalid.fire();
                         yield { type: 'error', text: 'Anthropic API key not configured. Please set it in Construct settings.' };
                         return;
+                }
+
+                // Estimate token count for context window management
+                const approxTokens = this.estimateTokenCount(messages, systemPrompt);
+                const CONTEXT_WINDOW_LIMIT = 200000; // Claude Sonnet 4 context window
+                const SAFETY_MARGIN = 10000; // Reserve tokens for response
+
+                if (approxTokens + this._config.maxTokens > CONTEXT_WINDOW_LIMIT - SAFETY_MARGIN) {
+                        this.logService.warn(`[AnthropicProvider] Approximate token count (${approxTokens}) approaching context limit (${CONTEXT_WINDOW_LIMIT}). Consider trimming conversation.`);
+                        // Trim oldest non-system messages if exceeding limit
+                        this.trimMessages(messages, CONTEXT_WINDOW_LIMIT - SAFETY_MARGIN - this._config.maxTokens);
                 }
 
                 const body: Record<string, unknown> = {
@@ -297,6 +315,61 @@ export class AnthropicProviderService extends Disposable implements IAnthropicPr
                                 reject(new DOMException('Aborted', 'AbortError'));
                         }, { once: true });
                 });
+        }
+
+        /**
+         * Estimate the token count for a conversation.
+         * Uses a rough heuristic: ~4 characters per token for English text.
+         * This is an approximation; actual tokenization may differ.
+         */
+        private estimateTokenCount(messages: IAnthropicMessage[], systemPrompt?: string): number {
+                let totalChars = 0;
+                if (systemPrompt) {
+                        totalChars += systemPrompt.length;
+                }
+                for (const msg of messages) {
+                        if (typeof msg.content === 'string') {
+                                totalChars += msg.content.length;
+                        } else if (Array.isArray(msg.content)) {
+                                for (const block of msg.content) {
+                                        if (block.type === 'text' && block.text) {
+                                                totalChars += block.text.length;
+                                        } else if (block.type === 'tool_result' && block.content) {
+                                                totalChars += typeof block.content === 'string' ? block.content.length : 0;
+                                        } else if (block.type === 'tool_use' && block.input) {
+                                                totalChars += JSON.stringify(block.input).length;
+                                        }
+                                }
+                        }
+                }
+                return Math.ceil(totalChars / 4);
+        }
+
+        /**
+         * Trim oldest non-system messages to fit within a token budget.
+         * Preserves the first user message (the original task) and removes
+         * oldest tool interactions to stay within budget.
+         */
+        private trimMessages(messages: IAnthropicMessage[], tokenBudget: number): void {
+                // Always keep the first user message (the original task)
+                if (messages.length <= 2) {
+                        return; // Can't trim further
+                }
+
+                let currentEstimate = this.estimateTokenCount(messages);
+
+                // Remove messages from index 1 onward (keep first user message)
+                // until we're within budget, but always keep the last 2 messages
+                while (currentEstimate > tokenBudget && messages.length > 3) {
+                        const removed = messages.splice(1, 1); // Remove second message (after the initial user message)
+                        if (removed.length > 0) {
+                                const removedChars = typeof removed[0].content === 'string'
+                                        ? removed[0].content.length
+                                        : JSON.stringify(removed[0].content).length;
+                                currentEstimate -= Math.ceil(removedChars / 4);
+                                this.logService.info(`[AnthropicProvider] Trimmed message to fit context window (saved ~${Math.ceil(removedChars / 4)} tokens)`);
+                        }
+                }
         }
 
         override dispose(): void {
