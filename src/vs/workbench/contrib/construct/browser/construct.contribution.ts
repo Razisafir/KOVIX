@@ -57,8 +57,17 @@ import { MCPProcessService } from './services/mcp/mcpProcess';
 import { TerminalExecutorService } from './services/terminal/terminalExecutor.js';
 import { DiffApplierService } from './services/editor/diffApplier.js';
 import { AgentLoopService } from './services/agent/agentLoop.js';
+import { ISecureKeyManager } from '../../../../platform/construct/common/security/secureKeyManager.js';
+import { SecureKeyManagerService } from './services/security/secureKeyManager.js';
+import { IAgentErrorRecovery } from '../../../../platform/construct/common/recovery/agentErrorRecovery.js';
+import { AgentErrorRecoveryService } from './services/recovery/agentErrorRecovery.js';
+import { IFileWatcherService } from '../../../../platform/construct/common/watcher/fileWatcherService.js';
+import { FileWatcherService } from './services/watcher/fileWatcherService.js';
+import { ISnapshotManager } from '../../../../platform/construct/common/snapshot/snapshotManager.js';
+import { SnapshotManagerService } from './services/snapshot/snapshotManager.js';
 import './constructMemoryConfig';
 import './constructApiConfig';
+import './constructApiSettings';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
 const constructMemoryIcon = registerIcon('construct-memory-icon', Codicon.symbolEvent, localize('constructMemoryIcon', 'View icon of the Construct Memory view.'));
@@ -394,3 +403,47 @@ registerSingleton(IMCPProcess, MCPProcessService, InstantiationType.Delayed);
 registerSingleton(ITerminalExecutor, TerminalExecutorService, InstantiationType.Delayed);
 registerSingleton(IDiffApplier, DiffApplierService, InstantiationType.Delayed);
 registerSingleton(IAgentLoop, AgentLoopService, InstantiationType.Delayed);
+
+// --- Phase 1: Core Maturity Singletons ----------------------------------------
+registerSingleton(ISecureKeyManager, SecureKeyManagerService, InstantiationType.Delayed);
+registerSingleton(IAgentErrorRecovery, AgentErrorRecoveryService, InstantiationType.Delayed);
+registerSingleton(IFileWatcherService, FileWatcherService, InstantiationType.Delayed);
+registerSingleton(ISnapshotManager, SnapshotManagerService, InstantiationType.Delayed);
+
+// --- Phase 1: Task-Level Undo Command -----------------------------------------
+registerAction2(class UndoTaskAction extends Action2 {
+                constructor() {
+                                super({
+                                                id: 'construct.undoTask',
+                                                title: localize2('undoTask', "Undo Last Task"),
+                                                f1: true,
+                                                category: localize2('constructCategoryUndo', "Construct"),
+                                });
+                }
+                async run(accessor: ServicesAccessor): Promise<void> {
+                                const agentLoop = accessor.get(IAgentLoop);
+                                const notificationService = accessor.get(INotificationService);
+                                const logService = accessor.get(ILogService);
+
+                                if (agentLoop.isRunning) {
+                                                notificationService.warn('Cannot undo while an agent task is running.');
+                                                return;
+                                }
+
+                                try {
+                                                const result = await (agentLoop as any).undoLastTask();
+                                                if (!result) {
+                                                                notificationService.info('No task to undo.');
+                                                                return;
+                                                }
+                                                if (result.success) {
+                                                                notificationService.info(`Task undone: ${result.restoredCount} files restored, ${result.deletedCount} files removed (${result.durationMs}ms)`);
+                                                } else {
+                                                                notificationService.error(`Undo failed: ${result.error}`);
+                                                }
+                                } catch (error) {
+                                                logService.error('[Construct] Undo task failed:', error);
+                                                notificationService.error(`Undo failed: ${error instanceof Error ? error.message : String(error)}`);
+                                }
+                }
+});
