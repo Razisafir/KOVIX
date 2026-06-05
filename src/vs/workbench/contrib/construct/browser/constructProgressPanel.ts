@@ -5,7 +5,7 @@
 
 import * as dom from '../../../../base/browser/dom.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { LoadingState, LoadingPhase, FileChangeEntry, TaskMetrics, LOADING_PHASE_LABELS, TOOL_PHASE_MAP } from '../../../../platform/construct/common/agent/loadingState.js';
+import { LoadingState, LoadingPhase, FileChangeEntry, TaskMetrics, LOADING_PHASE_LABELS } from '../../../../platform/construct/common/agent/loadingState.js';
 
 /**
  * Reusable spinner that cycles through braille characters.
@@ -279,7 +279,6 @@ export class ConstructProgressPanel extends Disposable {
         private currentTimer: ElapsedTimer | undefined;
         private currentStep = 0;
         private totalSteps = 0;
-        private lastState: LoadingState | undefined;
 
         constructor(parent: HTMLElement) {
                 super();
@@ -357,7 +356,6 @@ export class ConstructProgressPanel extends Disposable {
          * Update the panel based on a new loading state.
          */
         updateState(state: LoadingState): void {
-                this.lastState = state;
                 this.container.style.display = 'block';
 
                 // Phase label
@@ -516,7 +514,6 @@ export class ConstructProgressPanel extends Disposable {
                 this.metricsPanel.style.display = 'none';
                 this.currentStep = 0;
                 this.totalSteps = 0;
-                this.lastState = undefined;
                 if (this.currentTimer) {
                         this.currentTimer.dispose();
                         this.currentTimer = undefined;
