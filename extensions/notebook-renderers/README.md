@@ -1,6 +1,6 @@
-# Builtin Notebook Output Renderers for Visual Studio Code
+# Builtin Notebook Output Renderers for CONSTRUCT IDE
 
-**Notice:** This extension is bundled with Visual Studio Code. It can be disabled but not uninstalled.
+**Notice:** This extension is bundled with CONSTRUCT IDE. It can be disabled but not uninstalled.
 
 ## Features
 

@@ -1,10 +1,10 @@
-# Git integration for Visual Studio Code
+# Git integration for CONSTRUCT IDE
 
-**Notice:** This extension is bundled with Visual Studio Code. It can be disabled but not uninstalled.
+**Notice:** This extension is bundled with CONSTRUCT IDE. It can be disabled but not uninstalled.
 
 ## Features
 
-See [Git support in VS Code](https://code.visualstudio.com/docs/editor/versioncontrol#_git-support) to learn about the features of this extension.
+See [Git support in VS Code](https://github.com/Razisafir/CONSTRUCT-VSCODEdocs/editor/versioncontrol#_git-support) to learn about the features of this extension.
 
 ## API
 
@@ -18,7 +18,7 @@ The Git extension exposes an API, reachable by any other extension.
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git').exports;
 	const git = gitExtension.getAPI(1);
 	```
-	**Note:** To ensure that the `vscode.git` extension is activated before your extension, add `extensionDependencies` ([docs](https://code.visualstudio.com/api/references/extension-manifest)) into the `package.json` of your extension:
+	**Note:** To ensure that the `vscode.git` extension is activated before your extension, add `extensionDependencies` ([docs](https://github.com/Razisafir/CONSTRUCT-VSCODEapi/references/extension-manifest)) into the `package.json` of your extension:
 	```json
 	"extensionDependencies": [
 		"vscode.git"

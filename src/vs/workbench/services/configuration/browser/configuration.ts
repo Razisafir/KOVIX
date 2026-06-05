@@ -1003,9 +1003,9 @@ export class FolderConfiguration extends Disposable {
         protected readonly _onDidChange: Emitter<void> = this._register(new Emitter<void>());
         readonly onDidChange: Event<void> = this._onDidChange.event;
 
-        private folderConfiguration: CachedFolderConfiguration | FileServiceBasedConfiguration;
+        private folderConfiguration!: CachedFolderConfiguration | FileServiceBasedConfiguration;
         private readonly scopes: ConfigurationScope[];
-        private readonly configurationFolder: URI;
+        private configurationFolder: URI;
         private cachedFolderConfiguration: CachedFolderConfiguration;
 
         constructor(

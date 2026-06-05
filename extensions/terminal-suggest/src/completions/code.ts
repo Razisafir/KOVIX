@@ -303,7 +303,7 @@ const troubleshootingOptions: Fig.Option[] = [
 
 const codeCompletionSpec: Fig.Spec = {
 	name: 'code',
-	description: 'Visual Studio Code',
+	description: 'CONSTRUCT IDE',
 	args: {
 		template: ['filepaths', 'folders'],
 		isVariadic: true,
