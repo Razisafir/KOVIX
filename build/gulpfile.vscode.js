@@ -440,7 +440,15 @@ function patchWin32DependenciesTask(destinationFolderName) {
         const cwd = path.join(path.dirname(root), destinationFolderName);
 
         return async () => {
-                const deps = await glob('**/*.node', { cwd, ignore: 'extensions/node_modules/@parcel/watcher/**' });
+                // Only process .node files that are Windows-native (PE format).
+                // Cross-platform packages like onnxruntime-node ship darwin/linux .node
+                // binaries that rcedit.exe cannot parse — exclude them.
+                const deps = await glob('**/*.node', { cwd, ignore: [
+                        'extensions/node_modules/@parcel/watcher/**',
+                        '**/darwin/**',
+                        '**/linux/**',
+                        '**/onnxruntime-node/**'
+                ] });
                 const packageJson = JSON.parse(await fs.promises.readFile(path.join(cwd, 'resources', 'app', 'package.json'), 'utf8'));
                 const product = JSON.parse(await fs.promises.readFile(path.join(cwd, 'resources', 'app', 'product.json'), 'utf8'));
                 const baseVersion = packageJson.version.replace(/-.*$/, '');

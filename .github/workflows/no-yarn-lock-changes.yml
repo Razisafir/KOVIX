@@ -1,5 +1,5 @@
 name: Prevent yarn.lock changes in PRs
-on: [pull_request]
+on: workflow_dispatch
 
 jobs:
   main:
@@ -9,7 +9,7 @@ jobs:
       - uses: octokit/request-action@v2.x
         id: get_permissions
         with:
-          route: GET /repos/microsoft/vscode/collaborators/{username}/permission
+          route: GET /repos/${{ github.repository }}/collaborators/{username}/permission
           username: ${{ github.event.pull_request.user.login }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
