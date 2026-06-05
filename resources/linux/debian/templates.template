@@ -1,6 +1,6 @@
-Template: @@NAME@@/add-microsoft-repo
+Template: @@NAME@@/add-apt-repo
 Type: boolean
-Default: true
-Description: Add Microsoft apt repository for CONSTRUCT IDE?
- The installer would like to add the Microsoft repository and signing
+Default: false
+Description: Add CONSTRUCT IDE apt repository?
+ The installer would like to add the CONSTRUCT repository and signing
  key to update CONSTRUCT IDE through apt.

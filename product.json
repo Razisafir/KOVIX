@@ -16,10 +16,10 @@
         "win32DirName": "Construct IDE",
         "win32NameVersion": "Construct IDE",
         "win32RegValueName": "ConstructIDE",
-        "win32x64AppId": "{{D77B7E06-80BA-4137-BCF4-654B95CCEBC5}",
-        "win32arm64AppId": "{{D1ACE434-89C5-48D1-88D3-E2991DF85475}",
-        "win32x64UserAppId": "{{CC6B787D-37A0-49E8-AE24-8559A032BE0C}",
-        "win32arm64UserAppId": "{{3AEBF0C8-F733-4AD4-BADE-FDB816D53D7B}",
+        "win32x64AppId": "{{6B6661CD-C933-424B-9CDB-234699C45334}",
+        "win32arm64AppId": "{{C8630434-5060-4A13-A2F5-6D3ED4AC983F}",
+        "win32x64UserAppId": "{{2E90DB97-1051-4EFE-9DB0-830F5245B793}",
+        "win32arm64UserAppId": "{{43062E80-A08D-4222-9FDC-2778FCF407A2}",
         "win32AppUserModelId": "Construct.IDE",
         "win32ShellNameShort": "C&onstruct",
         "win32TunnelServiceMutex": "construct-tunnelservice",
@@ -92,6 +92,6 @@
                         }
                 }
         ],
-        "win32AppId": "{{D77B7E06-80BA-4137-BCF4-654B95CCEBC5}",
-        "win32UserAppId": "{{C77B7E06-80BA-4137-BCF4-654B95CCEBC6}"
+        "win32AppId": "{{0E4AF29C-7BCB-42B8-A8AC-B01E732FF92A}",
+        "win32UserAppId": "{{614EF23D-FD7B-4D62-BE5A-20F67ED486BC}"
 }
