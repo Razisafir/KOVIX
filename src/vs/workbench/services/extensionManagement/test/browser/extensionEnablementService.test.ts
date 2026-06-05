@@ -426,7 +426,7 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test enable an extension with a dependency extension that cannot be enabled', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('vscode-local', instantiationService), anExtensionManagementServer('vscode-remote', instantiationService), null));
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('construct-local', instantiationService), anExtensionManagementServer('construct-remote', instantiationService), null));
 		const localWorkspaceDepExtension = aLocalExtension2('pub.b', { extensionKind: ['workspace'] }, { location: URI.file(`pub.b`) });
 		const remoteWorkspaceExtension = aLocalExtension2('pub.a', { extensionKind: ['workspace'], extensionDependencies: ['pub.b'] }, { location: URI.file(`pub.a`).with({ scheme: Schemas.vscodeRemote }) });
 		const remoteWorkspaceDepExtension = aLocalExtension2('pub.b', { extensionKind: ['workspace'] }, { location: URI.file(`pub.b`).with({ scheme: Schemas.vscodeRemote }) });
@@ -639,7 +639,7 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test web extension from web extension management server and does not support vitrual workspace is enabled in virtual workspace', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(null, anExtensionManagementServer('vscode-remote', instantiationService), anExtensionManagementServer('web', instantiationService)));
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(null, anExtensionManagementServer('construct-remote', instantiationService), anExtensionManagementServer('web', instantiationService)));
 		const extension = aLocalExtension2('pub.a', { capabilities: { virtualWorkspaces: false }, browser: 'browser.js' }, { location: URI.file(`pub.a`).with({ scheme: 'web' }) });
 		instantiationService.stub(IWorkspaceContextService, 'getWorkspace', <IWorkspace>{ folders: [{ uri: URI.file('worskapceA').with(({ scheme: 'virtual' })) }] });
 		testObject = disposableStore.add(new TestExtensionEnablementService(instantiationService));
@@ -648,8 +648,8 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test web extension from remote extension management server and does not support vitrual workspace is disabled in virtual workspace', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(null, anExtensionManagementServer('vscode-remote', instantiationService), anExtensionManagementServer('web', instantiationService)));
-		const extension = aLocalExtension2('pub.a', { capabilities: { virtualWorkspaces: false }, browser: 'browser.js' }, { location: URI.file(`pub.a`).with({ scheme: 'vscode-remote' }) });
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(null, anExtensionManagementServer('construct-remote', instantiationService), anExtensionManagementServer('web', instantiationService)));
+		const extension = aLocalExtension2('pub.a', { capabilities: { virtualWorkspaces: false }, browser: 'browser.js' }, { location: URI.file(`pub.a`).with({ scheme: 'construct-remote' }) });
 		instantiationService.stub(IWorkspaceContextService, 'getWorkspace', <IWorkspace>{ folders: [{ uri: URI.file('worskapceA').with(({ scheme: 'virtual' })) }] });
 		testObject = disposableStore.add(new TestExtensionEnablementService(instantiationService));
 		assert.ok(!testObject.isEnabled(extension));
@@ -657,10 +657,10 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test enable a remote workspace extension and local ui extension that is a dependency of remote', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('vscode-local', instantiationService), anExtensionManagementServer('vscode-remote', instantiationService), null));
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('construct-local', instantiationService), anExtensionManagementServer('construct-remote', instantiationService), null));
 		const localUIExtension = aLocalExtension2('pub.a', { main: 'main.js', extensionKind: ['ui'] }, { location: URI.file(`pub.a`) });
-		const remoteUIExtension = aLocalExtension2('pub.a', { main: 'main.js', extensionKind: ['ui'] }, { location: URI.file(`pub.a`).with({ scheme: 'vscode-remote' }) });
-		const target = aLocalExtension2('pub.b', { main: 'main.js', extensionDependencies: ['pub.a'] }, { location: URI.file(`pub.b`).with({ scheme: 'vscode-remote' }) });
+		const remoteUIExtension = aLocalExtension2('pub.a', { main: 'main.js', extensionKind: ['ui'] }, { location: URI.file(`pub.a`).with({ scheme: 'construct-remote' }) });
+		const target = aLocalExtension2('pub.b', { main: 'main.js', extensionDependencies: ['pub.a'] }, { location: URI.file(`pub.b`).with({ scheme: 'construct-remote' }) });
 		testObject = disposableStore.add(new TestExtensionEnablementService(instantiationService));
 
 		installed.push(localUIExtension, remoteUIExtension, target);
@@ -673,10 +673,10 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test enable a remote workspace extension also enables its dependency in local', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('vscode-local', instantiationService), anExtensionManagementServer('vscode-remote', instantiationService), null));
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('construct-local', instantiationService), anExtensionManagementServer('construct-remote', instantiationService), null));
 		const localUIExtension = aLocalExtension2('pub.a', { main: 'main.js', extensionKind: ['ui'] }, { location: URI.file(`pub.a`) });
-		const remoteUIExtension = aLocalExtension2('pub.a', { main: 'main.js', extensionKind: ['ui'] }, { location: URI.file(`pub.a`).with({ scheme: 'vscode-remote' }) });
-		const target = aLocalExtension2('pub.b', { main: 'main.js', extensionDependencies: ['pub.a'] }, { location: URI.file(`pub.b`).with({ scheme: 'vscode-remote' }) });
+		const remoteUIExtension = aLocalExtension2('pub.a', { main: 'main.js', extensionKind: ['ui'] }, { location: URI.file(`pub.a`).with({ scheme: 'construct-remote' }) });
+		const target = aLocalExtension2('pub.b', { main: 'main.js', extensionDependencies: ['pub.a'] }, { location: URI.file(`pub.b`).with({ scheme: 'construct-remote' }) });
 		testObject = disposableStore.add(new TestExtensionEnablementService(instantiationService));
 
 		installed.push(localUIExtension, remoteUIExtension, target);
@@ -809,7 +809,7 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test remote ui extension is disabled by kind when there is no local server', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(null, anExtensionManagementServer('vscode-remote', instantiationService), null));
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(null, anExtensionManagementServer('construct-remote', instantiationService), null));
 		const localWorkspaceExtension = aLocalExtension2('pub.a', { extensionKind: ['ui'] }, { location: URI.file(`pub.a`).with({ scheme: Schemas.vscodeRemote }) });
 		testObject = disposableStore.add(new TestExtensionEnablementService(instantiationService));
 		assert.ok(!testObject.isEnabled(localWorkspaceExtension));
@@ -857,8 +857,8 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test web extension on remote server is disabled by kind when web worker is not enabled', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('vscode-local', instantiationService), anExtensionManagementServer('vscode-remote', instantiationService), null));
-		const localWorkspaceExtension = aLocalExtension2('pub.a', { browser: 'browser.js' }, { location: URI.file(`pub.a`).with({ scheme: 'vscode-remote' }) });
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('construct-local', instantiationService), anExtensionManagementServer('construct-remote', instantiationService), null));
+		const localWorkspaceExtension = aLocalExtension2('pub.a', { browser: 'browser.js' }, { location: URI.file(`pub.a`).with({ scheme: 'construct-remote' }) });
 		(<TestConfigurationService>instantiationService.get(IConfigurationService)).setUserConfiguration('extensions', { webWorker: false });
 		testObject = disposableStore.add(new TestExtensionEnablementService(instantiationService));
 		assert.strictEqual(testObject.isEnabled(localWorkspaceExtension), false);
@@ -866,8 +866,8 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test web extension on remote server is disabled by kind when web worker is enabled', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('vscode-local', instantiationService), anExtensionManagementServer('vscode-remote', instantiationService), null));
-		const localWorkspaceExtension = aLocalExtension2('pub.a', { browser: 'browser.js' }, { location: URI.file(`pub.a`).with({ scheme: 'vscode-remote' }) });
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('construct-local', instantiationService), anExtensionManagementServer('construct-remote', instantiationService), null));
+		const localWorkspaceExtension = aLocalExtension2('pub.a', { browser: 'browser.js' }, { location: URI.file(`pub.a`).with({ scheme: 'construct-remote' }) });
 		(<TestConfigurationService>instantiationService.get(IConfigurationService)).setUserConfiguration('extensions', { webWorker: true });
 		testObject = disposableStore.add(new TestExtensionEnablementService(instantiationService));
 		assert.strictEqual(testObject.isEnabled(localWorkspaceExtension), false);
@@ -875,8 +875,8 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test web extension on remote server is enabled in web', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('vscode-local', instantiationService), anExtensionManagementServer('vscode-remote', instantiationService), anExtensionManagementServer('web', instantiationService)));
-		const localWorkspaceExtension = aLocalExtension2('pub.a', { browser: 'browser.js' }, { location: URI.file(`pub.a`).with({ scheme: 'vscode-remote' }) });
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('construct-local', instantiationService), anExtensionManagementServer('construct-remote', instantiationService), anExtensionManagementServer('web', instantiationService)));
+		const localWorkspaceExtension = aLocalExtension2('pub.a', { browser: 'browser.js' }, { location: URI.file(`pub.a`).with({ scheme: 'construct-remote' }) });
 		(<TestConfigurationService>instantiationService.get(IConfigurationService)).setUserConfiguration('extensions', { webWorker: false });
 		testObject = disposableStore.add(new TestExtensionEnablementService(instantiationService));
 		assert.strictEqual(testObject.isEnabled(localWorkspaceExtension), true);
@@ -884,7 +884,7 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test web extension on web server is not disabled by kind', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('vscode-local', instantiationService), anExtensionManagementServer('vscode-remote', instantiationService), anExtensionManagementServer('web', instantiationService)));
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('construct-local', instantiationService), anExtensionManagementServer('construct-remote', instantiationService), anExtensionManagementServer('web', instantiationService)));
 		const webExtension = aLocalExtension2('pub.a', { browser: 'browser.js' }, { location: URI.file(`pub.a`).with({ scheme: 'web' }) });
 		testObject = disposableStore.add(new TestExtensionEnablementService(instantiationService));
 		assert.strictEqual(testObject.isEnabled(webExtension), true);
@@ -944,7 +944,7 @@ suite('ExtensionEnablementService Test', () => {
 	});
 
 	test('test extension is not disabled by dependency if it has a dependency that is disabled by extension kind', async () => {
-		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('vscode-local', instantiationService), anExtensionManagementServer('vscode-remote', instantiationService), null));
+		instantiationService.stub(IExtensionManagementServerService, anExtensionManagementServerService(anExtensionManagementServer('construct-local', instantiationService), anExtensionManagementServer('construct-remote', instantiationService), null));
 		const localUIExtension = aLocalExtension2('pub.a', { extensionKind: ['ui'] }, { location: URI.file(`pub.a`) });
 		const remoteUIExtension = aLocalExtension2('pub.a', { extensionKind: ['ui'] }, { location: URI.file(`pub.a`).with({ scheme: Schemas.vscodeRemote }) });
 		const remoteWorkspaceExtension = aLocalExtension2('pub.n', { extensionKind: ['workspace'], extensionDependencies: ['pub.a'] }, { location: URI.file(`pub.a`).with({ scheme: Schemas.vscodeRemote }) });
@@ -1174,8 +1174,8 @@ function anExtensionManagementServer(authority: string, instantiationService: Te
 }
 
 function aMultiExtensionManagementServerService(instantiationService: TestInstantiationService): IExtensionManagementServerService {
-	const localExtensionManagementServer = anExtensionManagementServer('vscode-local', instantiationService);
-	const remoteExtensionManagementServer = anExtensionManagementServer('vscode-remote', instantiationService);
+	const localExtensionManagementServer = anExtensionManagementServer('construct-local', instantiationService);
+	const remoteExtensionManagementServer = anExtensionManagementServer('construct-remote', instantiationService);
 	return anExtensionManagementServerService(localExtensionManagementServer, remoteExtensionManagementServer, null);
 }
 

@@ -93,6 +93,6 @@ steps:
       targetPath: $(Agent.BuildDirectory)/VSCode-darwin-$(VSCODE_ARCH).zip
       artifactName: unsigned_vscode_client_darwin_$(VSCODE_ARCH)_archive
       sbomBuildDropPath: $(Agent.BuildDirectory)/VSCode-darwin-$(VSCODE_ARCH)
-      sbomPackageName: "VS Code macOS $(VSCODE_ARCH) (unsigned)"
+      sbomPackageName: "CONSTRUCT IDE macOS $(VSCODE_ARCH) (unsigned)"
       sbomPackageVersion: $(Build.SourceVersion)
     displayName: Publish client archive

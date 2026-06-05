@@ -148,7 +148,7 @@ steps:
       targetPath: $(SERVER_PATH)
       artifactName: $(ARTIFACT_PREFIX)vscode_server_alpine_$(VSCODE_ARCH)_archive-unsigned
       sbomBuildDropPath: $(SERVER_DIR_PATH)
-      sbomPackageName: "VS Code Alpine $(VSCODE_ARCH) Server"
+      sbomPackageName: "CONSTRUCT IDE Alpine $(VSCODE_ARCH) Server"
       sbomPackageVersion: $(Build.SourceVersion)
     displayName: Publish server archive
     condition: and(succeededOrFailed(), ne(variables['SERVER_PATH'], ''), ne(variables['VSCODE_ARCH'], 'x64'))
@@ -158,7 +158,7 @@ steps:
       targetPath: $(WEB_PATH)
       artifactName: $(ARTIFACT_PREFIX)vscode_web_alpine_$(VSCODE_ARCH)_archive-unsigned
       sbomBuildDropPath: $(WEB_DIR_PATH)
-      sbomPackageName: "VS Code Alpine $(VSCODE_ARCH) Web"
+      sbomPackageName: "CONSTRUCT IDE Alpine $(VSCODE_ARCH) Web"
       sbomPackageVersion: $(Build.SourceVersion)
     displayName: Publish web server archive
     condition: and(succeededOrFailed(), ne(variables['WEB_PATH'], ''), ne(variables['VSCODE_ARCH'], 'x64'))

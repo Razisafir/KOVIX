@@ -73,7 +73,7 @@ steps:
           targetPath: $(Build.ArtifactStagingDirectory)/unsigned_vscode_cli_darwin_x64_cli.zip
           artifactName: unsigned_vscode_cli_darwin_x64_cli
           sbomBuildDropPath: $(Build.ArtifactStagingDirectory)/cli
-          sbomPackageName: "VS Code macOS x64 CLI (unsigned)"
+          sbomPackageName: "CONSTRUCT IDE macOS x64 CLI (unsigned)"
           sbomPackageVersion: $(Build.SourceVersion)
         displayName: Publish unsigned_vscode_cli_darwin_x64_cli artifact
 
@@ -83,6 +83,6 @@ steps:
           targetPath: $(Build.ArtifactStagingDirectory)/unsigned_vscode_cli_darwin_arm64_cli.zip
           artifactName: unsigned_vscode_cli_darwin_arm64_cli
           sbomBuildDropPath: $(Build.ArtifactStagingDirectory)/cli
-          sbomPackageName: "VS Code macOS arm64 CLI (unsigned)"
+          sbomPackageName: "CONSTRUCT IDE macOS arm64 CLI (unsigned)"
           sbomPackageVersion: $(Build.SourceVersion)
         displayName: Publish unsigned_vscode_cli_darwin_arm64_cli artifact

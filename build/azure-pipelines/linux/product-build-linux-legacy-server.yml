@@ -233,7 +233,7 @@ steps:
       targetPath: $(SERVER_PATH)
       artifactName: $(ARTIFACT_PREFIX)vscode_server_linux_legacy_$(VSCODE_ARCH)_archive-unsigned
       sbomBuildDropPath: $(Agent.BuildDirectory)/vscode-server-linux-$(VSCODE_ARCH)
-      sbomPackageName: "VS Code Linux $(VSCODE_ARCH) Legacy Server"
+      sbomPackageName: "CONSTRUCT IDE Linux $(VSCODE_ARCH) Legacy Server"
       sbomPackageVersion: $(Build.SourceVersion)
     condition: and(succeededOrFailed(), ne(variables['SERVER_PATH'], ''))
     displayName: Publish server archive
@@ -243,7 +243,7 @@ steps:
       targetPath: $(WEB_PATH)
       artifactName: $(ARTIFACT_PREFIX)vscode_web_linux_legacy_$(VSCODE_ARCH)_archive-unsigned
       sbomBuildDropPath: $(Agent.BuildDirectory)/vscode-server-linux-$(VSCODE_ARCH)-web
-      sbomPackageName: "VS Code Linux $(VSCODE_ARCH) Legacy Web"
+      sbomPackageName: "CONSTRUCT IDE Linux $(VSCODE_ARCH) Legacy Web"
       sbomPackageVersion: $(Build.SourceVersion)
     condition: and(succeededOrFailed(), ne(variables['WEB_PATH'], ''))
     displayName: Publish web server archive

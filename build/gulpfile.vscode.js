@@ -363,15 +363,15 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
                                 'resources/win32/vue.ico',
                                 'resources/win32/xml.ico',
                                 'resources/win32/yaml.ico',
-                                'resources/win32/code_70x70.png',
-                                'resources/win32/code_150x150.png'
+                                'resources/win32/construct_70x70.png',
+                                'resources/win32/construct_150x150.png'
                         ], { base: '.' }));
                 } else if (platform === 'linux') {
-                        all = es.merge(all, gulp.src('resources/linux/code.png', { base: '.' }));
+                        all = es.merge(all, gulp.src('resources/linux/construct.png', { base: '.' }));
                 } else if (platform === 'darwin') {
-                        const shortcut = gulp.src('resources/darwin/bin/code.sh')
+                        const shortcut = gulp.src('resources/darwin/bin/construct.sh')
                                 .pipe(replace('@@APPNAME@@', product.applicationName))
-                                .pipe(rename('bin/code'));
+                                .pipe(rename('bin/construct'));
 
                         all = es.merge(all, shortcut);
                 }
@@ -384,23 +384,23 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
                         .pipe(filter(['**', '!LICENSE', '!version'], { dot: true }));
 
                 if (platform === 'linux') {
-                        result = es.merge(result, gulp.src('resources/completions/bash/code', { base: '.' })
+                        result = es.merge(result, gulp.src('resources/completions/bash/construct', { base: '.' })
                                 .pipe(replace('@@APPNAME@@', product.applicationName))
                                 .pipe(rename(function (f) { f.basename = product.applicationName; })));
 
-                        result = es.merge(result, gulp.src('resources/completions/zsh/_code', { base: '.' })
+                        result = es.merge(result, gulp.src('resources/completions/zsh/_construct', { base: '.' })
                                 .pipe(replace('@@APPNAME@@', product.applicationName))
                                 .pipe(rename(function (f) { f.basename = '_' + product.applicationName; })));
                 }
 
                 if (platform === 'win32') {
-                        result = es.merge(result, gulp.src('resources/win32/bin/code.js', { base: 'resources/win32', allowEmpty: true }));
+                        result = es.merge(result, gulp.src('resources/win32/bin/construct.js', { base: 'resources/win32', allowEmpty: true }));
 
-                        result = es.merge(result, gulp.src('resources/win32/bin/code.cmd', { base: 'resources/win32' })
+                        result = es.merge(result, gulp.src('resources/win32/bin/construct.cmd', { base: 'resources/win32' })
                                 .pipe(replace('@@NAME@@', product.nameShort))
                                 .pipe(rename(function (f) { f.basename = product.applicationName; })));
 
-                        result = es.merge(result, gulp.src('resources/win32/bin/code.sh', { base: 'resources/win32' })
+                        result = es.merge(result, gulp.src('resources/win32/bin/construct.sh', { base: 'resources/win32' })
                                 .pipe(replace('@@NAME@@', product.nameShort))
                                 .pipe(replace('@@PRODNAME@@', product.nameLong))
                                 .pipe(replace('@@VERSION@@', version))
@@ -420,7 +420,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
                                 result = es.merge(result, gulp.src('.build/win32/appx/**', { base: '.build/win32' }));
                         }
                 } else if (platform === 'linux') {
-                        result = es.merge(result, gulp.src('resources/linux/bin/code.sh', { base: '.' })
+                        result = es.merge(result, gulp.src('resources/linux/bin/construct.sh', { base: '.' })
                                 .pipe(replace('@@PRODNAME@@', product.nameLong))
                                 .pipe(replace('@@APPNAME@@', product.applicationName))
                                 .pipe(rename('bin/' + product.applicationName)));

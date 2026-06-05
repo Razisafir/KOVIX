@@ -76,7 +76,7 @@ steps:
           targetPath: $(Build.ArtifactStagingDirectory)/unsigned_vscode_cli_win32_arm64_cli.zip
           artifactName: unsigned_vscode_cli_win32_arm64_cli
           sbomBuildDropPath: $(Build.ArtifactStagingDirectory)/cli
-          sbomPackageName: "VS Code Windows arm64 CLI (unsigned)"
+          sbomPackageName: "CONSTRUCT IDE Windows arm64 CLI (unsigned)"
           sbomPackageVersion: $(Build.SourceVersion)
         displayName: Publish unsigned_vscode_cli_win32_arm64_cli artifact
 
@@ -86,6 +86,6 @@ steps:
           targetPath: $(Build.ArtifactStagingDirectory)/unsigned_vscode_cli_win32_x64_cli.zip
           artifactName: unsigned_vscode_cli_win32_x64_cli
           sbomBuildDropPath: $(Build.ArtifactStagingDirectory)/cli
-          sbomPackageName: "VS Code Windows x64 CLI (unsigned)"
+          sbomPackageName: "CONSTRUCT IDE Windows x64 CLI (unsigned)"
           sbomPackageVersion: $(Build.SourceVersion)
         displayName: Publish unsigned_vscode_cli_win32_x64_cli artifact

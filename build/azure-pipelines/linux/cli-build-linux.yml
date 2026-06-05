@@ -132,7 +132,7 @@ steps:
           targetPath: $(Build.ArtifactStagingDirectory)/vscode_cli_linux_armhf_cli.tar.gz
           artifactName: vscode_cli_linux_armhf_cli
           sbomBuildDropPath: $(Build.ArtifactStagingDirectory)/cli
-          sbomPackageName: "VS Code Linux armhf CLI"
+          sbomPackageName: "CONSTRUCT IDE Linux armhf CLI"
           sbomPackageVersion: $(Build.SourceVersion)
         displayName: Publish vscode_cli_linux_armhf_cli artifact
 
@@ -142,7 +142,7 @@ steps:
           targetPath: $(Build.ArtifactStagingDirectory)/vscode_cli_linux_x64_cli.tar.gz
           artifactName: vscode_cli_linux_x64_cli
           sbomBuildDropPath: $(Build.ArtifactStagingDirectory)/cli
-          sbomPackageName: "VS Code Linux x64 CLI"
+          sbomPackageName: "CONSTRUCT IDE Linux x64 CLI"
           sbomPackageVersion: $(Build.SourceVersion)
         displayName: Publish vscode_cli_linux_x64_cli artifact
 
@@ -152,6 +152,6 @@ steps:
           targetPath: $(Build.ArtifactStagingDirectory)/vscode_cli_linux_arm64_cli.tar.gz
           artifactName: vscode_cli_linux_arm64_cli
           sbomBuildDropPath: $(Build.ArtifactStagingDirectory)/cli
-          sbomPackageName: "VS Code Linux arm64 CLI"
+          sbomPackageName: "CONSTRUCT IDE Linux arm64 CLI"
           sbomPackageVersion: $(Build.SourceVersion)
         displayName: Publish vscode_cli_linux_arm64_cli artifact

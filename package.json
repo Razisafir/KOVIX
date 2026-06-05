@@ -1,10 +1,13 @@
 {
-  "name": "construct-ide-dev",
-  "version": "1.96.0",
+  "name": "construct-ide",
+  "version": "1.0.0-god-mode",
+  "productName": "CONSTRUCT IDE",
+  "description": "AI-native integrated development environment with autonomous coding agents",
   "distro": "c883c91dadf5f063b26c86ffe01851acee3747c6",
   "author": {
-    "name": "CONSTRUCT IDE"
+    "name": "Razisafir"
   },
+  "homepage": "https://github.com/Razisafir/CONSTRUCT-VSCODE",
   "license": "MIT",
   "main": "./out/main.js",
   "type": "module",
@@ -46,7 +49,7 @@
     "vscode-dts-compile-check": "tsc -p src/tsconfig.vscode-dts.json && tsc -p src/tsconfig.vscode-proposed-dts.json",
     "valid-layers-check": "node build/lib/layersChecker.js",
     "update-distro": "node build/npm/update-distro.mjs",
-    "web": "echo 'npm run web' is replaced by './scripts/code-server' or './scripts/code-web'",
+    "web": "echo 'npm run web' is replaced by './scripts/construct-server' or './scripts/construct-web'",
     "compile-cli": "gulp compile-cli",
     "compile-web": "node ./node_modules/gulp/bin/gulp.js compile-web",
     "watch-web": "node ./node_modules/gulp/bin/gulp.js watch-web",

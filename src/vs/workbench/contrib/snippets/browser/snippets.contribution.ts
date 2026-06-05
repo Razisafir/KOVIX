@@ -40,86 +40,86 @@ workbenchContribRegistry.registerWorkbenchContribution(SnippetCodeActions, Lifec
 
 // config
 Registry
-	.as<IConfigurationRegistry>(Extensions.Configuration)
-	.registerConfiguration({
-		...editorConfigurationBaseNode,
-		'properties': {
-			'editor.snippets.codeActions.enabled': {
-				'description': nls.localize('editor.snippets.codeActions.enabled', 'Controls if surround-with-snippets or file template snippets show as Code Actions.'),
-				'type': 'boolean',
-				'default': true
-			}
-		}
-	});
+        .as<IConfigurationRegistry>(Extensions.Configuration)
+        .registerConfiguration({
+                ...editorConfigurationBaseNode,
+                'properties': {
+                        'editor.snippets.codeActions.enabled': {
+                                'description': nls.localize('editor.snippets.codeActions.enabled', 'Controls if surround-with-snippets or file template snippets show as Code Actions.'),
+                                'type': 'boolean',
+                                'default': true
+                        }
+                }
+        });
 
 
 // schema
-const languageScopeSchemaId = 'vscode://schemas/snippets';
+const languageScopeSchemaId = 'construct://schemas/snippets';
 
 const snippetSchemaProperties: IJSONSchemaMap = {
-	prefix: {
-		description: nls.localize('snippetSchema.json.prefix', 'The prefix to use when selecting the snippet in intellisense'),
-		type: ['string', 'array']
-	},
-	isFileTemplate: {
-		description: nls.localize('snippetSchema.json.isFileTemplate', 'The snippet is meant to populate or replace a whole file'),
-		type: 'boolean'
-	},
-	body: {
-		markdownDescription: nls.localize('snippetSchema.json.body', 'The snippet content. Use `$1`, `${1:defaultText}` to define cursor positions, use `$0` for the final cursor position. Insert variable values with `${varName}` and `${varName:defaultText}`, e.g. `This is file: $TM_FILENAME`.'),
-		type: ['string', 'array'],
-		items: {
-			type: 'string'
-		}
-	},
-	description: {
-		description: nls.localize('snippetSchema.json.description', 'The snippet description.'),
-		type: ['string', 'array']
-	}
+        prefix: {
+                description: nls.localize('snippetSchema.json.prefix', 'The prefix to use when selecting the snippet in intellisense'),
+                type: ['string', 'array']
+        },
+        isFileTemplate: {
+                description: nls.localize('snippetSchema.json.isFileTemplate', 'The snippet is meant to populate or replace a whole file'),
+                type: 'boolean'
+        },
+        body: {
+                markdownDescription: nls.localize('snippetSchema.json.body', 'The snippet content. Use `$1`, `${1:defaultText}` to define cursor positions, use `$0` for the final cursor position. Insert variable values with `${varName}` and `${varName:defaultText}`, e.g. `This is file: $TM_FILENAME`.'),
+                type: ['string', 'array'],
+                items: {
+                        type: 'string'
+                }
+        },
+        description: {
+                description: nls.localize('snippetSchema.json.description', 'The snippet description.'),
+                type: ['string', 'array']
+        }
 };
 
 const languageScopeSchema: IJSONSchema = {
-	id: languageScopeSchemaId,
-	allowComments: true,
-	allowTrailingCommas: true,
-	defaultSnippets: [{
-		label: nls.localize('snippetSchema.json.default', "Empty snippet"),
-		body: { '${1:snippetName}': { 'prefix': '${2:prefix}', 'body': '${3:snippet}', 'description': '${4:description}' } }
-	}],
-	type: 'object',
-	description: nls.localize('snippetSchema.json', 'User snippet configuration'),
-	additionalProperties: {
-		type: 'object',
-		required: ['body'],
-		properties: snippetSchemaProperties,
-		additionalProperties: false
-	}
+        id: languageScopeSchemaId,
+        allowComments: true,
+        allowTrailingCommas: true,
+        defaultSnippets: [{
+                label: nls.localize('snippetSchema.json.default', "Empty snippet"),
+                body: { '${1:snippetName}': { 'prefix': '${2:prefix}', 'body': '${3:snippet}', 'description': '${4:description}' } }
+        }],
+        type: 'object',
+        description: nls.localize('snippetSchema.json', 'User snippet configuration'),
+        additionalProperties: {
+                type: 'object',
+                required: ['body'],
+                properties: snippetSchemaProperties,
+                additionalProperties: false
+        }
 };
 
 
-const globalSchemaId = 'vscode://schemas/global-snippets';
+const globalSchemaId = 'construct://schemas/global-snippets';
 const globalSchema: IJSONSchema = {
-	id: globalSchemaId,
-	allowComments: true,
-	allowTrailingCommas: true,
-	defaultSnippets: [{
-		label: nls.localize('snippetSchema.json.default', "Empty snippet"),
-		body: { '${1:snippetName}': { 'scope': '${2:scope}', 'prefix': '${3:prefix}', 'body': '${4:snippet}', 'description': '${5:description}' } }
-	}],
-	type: 'object',
-	description: nls.localize('snippetSchema.json', 'User snippet configuration'),
-	additionalProperties: {
-		type: 'object',
-		required: ['body'],
-		properties: {
-			...snippetSchemaProperties,
-			scope: {
-				description: nls.localize('snippetSchema.json.scope', "A list of language names to which this snippet applies, e.g. 'typescript,javascript'."),
-				type: 'string'
-			}
-		},
-		additionalProperties: false
-	}
+        id: globalSchemaId,
+        allowComments: true,
+        allowTrailingCommas: true,
+        defaultSnippets: [{
+                label: nls.localize('snippetSchema.json.default', "Empty snippet"),
+                body: { '${1:snippetName}': { 'scope': '${2:scope}', 'prefix': '${3:prefix}', 'body': '${4:snippet}', 'description': '${5:description}' } }
+        }],
+        type: 'object',
+        description: nls.localize('snippetSchema.json', 'User snippet configuration'),
+        additionalProperties: {
+                type: 'object',
+                required: ['body'],
+                properties: {
+                        ...snippetSchemaProperties,
+                        scope: {
+                                description: nls.localize('snippetSchema.json.scope', "A list of language names to which this snippet applies, e.g. 'typescript,javascript'."),
+                                type: 'string'
+                        }
+                },
+                additionalProperties: false
+        }
 };
 
 const reg = Registry.as<JSONContributionRegistry.IJSONContributionRegistry>(JSONContributionRegistry.Extensions.JSONContribution);

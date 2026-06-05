@@ -68,7 +68,7 @@ suite('MarkdownRenderer', () => {
 				return;
 			}
 			const result: HTMLElement = store.add(renderMarkdown({ value: `![image](file:///images/cat.gif)` })).element;
-			assertNodeEquals(result, '<div><p><img src="vscode-file://vscode-app/images/cat.gif" alt="image"></p></div>');
+			assertNodeEquals(result, '<div><p><img src="construct-file://construct-app/images/cat.gif" alt="image"></p></div>');
 		});
 	});
 
@@ -344,7 +344,7 @@ suite('MarkdownRenderer', () => {
 			mds.appendMarkdown(`<img src="file:///images/cat.gif">`);
 
 			const result = store.add(renderMarkdown(mds)).element;
-			assert.strictEqual(result.innerHTML, `<img src="vscode-file://vscode-app/images/cat.gif">`);
+			assert.strictEqual(result.innerHTML, `<img src="construct-file://construct-app/images/cat.gif">`);
 		});
 	});
 

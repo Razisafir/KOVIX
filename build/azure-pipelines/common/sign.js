@@ -38,7 +38,7 @@ function getParams(type) {
                     keyCode: 'CP-230012',
                     operationSetCode: 'SigntoolSign',
                     parameters: [
-                        { parameterName: 'OpusName', parameterValue: 'VS Code' },
+                        { parameterName: 'OpusName', parameterValue: 'CONSTRUCT IDE' },
                         { parameterName: 'OpusInfo', parameterValue: 'https://code.visualstudio.com/' },
                         { parameterName: 'Append', parameterValue: '/as' },
                         { parameterName: 'FileDigest', parameterValue: '/fd "SHA256"' },
@@ -64,7 +64,7 @@ function getParams(type) {
                     keyCode: 'CP-229979',
                     operationSetCode: 'SigntoolSign',
                     parameters: [
-                        { parameterName: 'OpusName', parameterValue: 'VS Code' },
+                        { parameterName: 'OpusName', parameterValue: 'CONSTRUCT IDE' },
                         { parameterName: 'OpusInfo', parameterValue: 'https://code.visualstudio.com/' },
                         { parameterName: 'FileDigest', parameterValue: '/fd "SHA256"' },
                         { parameterName: 'PageHash', parameterValue: '/NPH' },

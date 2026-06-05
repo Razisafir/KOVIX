@@ -174,7 +174,7 @@ steps:
         artifact: unsigned_vscode_cli_darwin_$(VSCODE_ARCH)_cli
         patterns: "**"
         path: $(Build.ArtifactStagingDirectory)/cli
-      displayName: Download VS Code CLI
+      displayName: Download CONSTRUCT IDE CLI
 
     - script: |
         set -e
@@ -229,7 +229,7 @@ steps:
         targetPath: $(CLIENT_PATH)
         artifactName: $(ARTIFACT_PREFIX)unsigned_vscode_client_darwin_$(VSCODE_ARCH)_archive
         sbomBuildDropPath: $(Agent.BuildDirectory)/VSCode-darwin-$(VSCODE_ARCH)
-        sbomPackageName: "VS Code macOS $(VSCODE_ARCH) (unsigned)"
+        sbomPackageName: "CONSTRUCT IDE macOS $(VSCODE_ARCH) (unsigned)"
         sbomPackageVersion: $(Build.SourceVersion)
       displayName: Publish client archive
 
@@ -238,7 +238,7 @@ steps:
         targetPath: $(SERVER_PATH)
         artifactName: $(ARTIFACT_PREFIX)vscode_server_darwin_$(VSCODE_ARCH)_archive-unsigned
         sbomBuildDropPath: $(Agent.BuildDirectory)/vscode-server-darwin-$(VSCODE_ARCH)
-        sbomPackageName: "VS Code macOS $(VSCODE_ARCH) Server"
+        sbomPackageName: "CONSTRUCT IDE macOS $(VSCODE_ARCH) Server"
         sbomPackageVersion: $(Build.SourceVersion)
       condition: and(succeededOrFailed(), ne(variables['SERVER_PATH'], ''))
       displayName: Publish server archive
@@ -248,7 +248,7 @@ steps:
         targetPath: $(WEB_PATH)
         artifactName: $(ARTIFACT_PREFIX)vscode_web_darwin_$(VSCODE_ARCH)_archive-unsigned
         sbomBuildDropPath: $(Agent.BuildDirectory)/vscode-server-darwin-$(VSCODE_ARCH)-web
-        sbomPackageName: "VS Code macOS $(VSCODE_ARCH) Web"
+        sbomPackageName: "CONSTRUCT IDE macOS $(VSCODE_ARCH) Web"
         sbomPackageVersion: $(Build.SourceVersion)
       condition: and(succeededOrFailed(), ne(variables['WEB_PATH'], ''))
       displayName: Publish web server archive

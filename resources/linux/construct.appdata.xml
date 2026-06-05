@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+        <id>@@NAME@@.desktop</id>
+        <metadata_license>@@LICENSE@@</metadata_license>
+        <project_license>@@LICENSE@@</project_license>
+        <name>@@NAME_LONG@@</name>
+        <url type="homepage">https://github.com/Razisafir/CONSTRUCT-VSCODE</url>
+        <summary>CONSTRUCT IDE. AI-native code editing. Redefined.</summary>
+        <description>
+                <p>CONSTRUCT IDE is a new choice of tool that combines the simplicity of a code editor with what developers need for the core edit-build-debug cycle, powered by AI. See https://github.com/Razisafir/CONSTRUCT-VSCODE for more information.</p>
+        </description>
+        <screenshots>
+                <screenshot type="default">
+                        <image>https://github.com/Razisafir/CONSTRUCT-VSCODE</image>
+                        <caption>Editing TypeScript and searching for extensions</caption>
+                </screenshot>
+        </screenshots>
+</component>

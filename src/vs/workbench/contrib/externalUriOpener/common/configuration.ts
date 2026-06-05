@@ -14,12 +14,12 @@ export const defaultExternalUriOpenerId = 'default';
 export const externalUriOpenersSettingId = 'workbench.externalUriOpeners';
 
 export interface ExternalUriOpenersConfiguration {
-	readonly [uriGlob: string]: string;
+        readonly [uriGlob: string]: string;
 }
 
 const externalUriOpenerIdSchemaAddition: IJSONSchema = {
-	type: 'string',
-	enum: []
+        type: 'string',
+        enum: []
 };
 
 const exampleUriPatterns = `
@@ -35,39 +35,39 @@ const exampleUriPatterns = `
 - \`*\`: Match all domains using either http or https`;
 
 export const externalUriOpenersConfigurationNode: IConfigurationNode = {
-	...workbenchConfigurationNodeBase,
-	properties: {
-		[externalUriOpenersSettingId]: {
-			type: 'object',
-			markdownDescription: nls.localize('externalUriOpeners', "Configure the opener to use for external URIs (http, https)."),
-			defaultSnippets: [{
-				body: {
-					'example.com': '$1'
-				}
-			}],
-			additionalProperties: {
-				anyOf: [
-					{
-						type: 'string',
-						markdownDescription: nls.localize('externalUriOpeners.uri', "Map URI pattern to an opener id.\nExample patterns: \n{0}", exampleUriPatterns),
-					},
-					{
-						type: 'string',
-						markdownDescription: nls.localize('externalUriOpeners.uri', "Map URI pattern to an opener id.\nExample patterns: \n{0}", exampleUriPatterns),
-						enum: [defaultExternalUriOpenerId],
-						enumDescriptions: [nls.localize('externalUriOpeners.defaultId', "Open using VS Code's standard opener.")],
-					},
-					externalUriOpenerIdSchemaAddition
-				]
-			}
-		}
-	}
+        ...workbenchConfigurationNodeBase,
+        properties: {
+                [externalUriOpenersSettingId]: {
+                        type: 'object',
+                        markdownDescription: nls.localize('externalUriOpeners', "Configure the opener to use for external URIs (http, https)."),
+                        defaultSnippets: [{
+                                body: {
+                                        'example.com': '$1'
+                                }
+                        }],
+                        additionalProperties: {
+                                anyOf: [
+                                        {
+                                                type: 'string',
+                                                markdownDescription: nls.localize('externalUriOpeners.uri', "Map URI pattern to an opener id.\nExample patterns: \n{0}", exampleUriPatterns),
+                                        },
+                                        {
+                                                type: 'string',
+                                                markdownDescription: nls.localize('externalUriOpeners.uri', "Map URI pattern to an opener id.\nExample patterns: \n{0}", exampleUriPatterns),
+                                                enum: [defaultExternalUriOpenerId],
+                                                enumDescriptions: [nls.localize('externalUriOpeners.defaultId', "Open using Construct's standard opener.")],
+                                        },
+                                        externalUriOpenerIdSchemaAddition
+                                ]
+                        }
+                }
+        }
 };
 
 export function updateContributedOpeners(enumValues: string[], enumDescriptions: string[]): void {
-	externalUriOpenerIdSchemaAddition.enum = enumValues;
-	externalUriOpenerIdSchemaAddition.enumDescriptions = enumDescriptions;
+        externalUriOpenerIdSchemaAddition.enum = enumValues;
+        externalUriOpenerIdSchemaAddition.enumDescriptions = enumDescriptions;
 
-	Registry.as<IConfigurationRegistry>(Extensions.Configuration)
-		.notifyConfigurationSchemaUpdated(externalUriOpenersConfigurationNode);
+        Registry.as<IConfigurationRegistry>(Extensions.Configuration)
+                .notifyConfigurationSchemaUpdated(externalUriOpenersConfigurationNode);
 }

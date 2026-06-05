@@ -280,7 +280,7 @@ function stripComments(content) {
 function processCoreBundleFormat(base, fileHeader, languages, json, emitter) {
     const languageDirectory = path.join(REPO_ROOT_PATH, '..', 'vscode-loc', 'i18n');
     if (!fs.existsSync(languageDirectory)) {
-        log(`No VS Code localization repository found. Looking at ${languageDirectory}`);
+        log(`No CONSTRUCT IDE localization repository found. Looking at ${languageDirectory}`);
         log(`To bundle translations please check out the vscode-loc repository as a sibling of the vscode repository.`);
     }
     const sortedLanguages = sortLanguages(languages);

@@ -60,11 +60,11 @@ class BasePolicy {
     renderADMX(regKey) {
         return [
             `<policy name="${this.name}" class="Both" displayName="$(string.${this.name})" explainText="$(string.${this.name}_${this.description.nlsKey.replace(/\./g, '_')})" key="Software\\Policies\\Microsoft\\${regKey}" presentation="$(presentation.${this.name})">`,
-            `	<parentCategory ref="${this.category.name.nlsKey}" />`,
-            `	<supportedOn ref="Supported_${this.minimumVersion.replace(/\./g, '_')}" />`,
-            `	<elements>`,
+            `   <parentCategory ref="${this.category.name.nlsKey}" />`,
+            `   <supportedOn ref="Supported_${this.minimumVersion.replace(/\./g, '_')}" />`,
+            `   <elements>`,
             ...this.renderADMXElements(),
-            `	</elements>`,
+            `   </elements>`,
             `</policy>`
         ];
     }
@@ -92,7 +92,7 @@ class BooleanPolicy extends BasePolicy {
     renderADMXElements() {
         return [
             `<boolean id="${this.name}" valueName="${this.name}">`,
-            `	<trueValue><decimal value="1" /></trueValue><falseValue><decimal value="0" /></falseValue>`,
+            `   <trueValue><decimal value="1" /></trueValue><falseValue><decimal value="0" /></falseValue>`,
             `</boolean>`
         ];
     }
@@ -195,7 +195,7 @@ class StringEnumPolicy extends BasePolicy {
     renderADMXElements() {
         return [
             `<enum id="${this.name}" valueName="${this.name}">`,
-            ...this.enum_.map((value, index) => `	<item displayName="$(string.${this.name}_${this.enumDescriptions[index].nlsKey})"><value><string>${value}</string></value></item>`),
+            ...this.enum_.map((value, index) => `       <item displayName="$(string.${this.name}_${this.enumDescriptions[index].nlsKey})"><value><string>${value}</string></value></item>`),
             `</enum>`
         ];
     }
@@ -225,9 +225,9 @@ const IntQ = {
 };
 const StringQ = {
     Q: `[
-		(string (string_fragment) @value)
-		(call_expression function: (identifier) @localizeFn arguments: (arguments (string (string_fragment) @nlsKey) (string (string_fragment) @value)) (#eq? @localizeFn localize))
-	]`,
+                (string (string_fragment) @value)
+                (call_expression function: (identifier) @localizeFn arguments: (arguments (string (string_fragment) @nlsKey) (string (string_fragment) @value)) (#eq? @localizeFn localize))
+        ]`,
     value(matches) {
         const match = matches[0];
         if (!match) {
@@ -259,12 +259,12 @@ const StringArrayQ = {
 };
 function getProperty(qtype, node, key) {
     const query = new Parser.Query(typescript, `(
-			(pair
-				key: [(property_identifier)(string)] @key
-				value: ${qtype.Q}
-			)
-			(#eq? @key ${key})
-		)`);
+                        (pair
+                                key: [(property_identifier)(string)] @key
+                                value: ${qtype.Q}
+                        )
+                        (#eq? @key ${key})
+                )`);
     return qtype.value(query.matches(node));
 }
 function getIntProperty(node, key) {
@@ -332,22 +332,22 @@ function getPolicy(moduleName, configurationNode, settingNode, policyNode, categ
 }
 function getPolicies(moduleName, node) {
     const query = new Parser.Query(typescript, `
-		(
-			(call_expression
-				function: (member_expression property: (property_identifier) @registerConfigurationFn) (#eq? @registerConfigurationFn registerConfiguration)
-				arguments: (arguments	(object	(pair
-					key: [(property_identifier)(string)] @propertiesKey (#eq? @propertiesKey properties)
-					value: (object (pair
-						key: [(property_identifier)(string)(computed_property_name)]
-						value: (object (pair
-							key: [(property_identifier)(string)] @policyKey (#eq? @policyKey policy)
-							value: (object) @policy
-						)) @setting
-					))
-				)) @configuration)
-			)
-		)
-	`);
+                (
+                        (call_expression
+                                function: (member_expression property: (property_identifier) @registerConfigurationFn) (#eq? @registerConfigurationFn registerConfiguration)
+                                arguments: (arguments   (object (pair
+                                        key: [(property_identifier)(string)] @propertiesKey (#eq? @propertiesKey properties)
+                                        value: (object (pair
+                                                key: [(property_identifier)(string)(computed_property_name)]
+                                                value: (object (pair
+                                                        key: [(property_identifier)(string)] @policyKey (#eq? @policyKey policy)
+                                                        value: (object) @policy
+                                                )) @setting
+                                        ))
+                                )) @configuration)
+                        )
+                )
+        `);
     const categories = new Map();
     return query.matches(node).map(m => {
         const configurationNode = m.captures.filter(c => c.name === 'configuration')[0].node;
@@ -370,41 +370,41 @@ function renderADMX(regKey, versions, categories, policies) {
     versions = versions.map(v => v.replace(/\./g, '_'));
     return `<?xml version="1.0" encoding="utf-8"?>
 <policyDefinitions revision="1.1" schemaVersion="1.0">
-	<policyNamespaces>
-		<target prefix="${regKey}" namespace="Microsoft.Policies.${regKey}" />
-	</policyNamespaces>
-	<resources minRequiredRevision="1.0" />
-	<supportedOn>
-		<definitions>
-			${versions.map(v => `<definition name="Supported_${v}" displayName="$(string.Supported_${v})" />`).join(`\n			`)}
-		</definitions>
-	</supportedOn>
-	<categories>
-		<category displayName="$(string.Application)" name="Application" />
-		${categories.map(c => `<category displayName="$(string.Category_${c.name.nlsKey})" name="${c.name.nlsKey}"><parentCategory ref="Application" /></category>`).join(`\n		`)}
-	</categories>
-	<policies>
-		${policies.map(p => p.renderADMX(regKey)).flat().join(`\n		`)}
-	</policies>
+        <policyNamespaces>
+                <target prefix="${regKey}" namespace="Microsoft.Policies.${regKey}" />
+        </policyNamespaces>
+        <resources minRequiredRevision="1.0" />
+        <supportedOn>
+                <definitions>
+                        ${versions.map(v => `<definition name="Supported_${v}" displayName="$(string.Supported_${v})" />`).join(`\n                     `)}
+                </definitions>
+        </supportedOn>
+        <categories>
+                <category displayName="$(string.Application)" name="Application" />
+                ${categories.map(c => `<category displayName="$(string.Category_${c.name.nlsKey})" name="${c.name.nlsKey}"><parentCategory ref="Application" /></category>`).join(`\n           `)}
+        </categories>
+        <policies>
+                ${policies.map(p => p.renderADMX(regKey)).flat().join(`\n               `)}
+        </policies>
 </policyDefinitions>
 `;
 }
 function renderADML(appName, versions, categories, policies, translations) {
     return `<?xml version="1.0" encoding="utf-8"?>
 <policyDefinitionResources revision="1.0" schemaVersion="1.0">
-	<displayName />
-	<description />
-	<resources>
-		<stringTable>
-			<string id="Application">${appName}</string>
-			${versions.map(v => `<string id="Supported_${v.replace(/\./g, '_')}">${appName} &gt;= ${v}</string>`)}
-			${categories.map(c => renderADMLString('Category', c.moduleName, c.name, translations))}
-			${policies.map(p => p.renderADMLStrings(translations)).flat().join(`\n			`)}
-		</stringTable>
-		<presentationTable>
-			${policies.map(p => p.renderADMLPresentation()).join(`\n			`)}
-		</presentationTable>
-	</resources>
+        <displayName />
+        <description />
+        <resources>
+                <stringTable>
+                        <string id="Application">${appName}</string>
+                        ${versions.map(v => `<string id="Supported_${v.replace(/\./g, '_')}">${appName} &gt;= ${v}</string>`)}
+                        ${categories.map(c => renderADMLString('Category', c.moduleName, c.name, translations))}
+                        ${policies.map(p => p.renderADMLStrings(translations)).flat().join(`\n                  `)}
+                </stringTable>
+                <presentationTable>
+                        ${policies.map(p => p.renderADMLPresentation()).join(`\n                        `)}
+                </presentationTable>
+        </resources>
 </policyDefinitionResources>
 `;
 }
@@ -470,7 +470,7 @@ async function queryVersions(serviceUrl, languageId) {
         headers: {
             'Accept': 'application/json;api-version=3.0-preview.1',
             'Content-Type': 'application/json',
-            'User-Agent': 'VS Code Build',
+            'User-Agent': 'CONSTRUCT IDE Build',
         },
         body: JSON.stringify({
             filters: [{ criteria: [{ filterType: 7, value: `ms-ceintl.vscode-language-pack-${languageId}` }] }],

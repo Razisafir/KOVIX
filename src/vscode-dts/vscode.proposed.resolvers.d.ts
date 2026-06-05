@@ -380,12 +380,12 @@ declare module 'vscode' {
 
 	export interface RemoteAuthorityResolver {
 		/**
-		 * Resolve the authority part of the current opened `vscode-remote://` URI.
+		 * Resolve the authority part of the current opened `construct-remote://` URI.
 		 *
 		 * This method will be invoked once during the startup of the editor and again each time
 		 * the editor detects a disconnection.
 		 *
-		 * @param authority The authority part of the current opened `vscode-remote://` URI.
+		 * @param authority The authority part of the current opened `construct-remote://` URI.
 		 * @param context A context indicating if this is the first call or a subsequent call.
 		 */
 		resolve(authority: string, context: RemoteAuthorityResolverContext): ResolverResult | Thenable<ResolverResult>;
@@ -394,13 +394,13 @@ declare module 'vscode' {
 		 * Resolves an exec server interface for the authority. Called if an
 		 * authority is a midpoint in a transit to the desired remote.
 		 *
-		 * @param authority The authority part of the current opened `vscode-remote://` URI.
+		 * @param authority The authority part of the current opened `construct-remote://` URI.
 		 * @returns The exec server interface, as defined in a contract between extensions.
 		 */
 		resolveExecServer?(remoteAuthority: string, context: RemoteAuthorityResolverContext): ExecServer | Thenable<ExecServer>;
 
 		/**
-		 * Get the canonical URI (if applicable) for a `vscode-remote://` URI.
+		 * Get the canonical URI (if applicable) for a `construct-remote://` URI.
 		 *
 		 * @returns The canonical URI or undefined if the uri is already canonical.
 		 */
@@ -461,7 +461,7 @@ declare module 'vscode' {
 	export namespace env {
 
 		/**
-		 * The authority part of the current opened `vscode-remote://` URI.
+		 * The authority part of the current opened `construct-remote://` URI.
 		 * Defined by extensions, e.g. `ssh-remote+${host}` for remotes using a secure shell.
 		 *
 		 * *Note* that the value is `undefined` when there is no remote extension host but that the

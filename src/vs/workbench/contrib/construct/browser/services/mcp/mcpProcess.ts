@@ -144,7 +144,7 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
         private resolveUri(path: string): URI {
                 // If already a URI string, parse it
-                if (path.startsWith('file://') || path.startsWith('vscode://')) {
+                if (path.startsWith('file://') || path.startsWith('construct://')) {
                         return URI.parse(path);
                 }
                 // If absolute path

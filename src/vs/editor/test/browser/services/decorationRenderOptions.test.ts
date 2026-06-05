@@ -125,22 +125,22 @@ suite('Decoration Render Options', () => {
 		if (platform.isWindows) {
 			// windows file path (used as string)
 			s.registerDecorationType('test', 'example', { gutterIconPath: URI.file('c:\\files\\miles\\more.png') });
-			assertBackground('file:///c:/files/miles/more.png', 'vscode-file://vscode-app/c:/files/miles/more.png');
+			assertBackground('file:///c:/files/miles/more.png', 'construct-file://construct-app/c:/files/miles/more.png');
 			s.removeDecorationType('example');
 
 			// single quote must always be escaped/encoded
 			s.registerDecorationType('test', 'example', { gutterIconPath: URI.file('c:\\files\\foo\\b\'ar.png') });
-			assertBackground('file:///c:/files/foo/b\\000027ar.png', 'vscode-file://vscode-app/c:/files/foo/b\\000027ar.png');
+			assertBackground('file:///c:/files/foo/b\\000027ar.png', 'construct-file://construct-app/c:/files/foo/b\\000027ar.png');
 			s.removeDecorationType('example');
 		} else {
 			// unix file path (used as string)
 			s.registerDecorationType('test', 'example', { gutterIconPath: URI.file('/Users/foo/bar.png') });
-			assertBackground('file:///Users/foo/bar.png', 'vscode-file://vscode-app/Users/foo/bar.png');
+			assertBackground('file:///Users/foo/bar.png', 'construct-file://construct-app/Users/foo/bar.png');
 			s.removeDecorationType('example');
 
 			// single quote must always be escaped/encoded
 			s.registerDecorationType('test', 'example', { gutterIconPath: URI.file('/Users/foo/b\'ar.png') });
-			assertBackground('file:///Users/foo/b\\000027ar.png', 'vscode-file://vscode-app/Users/foo/b\\000027ar.png');
+			assertBackground('file:///Users/foo/b\\000027ar.png', 'construct-file://construct-app/Users/foo/b\\000027ar.png');
 			s.removeDecorationType('example');
 		}
 

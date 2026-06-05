@@ -189,7 +189,7 @@ steps:
           artifact: unsigned_vscode_cli_win32_$(VSCODE_ARCH)_cli
           patterns: "**"
           path: $(Build.ArtifactStagingDirectory)/cli
-        displayName: Download VS Code CLI
+        displayName: Download CONSTRUCT IDE CLI
 
       - powershell: |
           . build/azure-pipelines/win32/exec.ps1
@@ -200,7 +200,7 @@ steps:
           $CliAppName = $AppProductJson.tunnelApplicationName
           $AppName = $AppProductJson.applicationName
           Move-Item -Path "$(Build.ArtifactStagingDirectory)/cli/$AppName.exe" -Destination "$(agent.builddirectory)/VSCode-win32-$(VSCODE_ARCH)/bin/$CliAppName.exe"
-        displayName: Move VS Code CLI
+        displayName: Move CONSTRUCT IDE CLI
 
       - task: UseDotNet@2
         inputs:
@@ -306,7 +306,7 @@ steps:
           targetPath: $(CLIENT_PATH)
           artifactName: $(ARTIFACT_PREFIX)vscode_client_win32_$(VSCODE_ARCH)_archive
           sbomBuildDropPath: $(Agent.BuildDirectory)/VSCode-win32-$(VSCODE_ARCH)
-          sbomPackageName: "VS Code Windows $(VSCODE_ARCH)"
+          sbomPackageName: "CONSTRUCT IDE Windows $(VSCODE_ARCH)"
           sbomPackageVersion: $(Build.SourceVersion)
         condition: and(succeededOrFailed(), ne(variables['CLIENT_PATH'], ''))
         displayName: Publish archive
@@ -316,7 +316,7 @@ steps:
           targetPath: $(SERVER_PATH)
           artifactName: $(ARTIFACT_PREFIX)vscode_server_win32_$(VSCODE_ARCH)_archive
           sbomBuildDropPath: $(Agent.BuildDirectory)/vscode-server-win32-$(VSCODE_ARCH)
-          sbomPackageName: "VS Code Windows $(VSCODE_ARCH) Server"
+          sbomPackageName: "CONSTRUCT IDE Windows $(VSCODE_ARCH) Server"
           sbomPackageVersion: $(Build.SourceVersion)
         condition: and(succeededOrFailed(), ne(variables['SERVER_PATH'], ''))
         displayName: Publish server archive
@@ -326,7 +326,7 @@ steps:
           targetPath: $(WEB_PATH)
           artifactName: $(ARTIFACT_PREFIX)vscode_web_win32_$(VSCODE_ARCH)_archive
           sbomBuildDropPath: $(Agent.BuildDirectory)/vscode-server-win32-$(VSCODE_ARCH)-web
-          sbomPackageName: "VS Code Windows $(VSCODE_ARCH) Web"
+          sbomPackageName: "CONSTRUCT IDE Windows $(VSCODE_ARCH) Web"
           sbomPackageVersion: $(Build.SourceVersion)
         condition: and(succeededOrFailed(), ne(variables['WEB_PATH'], ''))
         displayName: Publish web server archive
@@ -336,7 +336,7 @@ steps:
           targetPath: $(SYSTEM_SETUP_PATH)
           artifactName: $(ARTIFACT_PREFIX)vscode_client_win32_$(VSCODE_ARCH)_setup
           sbomBuildDropPath: $(Agent.BuildDirectory)/VSCode-win32-$(VSCODE_ARCH)
-          sbomPackageName: "VS Code Windows $(VSCODE_ARCH) System Setup"
+          sbomPackageName: "CONSTRUCT IDE Windows $(VSCODE_ARCH) System Setup"
           sbomPackageVersion: $(Build.SourceVersion)
         condition: and(succeededOrFailed(), ne(variables['SYSTEM_SETUP_PATH'], ''))
         displayName: Publish system setup
@@ -346,7 +346,7 @@ steps:
           targetPath: $(USER_SETUP_PATH)
           artifactName: $(ARTIFACT_PREFIX)vscode_client_win32_$(VSCODE_ARCH)_user-setup
           sbomBuildDropPath: $(Agent.BuildDirectory)/VSCode-win32-$(VSCODE_ARCH)
-          sbomPackageName: "VS Code Windows $(VSCODE_ARCH) User Setup"
+          sbomPackageName: "CONSTRUCT IDE Windows $(VSCODE_ARCH) User Setup"
           sbomPackageVersion: $(Build.SourceVersion)
         condition: and(succeededOrFailed(), ne(variables['USER_SETUP_PATH'], ''))
         displayName: Publish user setup

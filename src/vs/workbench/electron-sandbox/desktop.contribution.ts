@@ -351,13 +351,13 @@ import product from '../../platform/product/common/product.js';
 
 // JSON Schemas
 (function registerJSONSchemas(): void {
-        const argvDefinitionFileSchemaId = 'vscode://schemas/argv';
+        const argvDefinitionFileSchemaId = 'construct://schemas/argv';
         const jsonRegistry = Registry.as<IJSONContributionRegistry>(JSONExtensions.JSONContribution);
         const schema: IJSONSchema = {
                 id: argvDefinitionFileSchemaId,
                 allowComments: true,
                 allowTrailingCommas: true,
-                description: 'VSCode static command line definition file',
+                description: 'CONSTRUCT IDE static command line definition file',
                 type: 'object',
                 additionalProperties: false,
                 properties: {

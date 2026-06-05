@@ -166,7 +166,7 @@ name: "$(Date:yyyyMMdd).$(Rev:r) (${{ parameters.VSCODE_QUALITY }})"
 resources:
   pipelines:
     - pipeline: vscode-7pm-kick-off
-      source: 'VS Code 7PM Kick-Off'
+      source: 'CONSTRUCT IDE 7PM Kick-Off'
       trigger: true
   repositories:
     - repository: 1ESPipelines

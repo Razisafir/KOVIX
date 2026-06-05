@@ -155,7 +155,7 @@ suite('ExtHostWebview', () => {
 		const authority = 'ssh-remote+localhost=foo/bar';
 
 		const sourceUri = URI.from({
-			scheme: 'vscode-remote',
+			scheme: 'construct-remote',
 			authority: authority,
 			path: '/Users/cody/x.png'
 		});
@@ -178,7 +178,7 @@ suite('ExtHostWebview', () => {
 		const authority = 'localhost:8080';
 
 		const sourceUri = URI.from({
-			scheme: 'vscode-remote',
+			scheme: 'construct-remote',
 			authority: authority,
 			path: '/Users/cody/x.png'
 		});
