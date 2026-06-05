@@ -31,7 +31,15 @@ const bundledDeps = [
     'libGLESv2.so',
     'libvulkan.so.1',
     'libvk_swiftshader.so',
-    'libffmpeg.so'
+    'libffmpeg.so',
+    'libvips' // Sharp bundles its own libvips
+];
+// Native module paths to exclude from dpkg-shlibdeps analysis.
+// These modules bundle their own shared libraries that aren't in the sysroot.
+const excludedNativeModules = [
+    'sharp/build', // Bundles libvips
+    'sharp/vendor', // Bundles libvips prebuilt binaries
+    'onnxruntime-node/bin', // Cross-platform binaries
 ];
 async function getDependencies(packageType, buildDir, applicationName, arch) {
     if (packageType === 'deb') {
@@ -53,7 +61,8 @@ async function getDependencies(packageType, buildDir, applicationName, arch) {
     }
     const appPath = path.join(buildDir, applicationName);
     // Add the native modules
-    const files = findResult.stdout.toString().trimEnd().split('\n');
+    const files = findResult.stdout.toString().trimEnd().split('\n')
+        .filter(filePath => !excludedNativeModules.some(excluded => filePath.includes(excluded)));
     // Add the tunnel binary.
     files.push(path.join(buildDir, 'bin', product.tunnelApplicationName));
     // Add the main executable.
