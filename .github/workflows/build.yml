@@ -37,6 +37,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Copy Inno Updater
+        run: npx gulp vscode-win32-x64-inno-updater
+        timeout-minutes: 5
+
       - name: Build Windows system setup
         run: npx gulp vscode-win32-x64-system-setup
         timeout-minutes: 15
