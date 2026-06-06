@@ -56,12 +56,25 @@ jobs:
           name: construct-ide-windows-x64
           path: .build/win32-x64/system-setup/*.exe
 
+      - name: Determine version tag
+        id: version
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $tag = "v$version"
+          # Check if a tag like v0.1.0-beta.N exists on this commit
+          $existingTag = git tag --points-at HEAD --list "v*-beta*"
+          if ($existingTag) {
+            $tag = $existingTag.Split("`n")[0].Trim()
+          }
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "Using release tag: $tag"
+
       - name: Create Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           files: .build/win32-x64/system-setup/*.exe
-          tag_name: v0.1.0-beta.9
+          tag_name: ${{ steps.version.outputs.tag }}
           draft: true
           generate_release_notes: true
         env:
@@ -112,3 +125,27 @@ jobs:
         with:
           name: construct-ide-linux-x64
           path: .build/linux/deb/amd64/**/*.deb
+
+      - name: Determine version tag
+        id: version
+        run: |
+          version=$(jq -r .version package.json)
+          tag="v$version"
+          # Check if a beta tag exists on this commit
+          existing_tag=$(git tag --points-at HEAD --list "v*-beta*")
+          if [ -n "$existing_tag" ]; then
+            tag=$(echo "$existing_tag" | head -1 | tr -d '[:space:]')
+          fi
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+          echo "Using release tag: $tag"
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: .build/linux/deb/amd64/**/*.deb
+          tag_name: ${{ steps.version.outputs.tag }}
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
