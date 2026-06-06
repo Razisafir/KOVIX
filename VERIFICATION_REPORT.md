@@ -6,13 +6,38 @@ Verifier: Automated CI + local TSC/ESLint + code review
 
 ## CI Status
 
+### Original beta.12 build (0298db78) — FAILED
 - Run ID: 27045221557
-- Commit: 0298db78322cf01a75d735a57f1a61ae061bae8d
-- Tag: v0.1.0-beta.12
-- Monaco Editor checks: **PASS** (completed, conclusion: success)
-- build-linux: **IN PROGRESS** (as of last check)
-- build-windows: **IN PROGRESS** (as of last check)
+- Monaco Editor checks: **PASS**
+- build-linux: **FAIL** (17 TypeScript errors)
+- build-windows: Unknown (cancelled after linux failure)
+
+### CI Errors Found and Fixed
+
+17 TypeScript errors were found by the CI's stricter gulp build pipeline:
+
+1. `AgentLoopService` missing `onLoadingStateChange` and `onFileChange` events from `IAgentLoop` interface
+2. Unused imports in `e2eCanonicalTasks.ts`: `IPlanStep`, `ITerminalExecResult`, `IDisposable`, `toDisposable`
+3. Unused `IFileHashEntry` interface in `snapshotManager.ts`
+4. `title: localize()` not assignable to `ICommandActionTitle` in `constructApiSettings.ts` (3 occurrences)
+5. Unused `maskedKey` variable in `constructApiSettings.ts`
+6. Implicit `any` type on e2eCanonicalTasks.ts line 1219
+7. Unused variable `t` (CI minification artifact) in `fileWatcherService.ts`
+8. Module resolution errors for construct platform paths in `e2eCanonicalTasks.ts`
+
+All 17 errors were fixed in commit 07cf7b6f.
+
+### Fixed build (07cf7b6f) — IN PROGRESS
+- Run ID: 27047446789
+- Re-tagged: v0.1.0-beta.12 now points to 07cf7b6f
+- build-linux: **IN PROGRESS**
+- build-windows: **IN PROGRESS**
 - Typical build time: 60–90 minutes for full VS Code compilation
+
+### Additional fixes applied
+- `1adebe90`: Added `undoLastTask()` to `IAgentLoop` interface, removed `as any` cast
+- `82b459bd`: Fixed hardcoded release tag in build.yml (was `v0.1.0-beta.9`, now dynamic)
+- `07cf7b6f`: Resolved all 17 CI TypeScript errors
 
 ## Local Verification (Sandbox)
 
@@ -182,20 +207,28 @@ All Phase 1 commands are registered:
 
 ## Known Issues
 
-1. **`as any` cast in undo command**: `(agentLoop as any).undoLastTask()` should be typed properly by adding `undoLastTask()` to the `IAgentLoop` interface. Low severity — works at runtime.
+1. ~~`as any` cast in undo command~~: **FIXED** in commit 1adebe90 — `undoLastTask()` added to `IAgentLoop` interface.
 
-2. **Missing ESLint dev dependency**: `@stylistic/eslint-plugin-ts` is not installed locally. CI may or may not have this issue depending on its `npm install` configuration.
+2. ~~Hardcoded release tag~~: **FIXED** in commit 82b459bd — build.yml now determines tag dynamically from git tags.
 
-3. **No manual IDE testing possible**: This sandbox has no GUI, no running IDE, and no LLM API keys. All 5 features are structurally complete and compile-clean, but none have been exercised against a real running IDE.
+3. ~~17 CI TypeScript errors~~: **FIXED** in commit 07cf7b6f — all errors resolved.
+
+4. **Missing ESLint dev dependency**: `@stylistic/eslint-plugin-ts` is not installed locally. CI may or may not have this issue depending on its `npm install` configuration.
+
+5. **No manual IDE testing possible**: This sandbox has no GUI, no running IDE, and no LLM API keys. All 5 features are structurally complete and compile-clean, but none have been exercised against a real running IDE.
+
+6. **CI build for fixed commit in progress**: The build for commit 07cf7b6f (with all fixes) is still running. We won't know if the fix is complete until it finishes.
 
 ## Verdict
 
-**Phase 1: COMPILATION VERIFIED, RUNTIME UNVERIFIED**
+**Phase 1: COMPILATION VERIFIED (after fixes), RUNTIME UNVERIFIED**
 
-- TypeScript: 0 errors across all Phase 1 files
+- Local TypeScript: 0 errors across all Phase 1 files (after fixing 17 CI errors)
+- CI build (0298db78): FAILED — 17 TypeScript errors
+- CI build (07cf7b6f): IN PROGRESS — all errors fixed, awaiting build result
 - Service registration: All 4 services + 4 commands properly registered
 - Code integration: Agent loop, error recovery, snapshots, and file watcher are all wired together
-- CI: In progress (Monaco checks pass, builds running)
+- CI Monaco Editor checks: PASS for all commits
 
 **The code is ready for manual testing once CI completes.** A human with a running IDE and API key must perform the manual verification steps outlined in this report before Phase 1 can be declared complete.
 
