@@ -431,7 +431,7 @@ registerAction2(class UndoTaskAction extends Action2 {
                                 }
 
                                 try {
-                                                const result = await (agentLoop as any).undoLastTask();
+                                                const result = await agentLoop.undoLastTask();
                                                 if (!result) {
                                                                 notificationService.info('No task to undo.');
                                                                 return;

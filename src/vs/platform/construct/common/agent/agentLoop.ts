@@ -6,6 +6,7 @@
 import { createDecorator } from '../../../instantiation/common/instantiation.js';
 import { Event } from '../../../../base/common/event.js';
 import { LoadingState, FileChangeEntry } from './loadingState.js';
+import { IRestoreResult } from '../snapshot/snapshotManager.js';
 
 export const IAgentLoop = createDecorator<IAgentLoop>('construct.agentLoop');
 
@@ -106,4 +107,12 @@ export interface IAgentLoop {
          * Used for the real-time file tree diff in the progress panel.
          */
         readonly onFileChange: Event<FileChangeEntry>;
+
+        /**
+         * Undo the last agent task by restoring the most recent snapshot.
+         * Reverts all file changes made during the last task.
+         *
+         * @returns The restore result, or null if no active snapshot exists.
+         */
+        undoLastTask(): Promise<IRestoreResult | null>;
 }
