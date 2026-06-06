@@ -8,7 +8,6 @@ import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { IFileWatcherService, IFileChangeEvent, IFileChangeBatch, IFileWatcherConfig } from '../../../../../../platform/construct/common/watcher/fileWatcherService.js';
 import { IFileService, IFileSystemWatcher } from '../../../../../../platform/files/common/files.js';
-import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import * as glob from '../../../../../../base/common/glob.js';
@@ -77,7 +76,6 @@ export class FileWatcherService extends Disposable implements IFileWatcherServic
 
         constructor(
                 @IFileService private readonly fileService: IFileService,
-                @IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
                 @ICommandService private readonly commandService: ICommandService,
                 @ILogService private readonly logService: ILogService
         ) {

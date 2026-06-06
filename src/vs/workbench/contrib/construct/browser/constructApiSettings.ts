@@ -142,7 +142,7 @@ registerAction2(class ManageApiKeysAction extends Action2 {
                         id: 'construct.manageApiKeys',
                         title: localize2('manageApiKeys', "Manage API Keys"),
                         f1: true,
-                        category: localize('constructCategoryApiKeys', "Construct"),
+                        category: localize2('constructCategoryApiKeys', "Construct"),
                 });
         }
 
@@ -176,7 +176,7 @@ registerAction2(class ManageApiKeysAction extends Action2 {
 
                 // For providers that don't need a key, just confirm and set active
                 if (!meta.requiresKey) {
-                        const _maskedKey = await keyManager.getMaskedKey(selectedProvider);
+                        await keyManager.getMaskedKey(selectedProvider);
                         const actionPick = await quickInput.pick(
                                 [
                                         { label: '$(plug) Set as Active Provider', action: 'activate' as const },
@@ -311,7 +311,7 @@ registerAction2(class TestProviderConnectionAction extends Action2 {
                         id: 'construct.testProviderConnection',
                         title: localize2('testProviderConnection', "Test Provider Connection"),
                         f1: true,
-                        category: localize('constructCategoryTestConn', "Construct"),
+                        category: localize2('constructCategoryTestConn', "Construct"),
                 });
         }
 
@@ -364,7 +364,7 @@ registerAction2(class SwitchProviderAction extends Action2 {
                         id: 'construct.switchProvider',
                         title: localize2('switchProvider', "Switch Provider"),
                         f1: true,
-                        category: localize('constructCategorySwitch', "Construct"),
+                        category: localize2('constructCategorySwitch', "Construct"),
                 });
         }
 

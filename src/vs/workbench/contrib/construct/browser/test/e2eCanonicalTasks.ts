@@ -18,11 +18,11 @@
  * This file is exportable and usable from CI pipelines.
  */
 
-import type { IAgentLoop, AgentLoopEvent, IPlanResult, IPlanStep } from '../../../../../../platform/construct/common/agent/agentLoop.js';
+import type { IAgentLoop, AgentLoopEvent, IPlanResult, IPlanStep } from '../../../../../platform/construct/common/agent/agentLoop.js';
 // IPlanStep is used for the explicit type annotation on the planActionTypes map callback
-import type { IDiffApplier } from '../../../../../../platform/construct/common/editor/diffApplier.js';
-import type { ITerminalExecutor } from '../../../../../../platform/construct/common/terminal/terminalExecutor.js';
-import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
+import type { IDiffApplier } from '../../../../../platform/construct/common/editor/diffApplier.js';
+import type { ITerminalExecutor } from '../../../../../platform/construct/common/terminal/terminalExecutor.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Result types
