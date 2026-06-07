@@ -1,0 +1,23 @@
+CONSTRUCT IDE v0.1.0-beta — Build Checksums
+==============================================
+Build Date: 2026-06-07
+Build Environment: Linux (headless — no packaging available)
+Node.js: v24.16.0
+npm: 11.13.0
+
+NOTE: This is a CI/server environment without a display server.
+Packaged installers could not be built here.
+Build must be performed on a Windows machine for .exe installer,
+macOS machine for .dmg, and Linux with display for .AppImage.
+
+Compile Status: PASS (0 errors in construct code, 32 pre-existing in extensions/)
+
+To build installers, run on the target OS:
+  Windows:  npm run gulp -- vscode-win32-x64-setup
+  macOS:    npm run gulp -- vscode-darwin-x64-archive
+  Linux:    npm run gulp -- vscode-linux-x64-archive
+
+After building, generate checksums:
+  sha256sum ConstructIDESetup-x64.exe
+  sha256sum construct-ide-darwin-x64.tar.gz
+  sha256sum construct-ide-linux-x64.tar.gz
