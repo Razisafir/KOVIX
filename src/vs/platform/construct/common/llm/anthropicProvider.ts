@@ -1,7 +1,14 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Copyright (c) Construct IDE. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+/**
+ * @deprecated This module is DEPRECATED. The Anthropic provider is now an
+ * internal backend within CloudProvider (auto-detected by `sk-ant-` API key
+ * prefix). All AI consumers should use IConstructAIService exclusively.
+ * This interface is kept for type compatibility only.
+ */
 
 import { createDecorator } from '../../../instantiation/common/instantiation.js';
 import { Event } from '../../../../base/common/event.js';

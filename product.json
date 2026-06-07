@@ -41,7 +41,7 @@
                 "itemUrl": "https://open-vsx.org/vscode/item",
                 "resourceUrlTemplate": "https://open-vsx.org/vscode/unpkg/{publisher}/{name}/{version}/{path}"
         },
-        "webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
+        "webviewContentExternalBaseUrlTemplate": "",
         "builtInExtensions": [
                 {
                         "name": "ms-vscode.js-debug-companion",
