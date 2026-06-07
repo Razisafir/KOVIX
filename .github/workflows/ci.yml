@@ -1,16 +1,16 @@
 name: CI
 
-on: workflow_dispatch
-
-# on:
-#   push:
-#     branches:
-#       - main
-#       - release/*
-#   pull_request:
-#     branches:
-#       - main
-#       - release/*
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - main-dev
+      - release/*
+  pull_request:
+    branches:
+      - main
+      - main-dev
 
 jobs:
   windows:

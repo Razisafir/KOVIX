@@ -3,29 +3,84 @@ name: Build Construct IDE
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      build_macos:
+        description: 'Build macOS (expensive runner)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   contents: write
 
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+
 jobs:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # COMPILE CHECK — fast gate, runs first
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  compile:
+    name: Compile Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 30
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Compile
+        run: NODE_OPTIONS="--max-old-space-size=8192" npm run compile
+
+      - name: Verify construct code compiles
+        run: |
+          errors=$(npm run compile 2>&1 | grep -c "Error.*construct" || true)
+          if [ "$errors" -gt 0 ]; then
+            echo "ERROR: $errors compile errors found in construct code"
+            exit 1
+          fi
+          echo "✓ No compile errors in construct code"
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # WINDOWS BUILD — produces .exe installer
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   build-windows:
+    needs: compile
+    name: Windows x64 Build
     runs-on: windows-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           fetch-tags: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
         run: npm ci
@@ -33,7 +88,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Windows package (full)
+      - name: Rebuild native modules for Electron
+        run: npx electron-rebuild -f -w better-sqlite3,node-pty,native-keymap,tree-sitter
+        timeout-minutes: 15
+
+      - name: Build Windows package
         run: npx gulp vscode-win32-x64
         timeout-minutes: 120
         env:
@@ -43,56 +102,58 @@ jobs:
         run: npx gulp vscode-win32-x64-inno-updater
         timeout-minutes: 5
 
-      - name: Build Windows system setup
+      - name: Build Windows system setup (.exe)
         run: npx gulp vscode-win32-x64-system-setup
         timeout-minutes: 15
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: List setup output
-        run: dir .build\win32-x64\system-setup\
+      - name: Generate SHA256 checksum
+        run: |
+          $exe = Get-ChildItem .build\win32-x64\system-setup\*.exe | Select-Object -First 1
+          $hash = (Get-FileHash -Path $exe.FullName -Algorithm SHA256).Hash
+          "$hash  $($exe.Name)" | Out-File -FilePath .build\win32-x64\checksums-sha256.txt -Encoding utf8
+          Get-Content .build\win32-x64\checksums-sha256.txt
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: construct-ide-windows-x64
-          path: .build/win32-x64/system-setup/*.exe
+          path: |
+            .build/win32-x64/system-setup/*.exe
+            .build/win32-x64/checksums-sha256.txt
+          retention-days: 30
 
-      - name: Determine version tag
-        id: version
-        run: |
-          $version = (Get-Content package.json | ConvertFrom-Json).version
-          $tag = "v$version"
-          # Check if a tag like v0.1.0-beta.N exists on this commit
-          $existingTag = git tag --points-at HEAD --list "v*-beta*"
-          if ($existingTag) {
-            $tag = $existingTag.Split("`n")[0].Trim()
-          }
-          echo "tag=$tag" >> $env:GITHUB_OUTPUT
-          echo "Using release tag: $tag"
-
-      - name: Create Release
-        if: github.ref == 'refs/heads/main'
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: .build/win32-x64/system-setup/*.exe
-          tag_name: ${{ steps.version.outputs.tag }}
+          files: |
+            .build/win32-x64/system-setup/*.exe
+            .build/win32-x64/checksums-sha256.txt
           draft: true
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # LINUX BUILD — produces .deb package
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   build-linux:
+    needs: compile
+    name: Linux x64 Build
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           fetch-tags: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
       - name: Install build dependencies
@@ -106,49 +167,126 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Linux package (full)
+      - name: Rebuild native modules for Electron
+        run: npx electron-rebuild -f -w better-sqlite3,node-pty,native-keymap,tree-sitter
+        timeout-minutes: 15
+
+      - name: Build Linux package
         run: npx gulp vscode-linux-x64
         timeout-minutes: 120
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Prepare Linux DEB package
-        run: npx gulp vscode-linux-x64-prepare-deb
-        timeout-minutes: 15
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build Linux DEB
-        run: npx gulp vscode-linux-x64-build-deb
-        timeout-minutes: 15
+        run: |
+          npx gulp vscode-linux-x64-prepare-deb
+          npx gulp vscode-linux-x64-build-deb
+        timeout-minutes: 30
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Linux package
+      - name: Build Linux tar.gz archive
+        run: npx gulp vscode-linux-x64-build-tar-gz
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd .build/linux
+          sha256sum deb/amd64/**/*.deb > checksums-sha256.txt 2>/dev/null || true
+          find . -name "*.tar.gz" -exec sha256sum {} \; >> checksums-sha256.txt 2>/dev/null || true
+          cat checksums-sha256.txt
+
+      - name: Upload Linux packages
         uses: actions/upload-artifact@v4
         with:
           name: construct-ide-linux-x64
-          path: .build/linux/deb/amd64/**/*.deb
+          path: |
+            .build/linux/deb/amd64/**/*.deb
+            .build/linux/**/*.tar.gz
+            .build/linux/checksums-sha256.txt
+          retention-days: 30
 
-      - name: Determine version tag
-        id: version
-        run: |
-          version=$(jq -r .version package.json)
-          tag="v$version"
-          # Check if a beta tag exists on this commit
-          existing_tag=$(git tag --points-at HEAD --list "v*-beta*")
-          if [ -n "$existing_tag" ]; then
-            tag=$(echo "$existing_tag" | head -1 | tr -d '[:space:]')
-          fi
-          echo "tag=$tag" >> $GITHUB_OUTPUT
-          echo "Using release tag: $tag"
-
-      - name: Create Release
-        if: github.ref == 'refs/heads/main'
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: .build/linux/deb/amd64/**/*.deb
-          tag_name: ${{ steps.version.outputs.tag }}
+          files: |
+            .build/linux/deb/amd64/**/*.deb
+            .build/linux/**/*.tar.gz
+            .build/linux/checksums-sha256.txt
+          draft: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # macOS BUILD — produces .dmg (opt-in, expensive)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  build-macos:
+    needs: compile
+    name: macOS x64 Build
+    if: github.event.inputs.build_macos == 'true' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rebuild native modules for Electron
+        run: npx electron-rebuild -f -w better-sqlite3,node-pty,native-keymap,tree-sitter
+        timeout-minutes: 15
+
+      - name: Build macOS package
+        run: npx gulp vscode-darwin-x64
+        timeout-minutes: 120
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build macOS ZIP archive
+        run: npx gulp vscode-darwin-x64-build-zip
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd .build/darwin
+          find . -name "*.zip" -exec sh -c 'sha256sum "$1" >> checksums-sha256.txt' _ {} \;
+          cat checksums-sha256.txt || echo "No archives found, listing dir:"
+          ls -la
+
+      - name: Upload macOS packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: construct-ide-macos-x64
+          path: |
+            .build/darwin/**/*.zip
+            .build/darwin/checksums-sha256.txt
+          retention-days: 30
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            .build/darwin/**/*.zip
+            .build/darwin/checksums-sha256.txt
           draft: true
           generate_release_notes: true
         env:
