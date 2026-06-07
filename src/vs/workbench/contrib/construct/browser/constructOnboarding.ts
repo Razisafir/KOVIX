@@ -12,6 +12,7 @@ import { ConfigurationTarget, IConfigurationService } from '../../../../platform
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWebviewWorkbenchService } from '../../webviewPanel/browser/webviewWorkbenchService.js';
 import { IOverlayWebview } from '../../webview/browser/webview.js';
 
@@ -65,6 +66,7 @@ export class ConstructOnboardingWizard extends Disposable {
                 @IConfigurationService private readonly configurationService: IConfigurationService,
                 @ILogService private readonly logService: ILogService,
                 @IStorageService private readonly storageService: IStorageService,
+                @IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
                 @IWebviewWorkbenchService private readonly webviewWorkbenchService: IWebviewWorkbenchService,
         ) {
                 super();
@@ -276,6 +278,37 @@ export class ConstructOnboardingWizard extends Disposable {
                                         config.kaliWSLEnabled,
                                         ConfigurationTarget.USER,
                                 );
+                        }
+
+                        // Also write to .construct/settings.json for easy direct editing
+                        try {
+                                const workspace = this.workspaceContextService.getWorkspace();
+                                const workspaceRoot = workspace.folders[0]?.uri.fsPath;
+                                if (workspaceRoot) {
+                                        const fs = await import('fs');
+                                        const path = await import('path');
+                                        const constructDir = path.join(workspaceRoot, '.construct');
+                                        const settingsPath = path.join(constructDir, 'settings.json');
+
+                                        // Ensure .construct directory exists
+                                        if (!fs.existsSync(constructDir)) {
+                                                fs.mkdirSync(constructDir, { recursive: true });
+                                        }
+
+                                        const settings = {
+                                                defaultModel: config.modelId ?? '',
+                                                ollamaEndpoint: 'http://localhost:11434',
+                                                kaliEnabled: config.kaliWSLEnabled ?? false,
+                                                providerType: config.providerType,
+                                                embeddingModel: 'nomic-embed-text',
+                                        };
+
+                                        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+                                        this.logService.info('[ConstructOnboarding] Wrote .construct/settings.json');
+                                }
+                        } catch (error) {
+                                // Non-critical — settings are also saved via IConfigurationService
+                                this.logService.warn('[ConstructOnboarding] Could not write .construct/settings.json:', error instanceof Error ? error.message : String(error));
                         }
 
                         // Mark onboarding as complete so it doesn't auto-open again
