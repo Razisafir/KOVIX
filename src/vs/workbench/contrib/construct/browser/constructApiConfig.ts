@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Copyright (c) Construct IDE. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -40,3 +40,70 @@ const apiConfiguration: IConfigurationNode = {
 };
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration(apiConfiguration);
+
+// --- Phase 1: AI Provider Layer Configuration ---
+
+const ollamaConfiguration: IConfigurationNode = {
+                id: 'construct.ollama',
+                order: 100,
+                title: localize('construct.ollama', "Construct -- Ollama (Local)"),
+                type: 'object',
+                properties: {
+                                'construct.ollama.baseUrl': {
+                                                type: 'string',
+                                                default: 'http://localhost:11434',
+                                                description: localize('construct.ollama.baseUrl', "Base URL for the Ollama API. Defaults to localhost:11434. Change this if you run Ollama on a different host or port."),
+                                                scope: 4 /* ConfigurationScope.WINDOW */
+                                }
+                }
+};
+
+const xenovaConfiguration: IConfigurationNode = {
+                id: 'construct.xenova',
+                order: 101,
+                title: localize('construct.xenova', "Construct -- Xenova (In-Process)"),
+                type: 'object',
+                properties: {
+                                'construct.xenova.model': {
+                                                type: 'string',
+                                                default: 'Xenova/Qwen1.5-0.5B-Chat',
+                                                description: localize('construct.xenova.model', "ONNX model to load via @xenova/transformers for in-process inference. This is the offline fallback when Ollama is not available."),
+                                                enum: [
+                                                                'Xenova/Qwen1.5-0.5B-Chat',
+                                                                'Xenova/Phi-3-mini-4k-instruct',
+                                                                'Xenova/codellama-7b-instruct',
+                                                                'Xenova/starcoder2-3b'
+                                                ]
+                                }
+                }
+};
+
+const cloudConfiguration: IConfigurationNode = {
+                id: 'construct.cloud',
+                order: 102,
+                title: localize('construct.cloud', "Construct -- Cloud (OpenAI-Compatible)"),
+                type: 'object',
+                properties: {
+                                'construct.cloud.baseUrl': {
+                                                type: 'string',
+                                                default: 'https://api.openai.com/v1',
+                                                description: localize('construct.cloud.baseUrl', "Base URL for the OpenAI-compatible cloud API. Supports OpenAI, Together AI, Groq, LM Studio, or any LiteLLM proxy."),
+                                                scope: 4 /* ConfigurationScope.WINDOW */
+                                },
+                                'construct.cloud.apiKey': {
+                                                type: 'string',
+                                                default: '',
+                                                description: localize('construct.cloud.apiKey', "API key for the cloud provider. Required for cloud inference."),
+                                                scope: 1 /* ConfigurationScope.APPLICATION */
+                                },
+                                'construct.cloud.model': {
+                                                type: 'string',
+                                                default: 'gpt-4o-mini',
+                                                description: localize('construct.cloud.model', "Model ID to use with the cloud provider. Must be available from the /v1/models endpoint.")
+                                }
+                }
+};
+
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration(ollamaConfiguration);
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration(xenovaConfiguration);
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration(cloudConfiguration);

@@ -12,7 +12,7 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import { ViewPaneContainer } from '../../../../workbench/browser/parts/views/viewPaneContainer.js';
 import { ConstructAgentViewPane } from './constructAgentView.js';
 import { ConstructMemoryViewPane } from './constructMemoryView.js';
-import { IStatusbarService, StatusbarAlignment } from '../../../../workbench/services/statusbar/browser/statusbar.js';
+import { IStatusbarService, StatusbarAlignment, IStatusbarEntryAccessor } from '../../../../workbench/services/statusbar/browser/statusbar.js';
 import { IWorkbenchContribution, Extensions as WorkbenchExtensions, IWorkbenchContributionsRegistry } from '../../../../workbench/common/contributions';
 import { LifecyclePhase } from '../../../../workbench/services/lifecycle/common/lifecycle.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -48,11 +48,14 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../platform/commands/common/commands';
 import { IAnthropicProvider } from '../../../../platform/construct/common/llm/anthropicProvider.js';
+import { IConstructAIService } from '../../../../platform/construct/common/llm/constructAIService.js';
+import { AIProviderType } from '../../../../platform/construct/common/llm/constructAIProvider.js';
 import { IMCPProcess } from '../../../../platform/construct/common/mcp/mcpProcess';
 import { ITerminalExecutor } from '../../../../platform/construct/common/terminal/terminalExecutor.js';
 import { IDiffApplier } from '../../../../platform/construct/common/editor/diffApplier.js';
 import { IAgentLoop } from '../../../../platform/construct/common/agent/agentLoop.js';
 import { AnthropicProviderService } from './services/llm/anthropicProvider.js';
+import { ConstructAIService } from './services/llm/constructAIService.js';
 import { MCPProcessService } from './services/mcp/mcpProcess';
 import { TerminalExecutorService } from './services/terminal/terminalExecutor.js';
 import { DiffApplierService } from './services/editor/diffApplier.js';
@@ -104,8 +107,11 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
 class ConstructStatusBarContribution extends Disposable implements IWorkbenchContribution {
                 static readonly ID = 'workbench.contrib.constructStatusBar';
 
+                private modelEntryAccessor: IStatusbarEntryAccessor | undefined;
+
                 constructor(
                                 @IStatusbarService private readonly statusbarService: IStatusbarService,
+                                @IConstructAIService private readonly aiService: IConstructAIService,
                 ) {
                                 super();
 
@@ -118,13 +124,22 @@ class ConstructStatusBarContribution extends Disposable implements IWorkbenchCon
                                                 command: 'construct.focusPanel',
                                 }, 'construct.agentStatus', StatusbarAlignment.LEFT, 50));
 
-                                // Model info (left side)
-                                this._register(this.statusbarService.addEntry({
+                                // Model info (left side) — dynamically updated from AI service
+                                this.modelEntryAccessor = this._register(this.statusbarService.addEntry({
                                                 name: localize('constructModel', "Construct Model"),
-                                                text: '$(sparkle) Claude Sonnet',
-                                                ariaLabel: localize('constructModelAria', "Active LLM: Claude 3.5 Sonnet"),
-                                                tooltip: localize('constructModelTooltip', "Active LLM: Claude 3.5 Sonnet"),
+                                                text: '$(zap) No Model local',
+                                                ariaLabel: localize('constructModelAria', "Active LLM: No model selected"),
+                                                tooltip: localize('constructModelTooltip', "Click to select a model"),
+                                                command: 'construct.selectModel',
                                 }, 'construct.model', StatusbarAlignment.LEFT, 51));
+
+                                // Listen for provider and model changes
+                                this._register(this.aiService.onDidChangeActiveModel(() => {
+                                                this.updateModelStatus();
+                                }));
+                                this._register(this.aiService.onDidChangeActiveProvider(() => {
+                                                this.updateModelStatus();
+                                }));
 
                                 // Pending changes (right side)
                                 this._register(this.statusbarService.addEntry({
@@ -133,6 +148,24 @@ class ConstructStatusBarContribution extends Disposable implements IWorkbenchCon
                                                 ariaLabel: localize('constructChangesAria', "No changes awaiting approval"),
                                                 tooltip: localize('constructChangesTooltip', "No changes awaiting approval"),
                                 }, 'construct.changes', StatusbarAlignment.RIGHT, 50));
+                }
+
+                private updateModelStatus(): void {
+                                if (!this.modelEntryAccessor) { return; }
+
+                                const isLocal = this.aiService.isOffline();
+                                const icon = isLocal ? '$(zap)' : '$(globe)';
+                                const suffix = isLocal ? 'local' : 'cloud';
+                                const model = this.aiService.getActiveModel();
+                                const modelName = model?.displayName ?? 'No Model';
+
+                                this.modelEntryAccessor.update({
+                                                name: localize('constructModel', "Construct Model"),
+                                                text: `${icon} ${modelName} ${suffix}`,
+                                                ariaLabel: localize('constructModelAria', `Active LLM: ${modelName} (${suffix})`),
+                                                tooltip: localize('constructModelTooltip', `Active LLM: ${modelName} (${suffix}) — click to change`),
+                                                command: 'construct.selectModel',
+                                });
                 }
 }
 
@@ -146,7 +179,7 @@ registerAction2(class FocusConstructPanelAction extends Action2 {
                                                 id: 'construct.focusPanel',
                                                 title: localize2('focusConstructPanel', "Show Construct Agent"),
                                                 keybinding: {
-                                                                primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyC,
+                                                                primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyK,
                                                                 weight: KeybindingWeight.WorkbenchContrib,
                                                 },
                                                 f1: true,
@@ -403,6 +436,100 @@ registerSingleton(IMCPProcess, MCPProcessService, InstantiationType.Delayed);
 registerSingleton(ITerminalExecutor, TerminalExecutorService, InstantiationType.Delayed);
 registerSingleton(IDiffApplier, DiffApplierService, InstantiationType.Delayed);
 registerSingleton(IAgentLoop, AgentLoopService, InstantiationType.Delayed);
+
+// --- Phase 1: AI Provider Layer -----------------------------------------------
+// The unified AI service auto-selects the best provider: Ollama > Xenova > Cloud
+registerSingleton(IConstructAIService, ConstructAIService, InstantiationType.Delayed);
+
+// Command: Switch AI Provider
+registerAction2(class SwitchAIProviderAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.switchProvider',
+                        title: localize2('switchAIProvider', "Switch AI Provider"),
+                        f1: true,
+                        category: localize2('constructCategoryAI', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const aiService = accessor.get(IConstructAIService);
+                const quickInput = accessor.get(IQuickInputService);
+                const notificationService = accessor.get(INotificationService);
+
+                const providerTypes: AIProviderType[] = ['ollama', 'xenova', 'cloud'];
+                const labels: Record<AIProviderType, string> = {
+                        ollama: '$(server) Ollama (Local)',
+                        xenova: '$(cpu) Xenova (In-Process)',
+                        cloud: '$(globe) Cloud (OpenAI-Compatible)',
+                };
+
+                const currentType = aiService.activeProviderType;
+                const picks = providerTypes.map(pt => ({
+                        label: labels[pt],
+                        description: pt === currentType ? '(active)' : '',
+                        providerType: pt,
+                }));
+
+                const pick = await quickInput.pick(picks, {
+                        placeHolder: 'Select AI provider',
+                });
+
+                if (pick) {
+                        const selected = pick.providerType as AIProviderType;
+                        const success = await aiService.switchProvider(selected);
+                        if (success) {
+                                const model = aiService.getActiveModel();
+                                notificationService.info(
+                                        `CONSTRUCT: Switched to ${selected} provider${model ? ' (model: ' + model.displayName + ')' : ''}`
+                                );
+                        }
+                }
+        }
+});
+
+// Command: Select Model
+registerAction2(class SelectModelAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.selectModel',
+                        title: localize2('selectModel', "Select AI Model"),
+                        f1: true,
+                        category: localize2('constructCategoryModel', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const aiService = accessor.get(IConstructAIService);
+                const quickInput = accessor.get(IQuickInputService);
+                const notificationService = accessor.get(INotificationService);
+
+                const models = await aiService.listModels();
+                if (models.length === 0) {
+                        notificationService.warn('No models available. Please check your AI provider settings.');
+                        return;
+                }
+
+                const currentModel = aiService.getActiveModel();
+                const picks = models.map(m => ({
+                        label: m.displayName,
+                        description: m.provider + (m.id === currentModel?.id ? ' (active)' : ''),
+                        detail: `Context: ${m.contextWindowTokens.toLocaleString()} tokens` + (m.supportsTools ? ' | Tools: Yes' : ''),
+                        modelId: m.id,
+                }));
+
+                const pick = await quickInput.pick(picks, {
+                        placeHolder: 'Select a model',
+                });
+
+                if (pick) {
+                        const success = await aiService.setActiveModel(pick.modelId);
+                        if (success) {
+                                notificationService.info(`CONSTRUCT: Model set to ${pick.label}`);
+                        } else {
+                                notificationService.error('Failed to switch model.');
+                        }
+                }
+        }
+});
 
 // --- Phase 1: Core Maturity Singletons ----------------------------------------
 registerSingleton(ISecureKeyManager, SecureKeyManagerService, InstantiationType.Delayed);
