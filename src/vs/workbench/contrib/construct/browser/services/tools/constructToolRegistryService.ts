@@ -388,6 +388,16 @@ export class ConstructToolRegistryService extends Disposable implements IConstru
                                 ? `wsl -d kali-linux -- bash -c "${command.replace(/"/g, '\\"')}"`
                                 : command;
 
+                        // child_process is only available in Electron/Node environments.
+                        // In vscode-web, this tool is unavailable.
+                        if (typeof process === 'undefined' || !process.versions?.node) {
+                                return {
+                                        success: false,
+                                        output: 'Terminal execution is not available in the browser. Use the desktop version of Construct IDE for terminal access.',
+                                        truncated: false,
+                                };
+                        }
+
                         const { exec } = await import('child_process');
 
                         const result = await new Promise<IToolResult>((resolve) => {
@@ -556,16 +566,18 @@ export class ConstructToolRegistryService extends Disposable implements IConstru
                 if (!path.startsWith('/') && !path.match(/^[A-Z]:\\/i)) {
                         const root = this.workspaceContextService.getWorkspace().folders[0]?.uri.fsPath;
                         if (root) {
-                                const { join } = require('path') as { join: (...parts: string[]) => string };
-                                return URI.file(join(root, path));
+                                // Use the portable path module instead of require('path')
+                                // which is unavailable in vscode-web
+                                const joined = pathModule.join(root, path);
+                                return URI.file(joined);
                         }
                 }
                 return URI.file(path);
         }
 
         private async checkKaliWSL(): Promise<void> {
-                // Only check on Windows
-                if (process.platform !== 'win32') {
+                // Only check on Windows with Node.js runtime (not in browser/web)
+                if (typeof process === 'undefined' || !process.versions?.node || process.platform !== 'win32') {
                         this._kaliAvailable = false;
                         return;
                 }

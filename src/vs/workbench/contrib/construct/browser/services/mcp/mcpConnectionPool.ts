@@ -183,8 +183,15 @@ export class MCPConnectionPool extends Disposable {
         /**
          * Raw stdio fallback when MCP SDK is unavailable.
          * Spawns the process and creates a minimal JSON-RPC client.
+         *
+         * NOTE: child_process is only available in Electron/Node environments.
+         * This method will throw in vscode-web contexts.
          */
         private async connectRawStdio(entry: IConnectionEntry): Promise<void> {
+                if (typeof process === 'undefined' || !process.versions?.node) {
+                        throw new Error('Cannot spawn MCP server process: child_process not available in browser environment. Use SSE transport instead.');
+                }
+
                 const { spawn } = await import('child_process');
                 const def = entry.definition;
 

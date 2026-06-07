@@ -346,12 +346,9 @@ export class ConstructOnboardingWizard extends Disposable {
 
         // SEC-1: Generate a cryptographically random nonce for CSP
         private generateNonce(): string {
-                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                let result = '';
-                for (let i = 0; i < 32; i++) {
-                        result += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                return result;
+                const array = new Uint8Array(32);
+                crypto.getRandomValues(array);
+                return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
         }
 
         private getHtml(nonce?: string): string {

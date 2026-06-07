@@ -41,6 +41,7 @@ interface PendingDiff {
         id: string;
         filePath: string;
         content: string;
+        originalContent: string | null; // Original file content before the diff, for reject/revert
         changeType: 'write' | 'edit';
         element: HTMLElement;
         accepted: boolean;
@@ -1054,6 +1055,7 @@ export class ConstructAgentViewPane extends ViewPane {
                         id: diffId,
                         filePath,
                         content: '',
+                        originalContent: null, // Will be populated when diff content arrives
                         changeType,
                         element: diffContainer,
                         accepted: false,
@@ -1064,10 +1066,15 @@ export class ConstructAgentViewPane extends ViewPane {
 
         /**
          * Accept all pending diffs by writing them via IDiffApplier.
+         * Only writes diffs that were explicitly accepted by the user.
+         * Diffs that were neither accepted nor rejected default to accepted
+         * when "Accept All" is triggered.
          */
         async acceptAllPendingDiffs(): Promise<void> {
                 for (const diff of this.pendingDiffs) {
-                        if (diff.accepted && diff.content) {
+                        // If the user hasn't explicitly rejected it, treat as accepted
+                        const shouldApply = diff.accepted !== false;
+                        if (shouldApply && diff.content) {
                                 try {
                                         await this.diffApplier.writeFile(diff.filePath, diff.content);
                                 } catch (err) {
@@ -1080,10 +1087,27 @@ export class ConstructAgentViewPane extends ViewPane {
         }
 
         /**
-         * Reject all pending diffs and remove them from UI.
+         * Reject all pending diffs and revert changes.
+         * For each diff, if the file had original content, it is restored.
+         * If the file was newly created (no original content), it is deleted.
          */
-        rejectAllPendingDiffs(): void {
+        async rejectAllPendingDiffs(): Promise<void> {
                 for (const diff of this.pendingDiffs) {
+                        try {
+                                if (diff.originalContent !== null) {
+                                        // Restore the original file content
+                                        await this.diffApplier.writeFile(diff.filePath, diff.originalContent);
+                                } else {
+                                        // File was newly created by the agent — delete it
+                                        try {
+                                                await this.diffApplier.deleteFile(diff.filePath);
+                                        } catch {
+                                                // File may already not exist
+                                        }
+                                }
+                        } catch (err) {
+                                this.logService.error('[AgentView] Failed to revert diff:', err);
+                        }
                         diff.element.remove();
                 }
                 this.pendingDiffs = [];

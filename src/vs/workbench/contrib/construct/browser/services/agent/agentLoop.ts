@@ -110,6 +110,30 @@ const AGENT_TOOLS: IToolDefinition[] = [
                         },
                         required: ['path', 'diff']
                 }
+        },
+        {
+                name: 'search_codebase',
+                description: 'Search the codebase using semantic similarity. Returns the most relevant code chunks. Requires Qdrant vector store to be running.',
+                parameters: {
+                        type: 'object' as const,
+                        properties: {
+                                query: { type: 'string' as const, description: 'The search query in natural language' },
+                                topK: { type: 'number' as const, description: 'Number of results to return (default 8)' }
+                        },
+                        required: ['query']
+                }
+        },
+        {
+                name: 'web_search',
+                description: 'Search the web for information. Only available when online mode is enabled. Returns search results with URLs and snippets.',
+                parameters: {
+                        type: 'object' as const,
+                        properties: {
+                                query: { type: 'string' as const, description: 'The search query' },
+                                num: { type: 'number' as const, description: 'Number of results to return (default 10)' }
+                        },
+                        required: ['query']
+                }
         }
 ];
 
@@ -624,6 +648,32 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                                 return `Diff applied successfully: ${path}`;
                                         }
                                         return `Error: ${result.error}`;
+                                }
+
+                                case 'search_codebase': {
+                                        const query = args.query;
+                                        if (!query) { return 'Error: query is required'; }
+                                        // Delegate to the tool registry which has vector store access
+                                        try {
+                                                const { IConstructToolRegistry } = await import('../../../../../../platform/construct/common/tools/constructToolRegistry.js');
+                                                // Use command service to execute via the registry
+                                                const toolResult = await this.commandService.executeCommand('construct.executeTool', 'search_codebase', { query, topK: args.topK ?? 8 });
+                                                return typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+                                        } catch {
+                                                return 'Error: Codebase search unavailable. Qdrant may not be running.';
+                                        }
+                                }
+
+                                case 'web_search': {
+                                        const query = args.query;
+                                        if (!query) { return 'Error: query is required'; }
+                                        // Delegate to the tool registry which handles online mode
+                                        try {
+                                                const toolResult = await this.commandService.executeCommand('construct.executeTool', 'web_search', { query, num: args.num ?? 10 });
+                                                return typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+                                        } catch {
+                                                return 'Error: Web search unavailable. Enable online mode in settings.';
+                                        }
                                 }
 
                                 default:

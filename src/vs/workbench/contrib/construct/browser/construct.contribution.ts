@@ -425,12 +425,12 @@ registerSingleton(IMCPMarketplace, MCPMarketplaceService, InstantiationType.Dela
 registerSingleton(IBrowserAutomationService, BrowserAutomationService, InstantiationType.Delayed);
 
 // --- Memory Architecture Singletons (Phase 19) ---------------------------------
-registerSingleton(IWorkingMemoryService, WorkingMemoryService, InstantiationType.Eager);
-registerSingleton(IEpisodicMemoryService, EpisodicMemoryService, InstantiationType.Eager);
-registerSingleton(IEmbeddingService, EmbeddingService, InstantiationType.Eager);
-registerSingleton(ISemanticMemoryService, SemanticMemoryService, InstantiationType.Eager);
-registerSingleton(IProceduralMemoryService, ProceduralMemoryService, InstantiationType.Eager);
-registerSingleton(IMemoryOrchestrator, MemoryOrchestratorService, InstantiationType.Eager);
+registerSingleton(IWorkingMemoryService, WorkingMemoryService, InstantiationType.Delayed);
+registerSingleton(IEpisodicMemoryService, EpisodicMemoryService, InstantiationType.Delayed);
+registerSingleton(IEmbeddingService, EmbeddingService, InstantiationType.Delayed);
+registerSingleton(ISemanticMemoryService, SemanticMemoryService, InstantiationType.Delayed);
+registerSingleton(IProceduralMemoryService, ProceduralMemoryService, InstantiationType.Delayed);
+registerSingleton(IMemoryOrchestrator, MemoryOrchestratorService, InstantiationType.Delayed);
 
 // --- Supermemory Integration Singleton (Phase 19+) ----------------------------
 registerSingleton(IConstructMemoryService, ConstructMemoryService, InstantiationType.Delayed);

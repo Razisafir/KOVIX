@@ -360,11 +360,11 @@ registerAction2(class TestProviderConnectionAction extends Action2 {
 
 // ─── Command: Switch Provider ────────────────────────────────────────────────────
 
-registerAction2(class SwitchProviderAction extends Action2 {
+registerAction2(class SwitchKeyProviderAction extends Action2 {
         constructor() {
                 super({
-                        id: 'construct.switchProvider',
-                        title: localize2('switchProvider', "Switch Provider"),
+                        id: 'construct.switchKeyProvider',
+                        title: localize2('switchKeyProvider', "Switch Key Provider"),
                         f1: true,
                         category: localize2('constructCategorySwitch', "Construct"),
                 });

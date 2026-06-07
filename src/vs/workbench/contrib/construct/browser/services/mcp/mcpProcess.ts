@@ -12,6 +12,7 @@ import { IFileService } from '../../../../../../platform/files/common/files';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IMCPProcess } from '../../../../../../platform/construct/common/mcp/mcpProcess';
 import { IMCPProcessNodeService } from '../../../../../../platform/construct/common/mcp/mcpProcessNode.js';
+import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../../../base/common/buffer.js';
 import { joinPath } from '../../../../../../base/common/resources';
@@ -48,12 +49,11 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
                 @ILogService private readonly logService: ILogService,
                 @IFileService private readonly fileService: IFileService,
                 @IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
+                @IInstantiationService private readonly instantiationService: IInstantiationService,
         ) {
                 super();
-                // Attempt to acquire the node-layer MCP service via the instantiation
-                // service. This is only available in desktop CONSTRUCT IDE (not vscode.dev).
-                // We use a deferred acquisition pattern since the node service may not
-                // be registered in all execution contexts.
+                // The instantiationService is the proper VS Code DI mechanism for
+                // accessing other services. No globalThis hack needed.
                 this.logService.info('[MCPProcess] Service created');
         }
 
@@ -64,30 +64,20 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
          */
         private async tryAcquireNodeService(): Promise<boolean> {
                 try {
-                        // Dynamic import to avoid hard dependency in browser-only contexts.
-                        // The electron-sandbox constructService.ts registers the remote service,
-                        // but it may not be available in all contexts.
-                        const { IMCPProcessNodeService: nodeServiceId } = await import('../../../../../../platform/construct/common/mcp/mcpProcessNode');
-                        // Use the service accessor pattern -- try to get the service from
-                        // the global instantiation service
-                        const instantiationService = (globalThis as Record<string, unknown>).__vsc_instantiationService as {
-                                invokeFunction: (fn: (accessor: { get: (id: unknown) => unknown }) => unknown) => unknown;
-                        } | undefined;
-
-                        if (instantiationService) {
-                                const nodeService = instantiationService.invokeFunction(accessor => {
-                                        try {
-                                                return accessor.get(nodeServiceId);
-                                        } catch {
-                                                return null;
-                                        }
-                                }) as IMCPProcessNodeService | null;
-
-                                if (nodeService && typeof nodeService.start === 'function') {
-                                        this._nodeService = nodeService;
-                                        this.logService.info('[MCPProcess] Node-layer MCPProcessNodeService acquired via IPC');
-                                        return true;
+                        // Use the VS Code DI system instead of globalThis hack.
+                        // The instantiationService is properly injected via constructor.
+                        const nodeService = this.instantiationService.invokeFunction(accessor => {
+                                try {
+                                        return accessor.get(IMCPProcessNodeService);
+                                } catch {
+                                        return null;
                                 }
+                        }) as IMCPProcessNodeService | null;
+
+                        if (nodeService && typeof nodeService.start === 'function') {
+                                this._nodeService = nodeService;
+                                this.logService.info('[MCPProcess] Node-layer MCPProcessNodeService acquired via DI');
+                                return true;
                         }
 
                         this.logService.info('[MCPProcess] Node-layer service not available, using IFileService fallback');

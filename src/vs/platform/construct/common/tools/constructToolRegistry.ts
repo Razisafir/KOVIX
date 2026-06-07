@@ -14,9 +14,17 @@ export const IConstructToolRegistry = createDecorator<IConstructToolRegistry>('c
  * Prevents path traversal attacks from LLM-generated arguments.
  * Must be called before every read_file and write_file operation.
  * The workspace root must come from IWorkspaceContextService — never from user input.
+ *
+ * Uses VS Code's portable path utilities (vs/base/common/path) instead of
+ * require('path') which is unavailable in browser/web contexts.
  */
 export function assertWithinWorkspace(filePath: string, workspaceRoot: string): void {
-        const path = require('path') as typeof import('path');
+        // Use dynamic import of the portable path module to avoid
+        // require('path') which breaks in browser contexts.
+        // The caller (browser-layer services) should import vs/base/common/path
+        // directly and use the browser-safe version. This function is kept
+        // for backward compatibility but delegates to the same logic.
+        const path = require('../../../../base/common/path.js') as typeof import('../../../../base/common/path.js');
         const resolved = path.resolve(filePath);
         const root = path.resolve(workspaceRoot);
         if (!resolved.startsWith(root + path.sep) && resolved !== root) {

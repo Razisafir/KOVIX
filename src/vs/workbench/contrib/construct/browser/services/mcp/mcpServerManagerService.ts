@@ -87,6 +87,13 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
         private async autoDiscoverCommonServers(): Promise<IMCPServerDefinition[]> {
                 const common: IMCPServerDefinition[] = [];
 
+                // child_process is only available in Electron/Node environments.
+                // In vscode-web, auto-discovery is unavailable.
+                if (typeof process === 'undefined' || !process.versions?.node) {
+                        this.logService.info('[MCP Manager] Skipping auto-discovery: not running in Node.js environment');
+                        return common;
+                }
+
                 const checks = [
                         { name: 'filesystem', command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem'], categories: ['filesystem'] },
                         { name: 'github', command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'], categories: ['source-control'] },
