@@ -574,3 +574,57 @@ registerAction2(class UndoTaskAction extends Action2 {
                                 }
                 }
 });
+
+// --- Phase 2: Diff Accept/Reject Commands -------------------------------------
+
+registerAction2(class AcceptAllDiffsAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.acceptAllDiffs',
+                        title: localize2('acceptAllDiffs', "Accept All Pending Diffs"),
+                        f1: true,
+                        category: localize2('constructCategoryDiff', "Construct"),
+                        keybinding: {
+                                primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter,
+                                weight: KeybindingWeight.WorkbenchContrib,
+                        },
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const viewsService = accessor.get(IViewsService);
+                const notificationService = accessor.get(INotificationService);
+                const view = viewsService.getActiveViewWithId('construct.agentPanel') as any;
+                if (view && typeof view.acceptAllPendingDiffs === 'function') {
+                        await view.acceptAllPendingDiffs();
+                        notificationService.info('All pending diffs accepted.');
+                } else {
+                        notificationService.warn('No agent panel with pending diffs found.');
+                }
+        }
+});
+
+registerAction2(class RejectAllDiffsAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.rejectAllDiffs',
+                        title: localize2('rejectAllDiffs', "Reject All Pending Diffs"),
+                        f1: true,
+                        category: localize2('constructCategoryDiff2', "Construct"),
+                        keybinding: {
+                                primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Escape,
+                                weight: KeybindingWeight.WorkbenchContrib,
+                        },
+                });
+        }
+        run(accessor: ServicesAccessor): void {
+                const viewsService = accessor.get(IViewsService);
+                const notificationService = accessor.get(INotificationService);
+                const view = viewsService.getActiveViewWithId('construct.agentPanel') as any;
+                if (view && typeof view.rejectAllPendingDiffs === 'function') {
+                        view.rejectAllPendingDiffs();
+                        notificationService.info('All pending diffs rejected.');
+                } else {
+                        notificationService.warn('No agent panel with pending diffs found.');
+                }
+        }
+});

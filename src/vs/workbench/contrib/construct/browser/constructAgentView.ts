@@ -9,6 +9,10 @@ import { IMemoryOrchestrator } from '../../../../platform/construct/common/memor
 import { IConstructMemoryService } from '../../../../platform/construct/common/memory/constructMemory.js';
 import { IAgentLoop, IPlanResult } from '../../../../platform/construct/common/agent/agentLoop.js';
 import { IAnthropicProvider } from '../../../../platform/construct/common/llm/anthropicProvider.js';
+import { IConstructAIService } from '../../../../platform/construct/common/llm/constructAIService.js';
+import { AIProviderType } from '../../../../platform/construct/common/llm/constructAIProvider.js';
+import { IDiffApplier } from '../../../../platform/construct/common/editor/diffApplier.js';
+import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -29,6 +33,24 @@ import { ConstructProgressPanel } from './constructProgressPanel.js';
 import { LoadingState, FileChangeEntry, TaskMetrics } from '../../../../platform/construct/common/agent/loadingState.js';
 
 type ExecutionState = 'idle' | 'planning' | 'awaiting_approval' | 'executing' | 'complete' | 'error' | 'stopped';
+
+type ContextScope = 'currentFile' | 'workspace' | 'selectedText';
+
+interface PendingDiff {
+        id: string;
+        filePath: string;
+        content: string;
+        changeType: 'write' | 'edit';
+        element: HTMLElement;
+        accepted: boolean;
+}
+
+interface ToolLogEntry {
+        toolName: string;
+        target: string;
+        durationMs: number;
+        success: boolean;
+}
 
 export class ConstructAgentViewPane extends ViewPane {
 
@@ -58,6 +80,24 @@ export class ConstructAgentViewPane extends ViewPane {
         private currentStepStart = 0;
         private llmCallCount = 0;
 
+        // Phase 2: Model picker
+        private modelPickerBtn!: HTMLButtonElement;
+        private currentModelInfo: { name: string; providerType: AIProviderType | undefined; isLocal: boolean } = {
+                name: 'No Model', providerType: undefined, isLocal: true,
+        };
+
+        // Phase 2: Context selector
+        private contextScope: ContextScope = 'workspace';
+
+        // Phase 2: Tool activity log
+        private toolLogEntries: ToolLogEntry[] = [];
+        private toolLogContainer: HTMLElement | null = null;
+        private toolLogCollapsed = true;
+
+        // Phase 2: Pending diffs
+        private pendingDiffs: PendingDiff[] = [];
+        private diffCounter = 0;
+
         constructor(
                 options: IViewPaneOptions,
                 @IKeybindingService keybindingService: IKeybindingService,
@@ -74,6 +114,9 @@ export class ConstructAgentViewPane extends ViewPane {
                 @IConstructMemoryService private readonly constructMemory: IConstructMemoryService,
                 @IAgentLoop private readonly agentLoop: IAgentLoop,
                 @IAnthropicProvider private readonly anthropicProvider: IAnthropicProvider,
+                @IConstructAIService private readonly aiService: IConstructAIService,
+                @IDiffApplier private readonly diffApplier: IDiffApplier,
+                @ICodeEditorService private readonly codeEditorService: ICodeEditorService,
                 @ILogService private readonly logService: ILogService,
                 @IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
                 @INotificationService private readonly notificationService: INotificationService,
@@ -89,6 +132,33 @@ export class ConstructAgentViewPane extends ViewPane {
                 container.style.display = 'flex';
                 container.style.flexDirection = 'column';
                 container.style.height = '100%';
+
+                // --- Phase 2: Model Picker Header ---
+                const modelPickerBar = dom.$('.construct-model-picker-bar');
+                modelPickerBar.style.cssText = `
+                        display: flex; align-items: center; justify-content: space-between;
+                        padding: 6px 10px; border-bottom: 1px solid #1A1F2E;
+                        background: #0D1117;
+                `;
+
+                this.modelPickerBtn = dom.$('button.construct-model-picker') as HTMLButtonElement;
+                this.modelPickerBtn.style.cssText = `
+                        background: #141B2D; border: 1px solid #1A1F2E; border-radius: 4px;
+                        color: #E0E7FF; font-size: 11px; padding: 4px 10px; cursor: pointer;
+                        display: flex; align-items: center; gap: 6px;
+                `;
+                this.updateModelPickerLabel();
+                this.modelPickerBtn.onclick = () => {
+                        this.commandService.executeCommand('construct.selectModel');
+                };
+
+                const providerLabel = dom.$('.construct-provider-label');
+                providerLabel.style.cssText = `font-size: 10px; color: #4A5568;`;
+                providerLabel.textContent = this.currentModelInfo.isLocal ? 'local' : 'cloud';
+
+                modelPickerBar.appendChild(this.modelPickerBtn);
+                modelPickerBar.appendChild(providerLabel);
+                container.appendChild(modelPickerBar);
 
                 // Messages area
                 this.messageContainer = dom.$('.construct-messages');
@@ -187,31 +257,45 @@ export class ConstructAgentViewPane extends ViewPane {
                                 }).catch(() => { /* non-critical */ });
                         }
 
-                        // Check for API key
+                        // Phase 2: Check IConstructAIService availability first, then fallback to Anthropic
+                        const hasAIProvider = !!this.aiService.activeProvider;
                         const apiKey = this.configurationService.getValue<string>('construct.anthropic.apiKey');
-                        if (!apiKey) {
+
+                        if (!hasAIProvider && !apiKey) {
                                 this.addAgentMessage(
-                                        '[WARN] Anthropic API key required. [Open Settings](command:construct.openApiSettings)',
+                                        '[SETUP] No AI provider available. Install [Ollama](https://ollama.ai) for local inference, or configure a cloud provider in [Settings](command:construct.openApiSettings).',
                                         'error'
                                 );
-                                this.notificationService.warn('Anthropic API key required. Configure it in Settings.');
+                                this.notificationService.warn('No AI provider available. Install Ollama or configure cloud settings.');
                                 return;
                         }
 
-                        // Sync API config to provider
-                        this.anthropicProvider.updateConfig({
-                                apiKey,
-                                model: this.configurationService.getValue<string>('construct.anthropic.model') || 'claude-sonnet-4-20250514',
-                                maxTokens: this.configurationService.getValue<number>('construct.anthropic.maxTokens') || 8192,
-                        });
+                        // Sync Anthropic config if API key is present (backward compatibility)
+                        if (apiKey) {
+                                this.anthropicProvider.updateConfig({
+                                        apiKey,
+                                        model: this.configurationService.getValue<string>('construct.anthropic.model') || 'claude-sonnet-4-20250514',
+                                        maxTokens: this.configurationService.getValue<number>('construct.anthropic.maxTokens') || 8192,
+                                });
+                        }
+
+                        // Gather context based on scope selector
+                        const contextText = this.gatherContext();
+                        const taskWithContext = contextText ? `${text}\n\n[Context (${this.contextScope})]:\n${contextText}` : text;
+
+                        // Reset tool log for new session
+                        this.toolLogEntries = [];
 
                         // Start Plan/Act flow
-                        await this.runPlanActFlow(text);
+                        await this.runPlanActFlow(taskWithContext);
                 };
 
                 this.sendBtn.onclick = sendMessage;
                 this.inputBox.onkeydown = (e) => {
-                        if (e.key === 'Enter') { sendMessage(); }
+                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
+                                e.preventDefault();
+                                sendMessage();
+                        }
                 };
 
                 this.stopBtn.onclick = () => {
@@ -225,6 +309,50 @@ export class ConstructAgentViewPane extends ViewPane {
                 inputArea.appendChild(this.stopBtn);
                 inputArea.appendChild(this.sendBtn);
                 container.appendChild(inputArea);
+
+                // --- Phase 2: Context Selector Bar ---
+                const contextBar = dom.$('.construct-context-bar');
+                contextBar.style.cssText = `
+                        padding: 4px 8px 6px; border-top: 1px solid #1A1F2E;
+                        display: flex; align-items: center; gap: 4px;
+                `;
+
+                const contextLabel = dom.$('.construct-context-label');
+                contextLabel.style.cssText = `font-size: 10px; color: #4A5568; margin-right: 2px;`;
+                contextLabel.textContent = 'Context:';
+
+                const scopeOptions: Array<{ scope: ContextScope; label: string; icon: string }> = [
+                        { scope: 'currentFile', label: 'File', icon: '\uD83D\uDCC4' },
+                        { scope: 'workspace', label: 'Workspace', icon: '\uD83D\uDCC2' },
+                        { scope: 'selectedText', label: 'Selection', icon: '\u270F\uFE0F' },
+                ];
+
+                contextBar.appendChild(contextLabel);
+
+                for (const opt of scopeOptions) {
+                        const btn = dom.$('button.construct-context-scope-btn') as HTMLButtonElement;
+                        btn.style.cssText = `
+                                background: ${this.contextScope === opt.scope ? '#1A2744' : '#0A0E1A'};
+                                border: 1px solid ${this.contextScope === opt.scope ? '#00E5FF' : '#1A1F2E'};
+                                border-radius: 3px; color: ${this.contextScope === opt.scope ? '#00E5FF' : '#4A5568'};
+                                font-size: 10px; padding: 2px 8px; cursor: pointer;
+                        `;
+                        btn.textContent = `${opt.icon} ${opt.label}`;
+                        btn.onclick = () => {
+                                this.contextScope = opt.scope;
+                                // Re-render button states
+                                const buttons = contextBar.querySelectorAll('button.construct-context-scope-btn');
+                                buttons.forEach((b, i) => {
+                                        const isActive = scopeOptions[i].scope === this.contextScope;
+                                        (b as HTMLButtonElement).style.background = isActive ? '#1A2744' : '#0A0E1A';
+                                        (b as HTMLButtonElement).style.borderColor = isActive ? '#00E5FF' : '#1A1F2E';
+                                        (b as HTMLButtonElement).style.color = isActive ? '#00E5FF' : '#4A5568';
+                                });
+                        };
+                        contextBar.appendChild(btn);
+                }
+
+                container.appendChild(contextBar);
 
                 // Listen for memory initialization changes
                 this._register(this.constructMemory.onDidChangeInitialization((initialized) => {
@@ -251,6 +379,17 @@ export class ConstructAgentViewPane extends ViewPane {
                 this._register(this.agentLoop.onFileChange((change: FileChangeEntry) => {
                         this.handleFileChange(change);
                 }));
+
+                // --- Phase 2: Listen for AI service provider/model changes ---
+                this._register(this.aiService.onDidChangeActiveProvider(() => {
+                        this.refreshModelPickerInfo();
+                }));
+                this._register(this.aiService.onDidChangeActiveModel(() => {
+                        this.refreshModelPickerInfo();
+                }));
+
+                // Initial model info load
+                this.refreshModelPickerInfo();
         }
 
         /**
@@ -304,10 +443,17 @@ export class ConstructAgentViewPane extends ViewPane {
         /**
          * Handle file change events from the agent loop.
          * Updates the file tree diff in the progress panel.
+         * Phase 2: Also shows inline diff viewer for write/edit operations.
          */
         private handleFileChange(change: FileChangeEntry): void {
                 if (!this.progressPanel) { return; }
                 this.progressPanel.addFileChange(change);
+
+                // Phase 2: Show diff viewer for write/edit operations
+                if (change.status === 'created' || change.status === 'modified') {
+                        this.showPendingDiff(change.path, change.status === 'created' ? 'write' : 'edit');
+                }
+
                 this.scrollToBottom();
         }
 
@@ -511,6 +657,14 @@ export class ConstructAgentViewPane extends ViewPane {
                                                         subSteps: [],
                                                 });
 
+                                                // Phase 2: Track tool activity log
+                                                this.toolLogEntries.push({
+                                                        toolName: currentToolName,
+                                                        target: currentToolDetail,
+                                                        durationMs: stepEnd - this.currentStepStart,
+                                                        success: event.success,
+                                                });
+
                                                 if (event.success) {
                                                         fullText += `\n[OK] ${event.toolName} completed`;
                                                 } else {
@@ -560,6 +714,9 @@ export class ConstructAgentViewPane extends ViewPane {
                                         taskId: this.currentTaskId ?? 'unknown',
                                 }).catch(() => { /* non-critical */ });
                         }
+
+                        // Phase 2: Show tool activity log after execution
+                        this.renderToolActivityLog();
 
                 } catch (error) {
                         this.setExecutionState('error');
@@ -687,5 +844,258 @@ export class ConstructAgentViewPane extends ViewPane {
 
         protected override layoutBody(height: number, width: number): void {
                 // Layout handled by flexbox
+        }
+
+        // --- Phase 2: Model Picker Methods ---
+
+        private refreshModelPickerInfo(): void {
+                const model = this.aiService.getActiveModel();
+                const providerType = this.aiService.activeProviderType;
+                const isLocal = this.aiService.isOffline();
+
+                this.currentModelInfo = {
+                        name: model?.displayName ?? 'No Model',
+                        providerType,
+                        isLocal,
+                };
+                this.updateModelPickerLabel();
+        }
+
+        private updateModelPickerLabel(): void {
+                if (!this.modelPickerBtn) { return; }
+                const icon = this.currentModelInfo.isLocal ? '\u26A1' : '\uD83C\uDF10'; // ⚡ or 🌐
+                const typeLabel = this.currentModelInfo.providerType ?? 'none';
+                this.modelPickerBtn.textContent = `${icon} ${this.currentModelInfo.name} (${typeLabel})`;
+        }
+
+        // --- Phase 2: Context Gathering ---
+
+        private gatherContext(): string {
+                switch (this.contextScope) {
+                        case 'currentFile': {
+                                const editor = this.codeEditorService.getActiveCodeEditor();
+                                if (!editor) { return ''; }
+                                const model = editor.getModel();
+                                if (!model) { return ''; }
+                                const fileName = model.uri.path.split('/').pop() ?? 'unknown';
+                                const content = model.getValue();
+                                // Limit to first 3000 chars to avoid overwhelming context
+                                const truncated = content.length > 3000
+                                        ? content.substring(0, 3000) + '\n... (truncated)'
+                                        : content;
+                                return `[File: ${fileName}]\n${truncated}`;
+                        }
+                        case 'selectedText': {
+                                const editor = this.codeEditorService.getActiveCodeEditor();
+                                if (!editor) { return ''; }
+                                const selection = editor.getSelection();
+                                if (!selection || selection.isEmpty()) { return ''; }
+                                return editor.getModel()?.getValueInRange(selection) ?? '';
+                        }
+                        case 'workspace':
+                                // Workspace context is handled by the agent loop itself
+                                return '';
+                        default:
+                                return '';
+                }
+        }
+
+        // --- Phase 2: Tool Activity Log ---
+
+        private renderToolActivityLog(): void {
+                if (this.toolLogEntries.length === 0) { return; }
+
+                // Remove previous log if any
+                this.toolLogContainer?.remove();
+
+                this.toolLogContainer = dom.$('.construct-tool-log');
+                this.toolLogContainer.style.cssText = `
+                        background: #141B2D; border: 1px solid #1A1F2E;
+                        border-radius: 6px; margin: 8px 0; font-size: 11px;
+                `;
+
+                // Header with toggle
+                const header = dom.$('.construct-tool-log-header');
+                header.style.cssText = `
+                        display: flex; align-items: center; justify-content: space-between;
+                        padding: 6px 10px; cursor: pointer; color: #E0E7FF;
+                        font-weight: 600;
+                `;
+                header.textContent = `\uD83D\uDD27 Tool Activity (${this.toolLogEntries.length} calls)`;
+
+                const toggle = dom.$('.construct-tool-log-toggle');
+                toggle.style.cssText = `color: #4A5568; font-size: 10px;`;
+                toggle.textContent = this.toolLogCollapsed ? '[+]' : '[-]';
+
+                header.appendChild(toggle);
+
+                // Body
+                const body = dom.$('.construct-tool-log-body');
+                body.style.cssText = `
+                        padding: 0 10px 8px; display: ${this.toolLogCollapsed ? 'none' : 'block'};
+                `;
+
+                for (const entry of this.toolLogEntries) {
+                        const row = dom.$('.construct-tool-log-entry');
+                        const statusIcon = entry.success ? '\u2705' : '\u274C'; // ✅ or ❌
+                        const duration = entry.durationMs > 1000
+                                ? `${(entry.durationMs / 1000).toFixed(1)}s`
+                                : `${entry.durationMs}ms`;
+                        row.style.cssText = `
+                                padding: 3px 0; color: #C0C0C0; font-family: monospace;
+                                border-bottom: 1px solid #1A1F2E;
+                        `;
+                        row.textContent = `${statusIcon} ${entry.toolName}${entry.target ? ': ' + entry.target : ''} (${duration})`;
+                        body.appendChild(row);
+                }
+
+                header.onclick = () => {
+                        this.toolLogCollapsed = !this.toolLogCollapsed;
+                        body.style.display = this.toolLogCollapsed ? 'none' : 'block';
+                        toggle.textContent = this.toolLogCollapsed ? '[+]' : '[-]';
+                };
+
+                this.toolLogContainer.appendChild(header);
+                this.toolLogContainer.appendChild(body);
+                this.messageContainer.appendChild(this.toolLogContainer);
+                this.scrollToBottom();
+        }
+
+        // --- Phase 2: Diff Viewer ---
+
+        private showPendingDiff(filePath: string, changeType: 'write' | 'edit'): void {
+                const diffId = `diff-${++this.diffCounter}`;
+
+                const diffContainer = dom.$(`.construct-diff-${diffId}`);
+                diffContainer.style.cssText = `
+                        background: #141B2D; border: 1px solid #2D3A4D;
+                        border-radius: 6px; margin: 8px 0; overflow: hidden;
+                `;
+
+                // File path header
+                const pathHeader = dom.$('.construct-diff-path');
+                pathHeader.style.cssText = `
+                        padding: 6px 10px; background: #0D1117; color: #00E5FF;
+                        font-size: 11px; font-family: monospace;
+                        border-bottom: 1px solid #1A1F2E;
+                        display: flex; align-items: center; justify-content: space-between;
+                `;
+                const changeLabel = changeType === 'write' ? '[NEW]' : '[EDIT]';
+                pathHeader.textContent = `${changeLabel} ${filePath}`;
+
+                // Content area (async loaded)
+                const contentArea = dom.$('.construct-diff-content');
+                contentArea.style.cssText = `
+                        padding: 8px 10px; max-height: 200px; overflow-y: auto;
+                        font-family: monospace; font-size: 11px; color: #C0C0C0;
+                        white-space: pre-wrap; background: #0A0E1A;
+                `;
+                contentArea.textContent = 'Loading file content...';
+
+                // Load file content via diffApplier
+                this.diffApplier.readFile(filePath).then(content => {
+                        const truncated = content.length > 2000
+                                ? content.substring(0, 2000) + '\n... (truncated)'
+                                : content;
+                        contentArea.textContent = truncated;
+                        // Store the content in the pending diff entry
+                        const entry = this.pendingDiffs.find(d => d.id === diffId);
+                        if (entry) { entry.content = content; }
+                }).catch(() => {
+                        contentArea.textContent = '(Unable to read file content)';
+                });
+
+                // Buttons
+                const btnRow = dom.$('.construct-diff-buttons');
+                btnRow.style.cssText = `
+                        display: flex; gap: 6px; padding: 6px 10px;
+                        border-top: 1px solid #1A1F2E; background: #0D1117;
+                `;
+
+                const acceptBtn = dom.$('button') as HTMLButtonElement;
+                acceptBtn.textContent = '\u2705 Accept';
+                acceptBtn.style.cssText = `
+                        background: #00C853; color: white; border: none;
+                        border-radius: 3px; padding: 4px 10px; cursor: pointer;
+                        font-size: 11px; font-weight: 600;
+                `;
+
+                const rejectBtn = dom.$('button') as HTMLButtonElement;
+                rejectBtn.textContent = '\u274C Reject';
+                rejectBtn.style.cssText = `
+                        background: #FF4444; color: white; border: none;
+                        border-radius: 3px; padding: 4px 10px; cursor: pointer;
+                        font-size: 11px; font-weight: 600;
+                `;
+
+                acceptBtn.onclick = () => {
+                        const entry = this.pendingDiffs.find(d => d.id === diffId);
+                        if (entry) { entry.accepted = true; }
+                        diffContainer.style.borderLeft = '3px solid #00C853';
+                        acceptBtn.disabled = true;
+                        rejectBtn.disabled = true;
+                        acceptBtn.style.opacity = '0.5';
+                        rejectBtn.style.opacity = '0.5';
+                        this.notificationService.info(`Accepted change: ${filePath}`);
+                };
+
+                rejectBtn.onclick = () => {
+                        const entry = this.pendingDiffs.find(d => d.id === diffId);
+                        if (entry) { entry.accepted = false; }
+                        diffContainer.style.borderLeft = '3px solid #FF4444';
+                        acceptBtn.disabled = true;
+                        rejectBtn.disabled = true;
+                        acceptBtn.style.opacity = '0.5';
+                        rejectBtn.style.opacity = '0.5';
+                        this.notificationService.info(`Rejected change: ${filePath}`);
+                };
+
+                btnRow.appendChild(acceptBtn);
+                btnRow.appendChild(rejectBtn);
+
+                diffContainer.appendChild(pathHeader);
+                diffContainer.appendChild(contentArea);
+                diffContainer.appendChild(btnRow);
+
+                this.messageContainer.appendChild(diffContainer);
+
+                // Track pending diff
+                this.pendingDiffs.push({
+                        id: diffId,
+                        filePath,
+                        content: '',
+                        changeType,
+                        element: diffContainer,
+                        accepted: false,
+                });
+
+                this.scrollToBottom();
+        }
+
+        /**
+         * Accept all pending diffs by writing them via IDiffApplier.
+         */
+        async acceptAllPendingDiffs(): Promise<void> {
+                for (const diff of this.pendingDiffs) {
+                        if (diff.accepted && diff.content) {
+                                try {
+                                        await this.diffApplier.writeFile(diff.filePath, diff.content);
+                                } catch (err) {
+                                        this.logService.error('[AgentView] Failed to apply diff:', err);
+                                }
+                        }
+                        diff.element.remove();
+                }
+                this.pendingDiffs = [];
+        }
+
+        /**
+         * Reject all pending diffs and remove them from UI.
+         */
+        rejectAllPendingDiffs(): void {
+                for (const diff of this.pendingDiffs) {
+                        diff.element.remove();
+                }
+                this.pendingDiffs = [];
         }
 }
