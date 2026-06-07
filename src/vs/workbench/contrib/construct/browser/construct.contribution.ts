@@ -50,12 +50,14 @@ import { ICommandService } from '../../../../platform/commands/common/commands';
 import { IAnthropicProvider } from '../../../../platform/construct/common/llm/anthropicProvider.js';
 import { IConstructAIService } from '../../../../platform/construct/common/llm/constructAIService.js';
 import { AIProviderType } from '../../../../platform/construct/common/llm/constructAIProvider.js';
+import { IConstructToolRegistry } from '../../../../platform/construct/common/tools/constructToolRegistry.js';
 import { IMCPProcess } from '../../../../platform/construct/common/mcp/mcpProcess';
 import { ITerminalExecutor } from '../../../../platform/construct/common/terminal/terminalExecutor.js';
 import { IDiffApplier } from '../../../../platform/construct/common/editor/diffApplier.js';
 import { IAgentLoop } from '../../../../platform/construct/common/agent/agentLoop.js';
 import { AnthropicProviderService } from './services/llm/anthropicProvider.js';
 import { ConstructAIService } from './services/llm/constructAIService.js';
+import { ConstructToolRegistryService } from './services/tools/constructToolRegistryService.js';
 import { MCPProcessService } from './services/mcp/mcpProcess';
 import { TerminalExecutorService } from './services/terminal/terminalExecutor.js';
 import { DiffApplierService } from './services/editor/diffApplier.js';
@@ -440,6 +442,11 @@ registerSingleton(IAgentLoop, AgentLoopService, InstantiationType.Delayed);
 // --- Phase 1: AI Provider Layer -----------------------------------------------
 // The unified AI service auto-selects the best provider: Ollama > Xenova > Cloud
 registerSingleton(IConstructAIService, ConstructAIService, InstantiationType.Delayed);
+
+// --- Phase 4: Tool/Skill Engine -----------------------------------------------
+// Built-in tools (read_file, write_file, run_terminal, search_codebase, web_search)
+// + Kali WSL2 integration + command safety blocklist
+registerSingleton(IConstructToolRegistry, ConstructToolRegistryService, InstantiationType.Delayed);
 
 // Command: Switch AI Provider
 registerAction2(class SwitchAIProviderAction extends Action2 {
