@@ -8,17 +8,32 @@ import { createDecorator } from '../../../instantiation/common/instantiation.js'
 export const IConstructToolRegistry = createDecorator<IConstructToolRegistry>('construct.toolRegistry');
 
 /**
+ * SEC-4: Assert that a file path is within the workspace root.
+ * Prevents path traversal attacks from LLM-generated arguments.
+ * Must be called before every read_file and write_file operation.
+ * The workspace root must come from IWorkspaceContextService — never from user input.
+ */
+export function assertWithinWorkspace(filePath: string, workspaceRoot: string): void {
+        const path = require('path') as typeof import('path');
+        const resolved = path.resolve(filePath);
+        const root = path.resolve(workspaceRoot);
+        if (!resolved.startsWith(root + path.sep) && resolved !== root) {
+                throw new Error(`Security: path "${resolved}" is outside workspace "${root}"`);
+        }
+}
+
+/**
  * Schema definition for a tool's input parameters.
  * Uses a simplified JSON Schema format compatible with zod validation.
  */
 export interface IToolParameterSchema {
-	type: 'string' | 'number' | 'boolean' | 'object' | 'array';
-	description: string;
-	properties?: Record<string, IToolParameterSchema>;
-	items?: IToolParameterSchema;
-	required?: string[];
-	enum?: string[];
-	default?: unknown;
+        type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+        description: string;
+        properties?: Record<string, IToolParameterSchema>;
+        items?: IToolParameterSchema;
+        required?: string[];
+        enum?: string[];
+        default?: unknown;
 }
 
 /**
@@ -26,43 +41,43 @@ export interface IToolParameterSchema {
  * Each tool has a name, description, input schema, and execute function.
  */
 export interface IToolDefinition {
-	/** Unique name for this tool (e.g., 'read_file', 'run_terminal') */
-	name: string;
-	/** Human-readable description of what the tool does */
-	description: string;
-	/** JSON Schema for the tool's input parameters */
-	inputSchema: {
-		type: 'object';
-		properties: Record<string, IToolParameterSchema>;
-		required?: string[];
-	};
-	/** Whether this tool modifies files (requires user approval) */
-	modifiesFiles: boolean;
-	/** Whether this tool requires network access */
-	requiresNetwork: boolean;
-	/** Category for UI grouping */
-	category: 'file' | 'terminal' | 'search' | 'network' | 'system';
+        /** Unique name for this tool (e.g., 'read_file', 'run_terminal') */
+        name: string;
+        /** Human-readable description of what the tool does */
+        description: string;
+        /** JSON Schema for the tool's input parameters */
+        inputSchema: {
+                type: 'object';
+                properties: Record<string, IToolParameterSchema>;
+                required?: string[];
+        };
+        /** Whether this tool modifies files (requires user approval) */
+        modifiesFiles: boolean;
+        /** Whether this tool requires network access */
+        requiresNetwork: boolean;
+        /** Category for UI grouping */
+        category: 'file' | 'terminal' | 'search' | 'network' | 'system';
 }
 
 /**
  * Result of executing a tool.
  */
 export interface IToolResult {
-	/** Whether the execution was successful */
-	success: boolean;
-	/** The output text (or error message if not successful) */
-	output: string;
-	/** Whether the output is truncated due to size limits */
-	truncated: boolean;
-	/** Additional metadata about the execution */
-	metadata?: {
-		/** Duration of execution in milliseconds */
-		durationMs?: number;
-		/** Number of bytes read/written */
-		bytesProcessed?: number;
-		/** Exit code for terminal commands */
-		exitCode?: number;
-	};
+        /** Whether the execution was successful */
+        success: boolean;
+        /** The output text (or error message if not successful) */
+        output: string;
+        /** Whether the output is truncated due to size limits */
+        truncated: boolean;
+        /** Additional metadata about the execution */
+        metadata?: {
+                /** Duration of execution in milliseconds */
+                durationMs?: number;
+                /** Number of bytes read/written */
+                bytesProcessed?: number;
+                /** Exit code for terminal commands */
+                exitCode?: number;
+        };
 }
 
 /**
@@ -85,61 +100,61 @@ export interface IToolResult {
  * execution to the Kali shell when that profile is selected.
  */
 export interface IConstructToolRegistry {
-	readonly _serviceBrand: undefined;
+        readonly _serviceBrand: undefined;
 
-	/**
-	 * List all registered tools.
-	 */
-	listTools(): IToolDefinition[];
+        /**
+         * List all registered tools.
+         */
+        listTools(): IToolDefinition[];
 
-	/**
-	 * Get a tool definition by name.
-	 */
-	getTool(name: string): IToolDefinition | undefined;
+        /**
+         * Get a tool definition by name.
+         */
+        getTool(name: string): IToolDefinition | undefined;
 
-	/**
-	 * Execute a tool by name.
-	 *
-	 * IMPORTANT: If the tool modifies files, this method shows a diff
-	 * preview and waits for user approval before applying changes.
-	 * The agent loop must never auto-apply changes silently.
-	 *
-	 * @param name Tool name.
-	 * @param input Tool input parameters.
-	 * @param signal Optional AbortSignal for cancellation.
-	 * @returns The execution result.
-	 */
-	execute(name: string, input: Record<string, unknown>, signal?: AbortSignal): Promise<IToolResult>;
+        /**
+         * Execute a tool by name.
+         *
+         * IMPORTANT: If the tool modifies files, this method shows a diff
+         * preview and waits for user approval before applying changes.
+         * The agent loop must never auto-apply changes silently.
+         *
+         * @param name Tool name.
+         * @param input Tool input parameters.
+         * @param signal Optional AbortSignal for cancellation.
+         * @returns The execution result.
+         */
+        execute(name: string, input: Record<string, unknown>, signal?: AbortSignal): Promise<IToolResult>;
 
-	/**
-	 * Register a new tool.
-	 *
-	 * @param tool The tool definition.
-	 * @param executeFn The function to execute when the tool is called.
-	 */
-	registerTool(tool: IToolDefinition, executeFn: (input: Record<string, unknown>, signal?: AbortSignal) => Promise<IToolResult>): void;
+        /**
+         * Register a new tool.
+         *
+         * @param tool The tool definition.
+         * @param executeFn The function to execute when the tool is called.
+         */
+        registerTool(tool: IToolDefinition, executeFn: (input: Record<string, unknown>, signal?: AbortSignal) => Promise<IToolResult>): void;
 
-	/**
-	 * Unregister a tool by name.
-	 */
-	unregisterTool(name: string): void;
+        /**
+         * Unregister a tool by name.
+         */
+        unregisterTool(name: string): void;
 
-	/**
-	 * Check if Kali WSL2 is available.
-	 * Only relevant on Windows.
-	 */
-	isKaliWSLAvailable(): Promise<boolean>;
+        /**
+         * Check if Kali WSL2 is available.
+         * Only relevant on Windows.
+         */
+        isKaliWSLAvailable(): Promise<boolean>;
 
-	/**
-	 * Get the current terminal profile.
-	 * Returns 'kali' if Kali WSL is selected, 'default' otherwise.
-	 */
-	getTerminalProfile(): string;
+        /**
+         * Get the current terminal profile.
+         * Returns 'kali' if Kali WSL is selected, 'default' otherwise.
+         */
+        getTerminalProfile(): string;
 
-	/**
-	 * Set the terminal profile.
-	 *
-	 * @param profile 'kali' for Kali WSL, 'default' for normal terminal.
-	 */
-	setTerminalProfile(profile: string): void;
+        /**
+         * Set the terminal profile.
+         *
+         * @param profile 'kali' for Kali WSL, 'default' for normal terminal.
+         */
+        setTerminalProfile(profile: string): void;
 }

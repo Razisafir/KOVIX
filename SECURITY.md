@@ -1,41 +1,55 @@
-<!-- BEGIN MICROSOFT SECURITY.MD V0.0.9 BLOCK -->
+# CONSTRUCT IDE Security Policy
 
-## Security
+## Contact
 
-Microsoft takes the security of our software products and services seriously, which includes all source code repositories managed through our GitHub organizations, which include [Microsoft](https://github.com/Microsoft), [Azure](https://github.com/Azure), [DotNet](https://github.com/dotnet), [AspNet](https://github.com/aspnet) and [Xamarin](https://github.com/xamarin).
+For security vulnerabilities, please contact: **security@construct-ide.dev**
 
-If you believe you have found a security vulnerability in any Microsoft-owned repository that meets [Microsoft's definition of a security vulnerability](https://aka.ms/security.md/definition), please report it to us as described below.
+**Do NOT use the public issue tracker for security vulnerabilities.**
 
-## Reporting Security Issues
+## Scope
 
-**Please do not report security vulnerabilities through public GitHub issues.**
+The following components are in scope for our security policy:
 
-Instead, please report them to the Microsoft Security Response Center (MSRC) at [https://msrc.microsoft.com/create-report](https://aka.ms/security.md/msrc/create-report).
+- **CONSTRUCT IDE application** — the Electron-based desktop application
+- **Agent loop** — the LLM orchestration layer that executes tasks
+- **Terminal executor** — the shell command execution subsystem
+- **File tools** — read_file, write_file, and all filesystem-accessing tools
+- **IPC layer** — all communication between renderer and main process
+- **Webview panels** — onboarding wizard, agent panel, memory view, browser preview
+- **API key management** — storage, retrieval, and redaction of secrets
+- **Prompt sanitisation** — injection defence for LLM context
 
-If you prefer to submit without logging in, send email to [secure@microsoft.com](mailto:secure@microsoft.com).  If possible, encrypt your message with our PGP key; please download it from the [Microsoft Security Response Center PGP Key page](https://aka.ms/security.md/msrc/pgp).
+### Out of Scope
 
-You should receive a response within 24 hours. If for some reason you do not, please follow up via email to ensure we received your original message. Additional information can be found at [microsoft.com/msrc](https://www.microsoft.com/msrc).
+- The underlying VS Code engine (reported to Microsoft separately)
+- Third-party Ollama service (report to ollama/ollama)
+- Third-party Qdrant service (report to qdrant/qdrant)
+- Issues in dependencies not introduced by CONSTRUCT IDE changes
 
-Please include the requested information listed below (as much as you can provide) to help us better understand the nature and scope of the possible issue:
+## Reporting a Vulnerability
 
-  * Type of issue (e.g. buffer overflow, SQL injection, cross-site scripting, etc.)
-  * Full paths of source file(s) related to the manifestation of the issue
-  * The location of the affected source code (tag/branch/commit or direct URL)
-  * Any special configuration required to reproduce the issue
-  * Step-by-step instructions to reproduce the issue
-  * Proof-of-concept or exploit code (if possible)
-  * Impact of the issue, including how an attacker might exploit the issue
+1. Email **security@construct-ide.dev** with a description of the vulnerability
+2. Include steps to reproduce, affected versions, and potential impact
+3. We will respond within **7 days** with an initial assessment
+4. We will work with you to coordinate disclosure once a fix is available
 
-This information will help us triage your report more quickly.
+## Security Controls
 
-If you are reporting for a bug bounty, more complete reports can contribute to a higher bounty award. Please visit our [Microsoft Bug Bounty Program](https://aka.ms/security.md/msrc/bounty) page for more details about our active programs.
+| Control | Description |
+|---------|-------------|
+| SEC-1 | Electron sandbox lockdown — contextIsolation, CSP, sandbox mode |
+| SEC-2 | IPC channel hardening — sender validation, schema validation, channel enum |
+| SEC-3 | Terminal command injection prevention — blocklist, allowlist, rate limiting, audit log |
+| SEC-4 | Path traversal prevention — assertWithinWorkspace for all file tools |
+| SEC-5 | API key security — OS keychain storage, secret redaction, .gitignore |
+| SEC-6 | Prompt injection defence — content delimiters, injection prefix filtering |
+| SEC-7 | Auto-update URL neutralised, external network URLs audited |
 
-## Preferred Languages
+## Responsible Disclosure
 
-We prefer all communications to be in English.
+We ask that security researchers:
 
-## Policy
-
-Microsoft follows the principle of [Coordinated Vulnerability Disclosure](https://aka.ms/security.md/cvd).
-
-<!-- END MICROSOFT SECURITY.MD BLOCK -->
+- Do not access or modify user data belonging to others
+- Do not degrade service availability
+- Provide reasonable time for remediation before public disclosure
+- Report in good faith

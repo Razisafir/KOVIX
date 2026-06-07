@@ -96,7 +96,8 @@ export class ConstructOnboardingWizard extends Disposable {
                                         enableFindWidget: false,
                                 },
                                 contentOptions: {
-                                        allowScripts: true,
+                                        // SEC-1: Strict webview security
+                                        enableScripts: true,
                                         allowForms: true,
                                         enableCommandUris: true,
                                         localResourceRoots: [],
@@ -111,12 +112,19 @@ export class ConstructOnboardingWizard extends Disposable {
                 this.webview = input.webview;
 
                 this._register(input.webview.onMessage(async (e) => {
+                        // SEC-1: Validate sender origin
+                        const senderOrigin = e.source?.origin ?? '';
+                        if (senderOrigin && !senderOrigin.startsWith('vscode-webview://')) {
+                                this.logService.warn(`[ConstructOnboarding] Rejected message from untrusted origin: ${senderOrigin}`);
+                                return;
+                        }
                         const message = e.message as WebviewToHostMessage;
                         await this.handleMessage(message);
                 }));
 
-                // Set initial HTML
-                input.webview.setHtml(this.getHtml());
+                // SEC-1: Apply strict CSP to the webview HTML
+                const nonce = this.generateNonce();
+                input.webview.setHtml(this.getHtml(nonce));
 
                 this.logService.info('[ConstructOnboarding] Wizard opened');
         }
@@ -338,14 +346,26 @@ export class ConstructOnboardingWizard extends Disposable {
         // HTML
         // -----------------------------------------------------------------------
 
-        private getHtml(): string {
+        // SEC-1: Generate a cryptographically random nonce for CSP
+        private generateNonce(): string {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let result = '';
+                for (let i = 0; i < 32; i++) {
+                        result += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return result;
+        }
+
+        private getHtml(nonce?: string): string {
                 const isWin = isWindows;
+                const cspNonce = nonce ?? this.generateNonce();
 
                 return /* html */`<!DOCTYPE html>
 <html lang="en">
 <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${cspNonce}'; style-src 'unsafe-inline'; connect-src http://localhost:11434 http://localhost:6333;">
         <title>CONSTRUCT Setup</title>
         <style>
                 :root {

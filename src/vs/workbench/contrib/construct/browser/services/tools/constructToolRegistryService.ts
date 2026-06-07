@@ -16,6 +16,22 @@ import {
         IConstructToolRegistry, IToolDefinition, IToolResult
 } from '../../../../../../platform/construct/common/tools/constructToolRegistry.js';
 
+// SEC-4: Path traversal prevention
+import * as pathModule from '../../../../../../base/common/path.js';
+
+/**
+ * SEC-4: Assert that a file path is within the workspace root.
+ * Prevents path traversal attacks from LLM-generated arguments.
+ * The workspace root comes from IWorkspaceContextService — never from user input.
+ */
+function assertWithinWorkspace(filePath: string, workspaceRoot: string): void {
+        const resolved = pathModule.resolve(filePath);
+        const root = pathModule.resolve(workspaceRoot);
+        if (!resolved.startsWith(root + pathModule.sep) && resolved !== root) {
+                throw new Error(`Security: path "${resolved}" is outside workspace "${root}"`);
+        }
+}
+
 const MAX_OUTPUT_LENGTH = 100_000; // Characters
 const COMMAND_BLOCKLIST = [
         'rm -rf /', 'format c:', 'del /s /q c:\\', 'mkfs', 'dd if=',
@@ -279,6 +295,12 @@ export class ConstructToolRegistryService extends Disposable implements IConstru
                 }
 
                 try {
+                        // SEC-4: Path traversal prevention
+                        const workspaceRoot = this.workspaceContextService.getWorkspace().folders[0]?.uri.fsPath;
+                        if (workspaceRoot) {
+                                assertWithinWorkspace(path, workspaceRoot);
+                        }
+
                         const uri = this.resolveUri(path);
                         const content = await this.fileService.readFile(uri);
                         const text = content.value.toString();
@@ -313,6 +335,12 @@ export class ConstructToolRegistryService extends Disposable implements IConstru
                 // This tool writes the content after approval has been granted by the user.
                 // The agent loop must show a diff and wait for approval before calling this.
                 try {
+                        // SEC-4: Path traversal prevention
+                        const workspaceRoot = this.workspaceContextService.getWorkspace().folders[0]?.uri.fsPath;
+                        if (workspaceRoot) {
+                                assertWithinWorkspace(path, workspaceRoot);
+                        }
+
                         const uri = this.resolveUri(path);
                         const encoded = VSBuffer.wrap(new TextEncoder().encode(content));
                         await this.fileService.writeFile(uri, encoded);

@@ -42,6 +42,7 @@
                 "resourceUrlTemplate": "https://open-vsx.org/vscode/unpkg/{publisher}/{name}/{version}/{path}"
         },
         "webviewContentExternalBaseUrlTemplate": "",
+        "updateUrl": "",
         "builtInExtensions": [
                 {
                         "name": "ms-vscode.js-debug-companion",

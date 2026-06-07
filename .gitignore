@@ -4,3 +4,5 @@ out/
 .build/
 *.log
 out-build/
+# SEC-5: Never commit the .construct directory (contains settings, audit logs, etc.)
+.construct/
