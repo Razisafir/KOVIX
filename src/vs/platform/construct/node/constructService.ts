@@ -8,6 +8,10 @@ import { join } from '../../../base/common/path.js';
 import { IConstructService } from '../common/construct.js';
 import { IMCPProcessNodeService } from '../common/mcp/mcpProcessNode.js';
 import { MCPProcessNodeService } from './mcpProcessNode.js';
+import { IConstructVectorStore } from '../common/memory/vectorStore.js';
+import { ConstructVectorStoreService } from './constructVectorStore.js';
+import { IConstructChatHistory } from '../common/memory/vectorStore.js';
+import { ConstructChatHistoryService } from './constructChatHistory.js';
 import { registerSingleton, InstantiationType } from '../../instantiation/common/extensions';
 
 class ConstructService implements IConstructService {
@@ -39,3 +43,9 @@ registerSingleton(IConstructService, ConstructService, InstantiationType.Eager);
 // via IPC when running in desktop mode. In browser-only mode (vscode.dev),
 // it falls back to IFileService.
 registerSingleton(IMCPProcessNodeService, MCPProcessNodeService, InstantiationType.Delayed);
+
+// --- Phase 3: Memory & Context Services (Node layer) ---
+// Qdrant-backed vector store for workspace file chunk embeddings
+registerSingleton(IConstructVectorStore, ConstructVectorStoreService, InstantiationType.Delayed);
+// SQLite-backed chat history for persistent conversation storage
+registerSingleton(IConstructChatHistory, ConstructChatHistoryService, InstantiationType.Delayed);
