@@ -1,5 +1,11 @@
 # CONSTRUCT IDE Security Policy
 
+## Supported Versions
+
+| Version | Supported |
+| ------- | --------- |
+| 0.1.0-beta | Yes |
+
 ## Contact
 
 For security vulnerabilities, please contact: **security@construct-ide.dev**
