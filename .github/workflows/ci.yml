@@ -71,7 +71,7 @@ jobs:
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
-        run: DISPLAY=:10 ./scripts/test.sh
+        run: DISPLAY=:10 ./scripts/test.sh --no-sandbox
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
@@ -83,7 +83,7 @@ jobs:
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration.sh
+        run: DISPLAY=:10 ./scripts/test-integration.sh --no-sandbox
 
       - name: Run Integration Tests (Browser, Chromium)
         id: browser-integration-tests
@@ -92,7 +92,7 @@ jobs:
       - name: Run Integration Tests (Remote)
         id: electron-remote-integration-tests
         timeout-minutes: 15
-        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+        run: DISPLAY=:10 ./scripts/test-remote-integration.sh --no-sandbox
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   # CONSTRUCT HYGIENE — only checks construct code

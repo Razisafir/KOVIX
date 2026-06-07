@@ -184,17 +184,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Linux tar.gz archive
-        run: npx gulp vscode-linux-x64-build-tar-gz
-        timeout-minutes: 30
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Generate SHA256 checksums
         run: |
           cd .build/linux
           sha256sum deb/amd64/**/*.deb > checksums-sha256.txt 2>/dev/null || true
-          find . -name "*.tar.gz" -exec sha256sum {} \; >> checksums-sha256.txt 2>/dev/null || true
           cat checksums-sha256.txt
 
       - name: Upload Linux packages
@@ -203,7 +196,6 @@ jobs:
           name: construct-ide-linux-x64
           path: |
             .build/linux/deb/amd64/**/*.deb
-            .build/linux/**/*.tar.gz
             .build/linux/checksums-sha256.txt
           retention-days: 30
 
@@ -213,7 +205,6 @@ jobs:
         with:
           files: |
             .build/linux/deb/amd64/**/*.deb
-            .build/linux/**/*.tar.gz
             .build/linux/checksums-sha256.txt
           draft: true
           generate_release_notes: true
@@ -254,16 +245,22 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: "--max-old-space-size=4096"
 
-      - name: Build macOS ZIP archive
-        run: npx gulp vscode-darwin-x64-build-zip
-        timeout-minutes: 30
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create macOS ZIP archive
+        run: |
+          cd .build/darwin/x64
+          APP_NAME=$(ls -d Construct*.app 2>/dev/null || ls -d *.app 2>/dev/null | head -1)
+          if [ -n "$APP_NAME" ]; then
+            zip -r "../construct-ide-darwin-x64.zip" "$APP_NAME"
+          else
+            echo "No .app found, zipping entire directory"
+            cd ..
+            zip -r "construct-ide-darwin-x64.zip" x64/
+          fi
 
       - name: Generate SHA256 checksums
         run: |
           cd .build/darwin
-          find . -name "*.zip" -exec sh -c 'sha256sum "$1" >> checksums-sha256.txt' _ {} \;
+          find . -name "*.zip" -exec sh -c 'shasum -a 256 "$1" >> checksums-sha256.txt' _ {} \;
           cat checksums-sha256.txt || echo "No archives found, listing dir:"
           ls -la
 
