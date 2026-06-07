@@ -12,7 +12,7 @@ import { IWorkspaceContextService } from '../../../../../../platform/workspace/c
 import { IAgentLoop, AgentLoopEvent, IPlanResult, IPlanStep } from '../../../../../../platform/construct/common/agent/agentLoop.js';
 import { LoadingState, FileChangeEntry } from '../../../../../../platform/construct/common/agent/loadingState.js';
 import { IConstructAIService } from '../../../../../../platform/construct/common/llm/constructAIService.js';
-import { IChatMessage, IToolDefinition, IToolCall, IChatOptions } from '../../../../../../platform/construct/common/llm/constructAIProvider.js';
+import { IChatMessage, IToolDefinition, IToolCall } from '../../../../../../platform/construct/common/llm/constructAIProvider.js';
 import { IMCPProcess } from '../../../../../../platform/construct/common/mcp/mcpProcess';
 import { ITerminalExecutor } from '../../../../../../platform/construct/common/terminal/terminalExecutor.js';
 import { IDiffApplier } from '../../../../../../platform/construct/common/editor/diffApplier.js';

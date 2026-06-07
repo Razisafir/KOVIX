@@ -299,7 +299,7 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                 const anthropicTools = this.convertToAnthropicTools(tools);
 
                 const body: Record<string, unknown> = {
-                        model: this._activeModel.id,
+                        model: this._activeModel!.id,
                         max_tokens: options?.maxTokens ?? 8192,
                         messages: anthropicMessages,
                         stream: true,

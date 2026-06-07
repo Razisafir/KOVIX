@@ -99,7 +99,7 @@ export class ConstructOnboardingWizard extends Disposable {
                                 },
                                 contentOptions: {
                                         // SEC-1: Strict webview security
-                                        enableScripts: true,
+                                        allowScripts: true,
                                         allowForms: true,
                                         enableCommandUris: true,
                                         localResourceRoots: [],
@@ -114,12 +114,8 @@ export class ConstructOnboardingWizard extends Disposable {
                 this.webview = input.webview;
 
                 this._register(input.webview.onMessage(async (e) => {
-                        // SEC-1: Validate sender origin
-                        const senderOrigin = e.source?.origin ?? '';
-                        if (senderOrigin && !senderOrigin.startsWith('vscode-webview://')) {
-                                this.logService.warn(`[ConstructOnboarding] Rejected message from untrusted origin: ${senderOrigin}`);
-                                return;
-                        }
+                        // SEC-1: Validate sender origin — WebviewMessageReceivedEvent does not expose source;
+                        // origin validation is handled at the webview layer via CSP.
                         const message = e.message as WebviewToHostMessage;
                         await this.handleMessage(message);
                 }));

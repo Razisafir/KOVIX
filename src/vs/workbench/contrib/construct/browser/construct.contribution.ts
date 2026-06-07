@@ -386,7 +386,7 @@ registerAction2(class TestCloudConnectionAction extends Action2 {
                 }
                 async run(accessor: ServicesAccessor): Promise<void> {
                                 const aiService = accessor.get(IConstructAIService);
-                                const configurationService = accessor.get(IConfigurationService);
+                                const _configurationService = accessor.get(IConfigurationService);
                                 const notificationService = accessor.get(INotificationService);
 
                                 // Ensure a cloud provider is configured
