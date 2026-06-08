@@ -26,6 +26,8 @@ import { ISnapshotManager, IRestoreResult } from '../../../../../../platform/con
 import { IFileWatcherService } from '../../../../../../platform/construct/common/watcher/fileWatcherService.js';
 // SEC-6: Prompt sanitisation to prevent injection attacks
 import { PromptSanitiser } from '../../../../../../platform/construct/common/security/promptSanitiser.js';
+// P0-5: In-memory staging for agent-proposed changes
+import { IPendingChangesService } from '../../../../../../platform/construct/common/diff/pendingChanges.js';
 
 const MAX_ROUNDS = 15;
 
@@ -177,9 +179,10 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                 @IAgentErrorRecovery private readonly errorRecovery: IAgentErrorRecovery,
                 @ISnapshotManager private readonly snapshotManager: ISnapshotManager,
                 @IFileWatcherService private readonly fileWatcher: IFileWatcherService,
+                @IPendingChangesService private readonly pendingChanges: IPendingChangesService,
         ) {
                 super();
-                this.logService.info('[AgentLoop] Service created with error recovery, snapshots, and file watcher');
+                this.logService.info('[AgentLoop] Service created with error recovery, snapshots, file watcher, and pending changes');
         }
 
         get isRunning(): boolean {
@@ -604,8 +607,10 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         const path = args.path;
                                         const content = args.content;
                                         if (!path || content === undefined) { return 'Error: path and content are required'; }
-                                        await this.diffApplier.writeFile(path, content);
-                                        return `File written successfully: ${path}`;
+                                        // P0-5 FIX: Stage in memory, don't write to disk directly
+                                        const writeUri = URI.file(path);
+                                        await this.pendingChanges.stageFile(writeUri, content);
+                                        return `File change staged: ${path}. Review and accept/reject in diff view.`;
                                 }
 
                                 case 'list_directory': {
@@ -643,11 +648,10 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         const path = args.path;
                                         const diff = args.diff;
                                         if (!path || !diff) { return 'Error: path and diff are required'; }
-                                        const result = await this.diffApplier.applyDiff(path, diff);
-                                        if (result.success) {
-                                                return `Diff applied successfully: ${path}`;
-                                        }
-                                        return `Error: ${result.error}`;
+                                        // P0-5 FIX: Stage in memory, don't apply diff directly
+                                        const editUri = URI.file(path);
+                                        await this.pendingChanges.stageEdit(editUri, diff);
+                                        return `Edit staged: ${path}. Review and accept/reject in diff view.`;
                                 }
 
                                 case 'search_codebase': {

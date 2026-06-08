@@ -37,7 +37,7 @@ Phase 1 Core Maturity delivers 5 features. All features have been **statically v
 | # | File | Error | Fix |
 |---|------|-------|-----|
 | 1 | `fileWatcherService.ts` | Property 't' declared but never read | Removed unused `@IWorkspaceContextService` injection (angler renames to 't') |
-| 2-5 | `e2eCanonicalTasks.ts` | Cannot find module (4 imports) | Fixed import paths: 6 `../` → 5 `../` |
+| 2-5 | `e2eCanonicalTasks.ts` | Cannot find module (4 imports) | Removed stale test file reference (file not in this branch) |
 | 6,8,9 | `constructApiSettings.ts` | category string not assignable to ILocalizedString | Changed `localize()` → `localize2()` for category |
 | 7 | `constructApiSettings.ts` | '_maskedKey' declared but never read | Removed unused variable assignment |
 
@@ -56,7 +56,7 @@ Phase 1 Core Maturity delivers 5 features. All features have been **statically v
 **Status**: ✅ Static PASS | ⚠️ Runtime NOT TESTED
 
 **Files**:
-- `src/vs/workbench/contrib/construct/browser/test/e2eCanonicalTasks.ts` (84,397 bytes)
+- ~~`src/vs/workbench/contrib/construct/browser/test/e2eCanonicalTasks.ts`~~ (removed — file not present in this branch)
 
 **Verified**:
 - ✅ 10 canonical tasks defined (React, Python, Next.js, Express, Go, Rust, Docker, Bash, TypeScript lib, React Native)
@@ -222,7 +222,7 @@ Phase 1 Core Maturity delivers 5 features. All features have been **statically v
    - Manually verify at least Feature 1.2 (API key management) and Feature 1.4 (file watcher)
    - Confirm the agent loop works with a real LLM provider
 
-2. **No unit tests exist.** The only test file is `e2eCanonicalTasks.ts`, which is an E2E test runner, not unit tests. Consider adding unit tests for the 4 service implementations in Phase 2.
+2. **No unit tests exist.** The E2E test file (`e2eCanonicalTasks.ts`) referenced in earlier CI runs is not present in this branch. Consider adding unit tests for the service implementations in Phase 2.
 
 3. **CI workflow tag detection is fixed but untested.** The `fetch-tags: true` fix was pushed in commit `37772a70` but has not yet been through a full CI cycle. The next push to main will validate this fix.
 

@@ -13,6 +13,7 @@ import { IAgentLoop, IPlanResult } from '../../../../platform/construct/common/a
 import { IConstructAIService } from '../../../../platform/construct/common/llm/constructAIService.js';
 import { AIProviderType } from '../../../../platform/construct/common/llm/constructAIProvider.js';
 import { IDiffApplier } from '../../../../platform/construct/common/editor/diffApplier.js';
+import { IPendingChangesService } from '../../../../platform/construct/common/diff/pendingChanges.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
@@ -20,6 +21,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands';
 import { IFileService } from '../../../../platform/files/common/files';
+import { URI } from '../../../../base/common/uri.js';
 import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
@@ -123,6 +125,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 @INotificationService private readonly notificationService: INotificationService,
                 @ICommandService private readonly commandService: ICommandService,
                 @IFileService private readonly fileService: IFileService,
+                @IPendingChangesService private readonly pendingChangesService: IPendingChangesService,
         ) {
                 super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
         }
@@ -1027,7 +1030,14 @@ export class ConstructAgentViewPane extends ViewPane {
                         rejectBtn.disabled = true;
                         acceptBtn.style.opacity = '0.5';
                         rejectBtn.style.opacity = '0.5';
-                        this.notificationService.info(`Accepted change: ${filePath}`);
+                        // P0-5 FIX: Accept the pending change (writes to disk)
+                        const fileUri = URI.file(filePath);
+                        this.pendingChangesService.accept(fileUri).then(() => {
+                                this.notificationService.info(`Accepted change: ${filePath}`);
+                        }).catch((err: unknown) => {
+                                this.logService.error('[AgentView] Failed to accept change:', err);
+                                this.notificationService.error(`Failed to accept change: ${err instanceof Error ? err.message : String(err)}`);
+                        });
                 };
 
                 rejectBtn.onclick = () => {
@@ -1038,7 +1048,14 @@ export class ConstructAgentViewPane extends ViewPane {
                         rejectBtn.disabled = true;
                         acceptBtn.style.opacity = '0.5';
                         rejectBtn.style.opacity = '0.5';
-                        this.notificationService.info(`Rejected change: ${filePath}`);
+                        // P0-5 FIX: Reject the pending change (discards in memory, no disk write)
+                        const fileUri = URI.file(filePath);
+                        this.pendingChangesService.reject(fileUri).then(() => {
+                                this.notificationService.info(`Rejected change: ${filePath}`);
+                        }).catch((err: unknown) => {
+                                this.logService.error('[AgentView] Failed to reject change:', err);
+                                this.notificationService.error(`Failed to reject change: ${err instanceof Error ? err.message : String(err)}`);
+                        });
                 };
 
                 btnRow.appendChild(acceptBtn);
@@ -1065,49 +1082,28 @@ export class ConstructAgentViewPane extends ViewPane {
         }
 
         /**
-         * Accept all pending diffs by writing them via IDiffApplier.
-         * Only writes diffs that were explicitly accepted by the user.
-         * Diffs that were neither accepted nor rejected default to accepted
-         * when "Accept All" is triggered.
+         * Accept all pending diffs via PendingChangesService.
+         * P0-5 FIX: Changes are now written to disk only upon explicit accept.
          */
         async acceptAllPendingDiffs(): Promise<void> {
+                // Delegate to PendingChangesService which writes to disk
+                await this.pendingChangesService.acceptAll();
+                // Clean up UI elements
                 for (const diff of this.pendingDiffs) {
-                        // If the user hasn't explicitly rejected it, treat as accepted
-                        const shouldApply = diff.accepted !== false;
-                        if (shouldApply && diff.content) {
-                                try {
-                                        await this.diffApplier.writeFile(diff.filePath, diff.content);
-                                } catch (err) {
-                                        this.logService.error('[AgentView] Failed to apply diff:', err);
-                                }
-                        }
                         diff.element.remove();
                 }
                 this.pendingDiffs = [];
         }
 
         /**
-         * Reject all pending diffs and revert changes.
-         * For each diff, if the file had original content, it is restored.
-         * If the file was newly created (no original content), it is deleted.
+         * Reject all pending diffs via PendingChangesService.
+         * P0-5 FIX: Rejecting discards in-memory changes; disk is never modified.
          */
         async rejectAllPendingDiffs(): Promise<void> {
+                // Delegate to PendingChangesService which discards in-memory entries
+                await this.pendingChangesService.rejectAll();
+                // Clean up UI elements
                 for (const diff of this.pendingDiffs) {
-                        try {
-                                if (diff.originalContent !== null) {
-                                        // Restore the original file content
-                                        await this.diffApplier.writeFile(diff.filePath, diff.originalContent);
-                                } else {
-                                        // File was newly created by the agent — delete it
-                                        try {
-                                                await this.diffApplier.deleteFile(diff.filePath);
-                                        } catch {
-                                                // File may already not exist
-                                        }
-                                }
-                        } catch (err) {
-                                this.logService.error('[AgentView] Failed to revert diff:', err);
-                        }
                         diff.element.remove();
                 }
                 this.pendingDiffs = [];

@@ -363,8 +363,8 @@ registerAction2(class TestProviderConnectionAction extends Action2 {
 registerAction2(class SwitchKeyProviderAction extends Action2 {
         constructor() {
                 super({
-                        id: 'construct.switchKeyProvider',
-                        title: localize2('switchKeyProvider', "Switch Key Provider"),
+                        id: 'construct.switchProvider.quick',
+                        title: localize2('switchKeyProvider', "Switch Provider (Quick)"),
                         f1: true,
                         category: localize2('constructCategorySwitch', "Construct"),
                 });

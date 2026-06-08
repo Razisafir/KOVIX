@@ -23,7 +23,7 @@ Format: [Keep a Changelog](https://keepachangelog.com)
 ### Security
 
 - Electron contextIsolation and sandbox enabled
-- IPC channel schema validation via Zod
+- IPC channel input validation with allowlists and shared constants (constructIpcChannels.ts)
 - Terminal command blocklist and rate limiting
 - Secret redaction in all log output
 - Pre-commit hook for secret detection

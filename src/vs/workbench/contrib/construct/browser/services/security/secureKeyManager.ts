@@ -16,6 +16,8 @@ import { AIProviderType } from '../../../../../../platform/construct/common/llm/
 
 // Storage keys for non-sensitive configuration
 const STORAGE_KEY_PREFIX = 'construct.keyManager';
+// P0-2: Generic cloud API key storage key for CloudProvider backward compatibility
+const STORAGE_KEY_CLOUD_API_KEY = 'construct.cloud.apiKey';
 const MASKED_KEY_STORAGE_KEY = `${STORAGE_KEY_PREFIX}.maskedKeys`;
 const ACTIVE_PROVIDER_STORAGE_KEY = `${STORAGE_KEY_PREFIX}.activeProvider`;
 const PROVIDERS_STORAGE_KEY = `${STORAGE_KEY_PREFIX}.providers`;
@@ -127,6 +129,15 @@ export class SecureKeyManagerService extends Disposable implements ISecureKeyMan
                 const masked = this.computeMaskedDisplay(key);
                 this.storeMaskedKey(provider, masked);
 
+                // P0-2 FIX: Sync to IStorageService so CloudProvider (pre-migration) still works
+                const storageKey = `construct.${provider}.apiKey`;
+                this.storageService.store(storageKey, key, StorageScope.PROFILE, StorageTarget.MACHINE);
+
+                // P0-2 FIX: Also sync the generic cloud key for CloudProvider backward compatibility
+                if (provider === 'openai' || provider === 'anthropic' || provider === 'litellm' || provider === 'custom') {
+                        this.storageService.store(STORAGE_KEY_CLOUD_API_KEY, key, StorageScope.APPLICATION, StorageTarget.MACHINE);
+                }
+
                 this.logService.info(`[SecureKeyManager] API key stored for provider: ${provider}`);
                 this._onDidChangeKey.fire(provider);
         }
@@ -158,6 +169,13 @@ export class SecureKeyManagerService extends Disposable implements ISecureKeyMan
 
                 // Remove masked display
                 this.removeMaskedKey(provider);
+
+                // P0-2 FIX: Clean up IStorageService sync entries on delete
+                const storageKey = `construct.${provider}.apiKey`;
+                this.storageService.remove(storageKey, StorageScope.PROFILE);
+                if (provider === 'openai' || provider === 'anthropic' || provider === 'litellm' || provider === 'custom') {
+                        this.storageService.remove(STORAGE_KEY_CLOUD_API_KEY, StorageScope.APPLICATION);
+                }
 
                 this.logService.info(`[SecureKeyManager] API key deleted for provider: ${provider}`);
                 this._onDidChangeKey.fire(provider);

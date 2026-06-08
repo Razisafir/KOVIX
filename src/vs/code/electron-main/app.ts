@@ -120,6 +120,17 @@ import { normalizeNFC } from '../../base/common/normalization.js';
 import { ICSSDevelopmentService, CSSDevelopmentService } from '../../platform/cssDev/node/cssDevService.js';
 import { IMCPProcessNodeService } from '../../platform/construct/common/mcp/mcpProcessNode.js';
 import { MCPProcessNodeService } from '../../platform/construct/node/mcpProcessNode.js';
+import { IConstructVectorStore } from '../../platform/construct/common/memory/vectorStore.js';
+import { ConstructVectorStoreService } from '../../platform/construct/node/constructVectorStore.js';
+import { IConstructChatHistory } from '../../platform/construct/common/memory/vectorStore.js';
+import { ConstructChatHistoryService } from '../../platform/construct/node/constructChatHistory.js';
+import { IConstructConfigService } from '../../platform/construct/common/config/constructConfigService.js';
+import { ConstructConfigService } from '../../platform/construct/node/constructConfigService.js';
+import { ISecureKeyManager } from '../../platform/construct/common/security/secureKeyManager.js';
+import { SecureKeyNodeService } from '../../platform/construct/node/constructSecureKeyService.js';
+import { IConstructNotificationService } from '../../platform/construct/common/notification/constructNotificationService.js';
+import { ConstructNotificationNodeService } from '../../platform/construct/node/constructNotificationService.js';
+import { CONSTRUCT_CHANNELS } from '../../platform/construct/common/constructIpcChannels.js';
 
 /**
  * The main CONSTRUCT IDE application. There will only ever be one instance,
@@ -1121,6 +1132,21 @@ export class CodeApplication extends Disposable {
                 // Construct MCP Node Service (spawns real MCP filesystem server)
                 services.set(IMCPProcessNodeService, new SyncDescriptor(MCPProcessNodeService, undefined, true));
 
+                // Construct Vector Store Service (Qdrant-backed semantic code search)
+                services.set(IConstructVectorStore, new SyncDescriptor(ConstructVectorStoreService, undefined, true));
+
+                // Construct Chat History Service (SQLite-backed persistent conversations)
+                services.set(IConstructChatHistory, new SyncDescriptor(ConstructChatHistoryService, undefined, true));
+
+                // Construct Config Service (single source of truth for .construct/settings.json)
+                services.set(IConstructConfigService, new SyncDescriptor(ConstructConfigService, undefined, true));
+
+                // Construct Secure Key Service (OS keychain access for API keys)
+                services.set(ISecureKeyManager, new SyncDescriptor(SecureKeyNodeService, undefined, true));
+
+                // Construct Notification Service (system notifications)
+                services.set(IConstructNotificationService, new SyncDescriptor(ConstructNotificationNodeService, undefined, true));
+
                 // Init services that require it
                 await Promises.settled([
                         backupMainService.initialize(),
@@ -1238,9 +1264,31 @@ export class CodeApplication extends Disposable {
                 const utilityProcessWorkerChannel = ProxyChannel.fromService(accessor.get(IUtilityProcessWorkerMainService), disposables);
                 mainProcessElectronServer.registerChannel(ipcUtilityProcessWorkerChannelName, utilityProcessWorkerChannel);
 
-                // Construct MCP Node Service (exposes MCP filesystem server to renderer)
+                // Construct IPC Channels — all channel names from shared constants
+
+                // MCP filesystem server process management
                 const constructMcpChannel = ProxyChannel.fromService(accessor.get(IMCPProcessNodeService), disposables);
-                mainProcessElectronServer.registerChannel('constructMcp', constructMcpChannel);
+                mainProcessElectronServer.registerChannel(CONSTRUCT_CHANNELS.MCP, constructMcpChannel);
+
+                // Vector store — semantic code search (Qdrant)
+                const constructVectorChannel = ProxyChannel.fromService(accessor.get(IConstructVectorStore), disposables);
+                mainProcessElectronServer.registerChannel(CONSTRUCT_CHANNELS.VECTOR_STORE, constructVectorChannel);
+
+                // Chat history — persistent conversation storage (SQLite)
+                const constructChatHistoryChannel = ProxyChannel.fromService(accessor.get(IConstructChatHistory), disposables);
+                mainProcessElectronServer.registerChannel(CONSTRUCT_CHANNELS.CHAT_HISTORY, constructChatHistoryChannel);
+
+                // Config service — centralized configuration
+                const constructConfigChannel = ProxyChannel.fromService(accessor.get(IConstructConfigService), disposables);
+                mainProcessElectronServer.registerChannel(CONSTRUCT_CHANNELS.CONFIG, constructConfigChannel);
+
+                // Secure key service — OS keychain access
+                const constructSecureKeysChannel = ProxyChannel.fromService(accessor.get(ISecureKeyManager), disposables);
+                mainProcessElectronServer.registerChannel(CONSTRUCT_CHANNELS.SECURE_KEYS, constructSecureKeysChannel);
+
+                // Notification service — system notifications
+                const constructNotificationChannel = ProxyChannel.fromService(accessor.get(IConstructNotificationService), disposables);
+                mainProcessElectronServer.registerChannel(CONSTRUCT_CHANNELS.NOTIFICATION, constructNotificationChannel);
         }
 
         private async openFirstWindow(accessor: ServicesAccessor, initialProtocolUrls: IInitialProtocolUrls | undefined): Promise<ICodeWindow[]> {

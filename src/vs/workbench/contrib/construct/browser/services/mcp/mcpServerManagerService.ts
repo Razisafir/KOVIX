@@ -25,6 +25,7 @@ import {
         MCP_RESOURCE_CACHE_TTL_MS
 } from '../../../../../../platform/construct/common/mcp/mcpTypes';
 import { MCPConnectionPool } from './mcpConnectionPool.js';
+import { ITerminalExecutor } from '../../../../../../platform/construct/common/terminal/terminalExecutor.js';
 import { MCPServerRegistry } from './mcpServerRegistry.js';
 
 // Resource cache with TTL
@@ -60,6 +61,7 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
         constructor(
                 @IInstantiationService instantiationService: IInstantiationService,
                 @ILogService private readonly logService: ILogService,
+                @ITerminalExecutor private readonly terminalExecutor: ITerminalExecutor,
         ) {
                 super();
                 this.connectionPool = this._register(instantiationService.createInstance(MCPConnectionPool));
@@ -103,8 +105,14 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
 
                 for (const check of checks) {
                         try {
-                                const { execSync } = await import('child_process');
-                                execSync(`which ${check.command.split(' ')[0]}`, { stdio: 'ignore' });
+                                // P0-4 FIX: child_process should not be used in browser layer.
+                                // Use ITerminalExecutor to check command availability via IPC.
+                                const cmd = check.command.split(' ')[0];
+                                const result = await this.terminalExecutor.execute(
+                                        process.platform === 'win32' ? `where ${cmd}` : `which ${cmd}`,
+                                        undefined, 5000
+                                );
+                                if (result.exitCode !== 0) { continue; }
                                 common.push({
                                         name: check.name,
                                         command: check.command,

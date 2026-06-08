@@ -146,9 +146,17 @@ export class ConstructAIService extends Disposable implements IConstructAIServic
                 const status = await provider.checkStatus();
                 if (status !== ProviderStatus.Available) {
                         this.logService.warn('[ConstructAIService] Provider ' + providerType + ' is not available (status: ' + status + ')');
-                        this.notificationService.warn(
-                                'CONSTRUCT: ' + providerType.charAt(0).toUpperCase() + providerType.slice(1) + ' provider is not available. Status: ' + status
-                        );
+                        if (providerType === 'xenova' && status === ProviderStatus.Unreachable) {
+                                this.notificationService.warn(
+                                        'Xenova (in-process AI) is unavailable because Electron sandbox blocks Web Workers. ' +
+                                        'To use local AI: install Ollama (https://ollama.ai) or configure a cloud provider. ' +
+                                        'Cloud providers (Anthropic, OpenAI) are not affected by this limitation.'
+                                );
+                        } else {
+                                this.notificationService.warn(
+                                        'CONSTRUCT: ' + providerType.charAt(0).toUpperCase() + providerType.slice(1) + ' provider is not available. Status: ' + status
+                                );
+                        }
                         return false;
                 }
 

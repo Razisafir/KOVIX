@@ -188,8 +188,10 @@ export class MCPConnectionPool extends Disposable {
          * This method will throw in vscode-web contexts.
          */
         private async connectRawStdio(entry: IConnectionEntry): Promise<void> {
+                // P0-4: MCP process spawning should happen in node layer via IPC.
+                // Browser-layer code must not import child_process.
                 if (typeof process === 'undefined' || !process.versions?.node) {
-                        throw new Error('Cannot spawn MCP server process: child_process not available in browser environment. Use SSE transport instead.');
+                        throw new Error('MCP server spawning is not available in browser context. Use IPC to the node process.');
                 }
 
                 const { spawn } = await import('child_process');

@@ -68,7 +68,8 @@
     "extensions-ci": "node ./node_modules/gulp/bin/gulp.js extensions-ci",
     "extensions-ci-pr": "node ./node_modules/gulp/bin/gulp.js extensions-ci-pr",
     "perf": "node scripts/code-perf.js",
-    "update-build-ts-version": "npm install typescript@next && tsc -p ./build/tsconfig.build.json"
+    "update-build-ts-version": "npm install typescript@next && tsc -p ./build/tsconfig.build.json",
+    "lint": "node build/eslint"
   },
   "dependencies": {
     "@microsoft/1ds-core-js": "^3.2.13",
@@ -121,7 +122,7 @@
     "vscode-oniguruma": "1.7.0",
     "vscode-regexpp": "^3.1.0",
     "vscode-textmate": "9.1.0",
-    "yauzl": "^3.0.0",
+    "yauzl": "^3.0.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.46.1",

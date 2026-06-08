@@ -7,23 +7,24 @@
 
 import { IConstructService } from '../common/construct.js';
 import { IMCPProcessNodeService } from '../common/mcp/mcpProcessNode.js';
+import { CONSTRUCT_CHANNELS } from '../common/constructIpcChannels.js';
 import { registerSingleton, InstantiationType } from '../../instantiation/common/extensions';
 import { registerMainProcessRemoteService } from '../../ipc/electron-sandbox/services';
 
 class ConstructService implements IConstructService {
-	declare readonly _serviceBrand: undefined;
-	private _port: number = 8000;
+        declare readonly _serviceBrand: undefined;
+        private _port: number = 8000;
 
-	async start(): Promise<void> {
-		// Agent backend start is handled by the main process or external launcher
-		// This service provides the renderer-side interface
-	}
+        async start(): Promise<void> {
+                // Agent backend start is handled by the main process or external launcher
+                // This service provides the renderer-side interface
+        }
 
-	getPort(): number { return this._port; }
+        getPort(): number { return this._port; }
 
-	async stop(): Promise<void> {
-		// No-op in renderer process
-	}
+        async stop(): Promise<void> {
+                // No-op in renderer process
+        }
 }
 
 registerSingleton(IConstructService, ConstructService, InstantiationType.Delayed);
@@ -33,4 +34,4 @@ registerSingleton(IConstructService, ConstructService, InstantiationType.Delayed
 // a transparent proxy that delegates all method calls to the main process.
 // In browser-only mode (vscode.dev), this service will be unavailable and
 // the browser-layer MCPProcessService falls back to IFileService.
-registerMainProcessRemoteService(IMCPProcessNodeService, 'constructMcp');
+registerMainProcessRemoteService(IMCPProcessNodeService, CONSTRUCT_CHANNELS.MCP);

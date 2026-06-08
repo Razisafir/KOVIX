@@ -8,6 +8,14 @@
 import { createDecorator } from '../../../instantiation/common/instantiation.js';
 import { LLMProvider } from './secureKeyManager.js';
 
+/**
+ * @deprecated IConstructKeyVault is deprecated. Use ISecureKeyManager instead.
+ * This interface was never fully implemented. All key management goes through
+ * ISecureKeyManager, which stores keys in the OS keychain via ISecretStorageService
+ * and syncs to IStorageService for backward compatibility.
+ *
+ * This interface will be removed in a future version.
+ */
 export const IConstructKeyVault = createDecorator<IConstructKeyVault>('construct.keyVault');
 
 /**

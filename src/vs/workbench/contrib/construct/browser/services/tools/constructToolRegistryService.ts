@@ -17,6 +17,7 @@ import { IConstructVectorStore } from '../../../../../../platform/construct/comm
 import {
         IConstructToolRegistry, IToolDefinition, IToolResult
 } from '../../../../../../platform/construct/common/tools/constructToolRegistry.js';
+import { ITerminalExecutor } from '../../../../../../platform/construct/common/terminal/terminalExecutor.js';
 
 // SEC-4: Path traversal prevention
 import * as pathModule from '../../../../../../base/common/path.js';
@@ -82,6 +83,7 @@ export class ConstructToolRegistryService extends Disposable implements IConstru
                 @IFileService private readonly fileService: IFileService,
                 @IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
                 @IConstructVectorStore private readonly vectorStore: IConstructVectorStore,
+                @ITerminalExecutor private readonly terminalExecutor: ITerminalExecutor,
         ) {
                 super();
 
@@ -388,58 +390,31 @@ export class ConstructToolRegistryService extends Disposable implements IConstru
                                 ? `wsl -d kali-linux -- bash -c "${command.replace(/"/g, '\\"')}"`
                                 : command;
 
-                        // child_process is only available in Electron/Node environments.
-                        // In vscode-web, this tool is unavailable.
-                        if (typeof process === 'undefined' || !process.versions?.node) {
+                        // P0-4 FIX: child_process should not be used in browser layer.
+                        // Terminal commands must be executed through ITerminalExecutor service
+                        // which delegates to the node process via IPC.
+                        const workDir = cwd ?? this.workspaceContextService.getWorkspace().folders[0]?.uri.fsPath;
+                        const execResult = await this.terminalExecutor.execute(actualCommand, workDir, timeout);
+
+                        const output = (execResult.stdout ?? '') + (execResult.stderr ?? '');
+                        const truncated = output.length > MAX_OUTPUT_LENGTH;
+                        const displayOutput = truncated ? output.substring(0, MAX_OUTPUT_LENGTH) + '\n... [truncated]' : output;
+
+                        if (execResult.exitCode !== 0) {
                                 return {
                                         success: false,
-                                        output: 'Terminal execution is not available in the browser. Use the desktop version of Construct IDE for terminal access.',
-                                        truncated: false,
+                                        output: displayOutput || `Command exited with code ${execResult.exitCode}`,
+                                        truncated,
+                                        metadata: { exitCode: execResult.exitCode },
                                 };
                         }
 
-                        const { exec } = await import('child_process');
-
-                        const result = await new Promise<IToolResult>((resolve) => {
-                                const proc = exec(actualCommand, {
-                                        cwd: cwd ?? this.workspaceContextService.getWorkspace().folders[0]?.uri.fsPath,
-                                        timeout,
-                                        maxBuffer: 1024 * 1024 * 10, // 10MB
-                                }, (error, stdout, stderr) => {
-                                        const output = (stdout ?? '') + (stderr ?? '');
-                                        const truncated = output.length > MAX_OUTPUT_LENGTH;
-                                        const displayOutput = truncated ? output.substring(0, MAX_OUTPUT_LENGTH) + '\n... [truncated]' : output;
-
-                                        if (error) {
-                                                resolve({
-                                                        success: false,
-                                                        output: displayOutput || `Command exited with code ${error.code ?? 'unknown'}: ${error.message}`,
-                                                        truncated,
-                                                        metadata: { exitCode: error.code ?? 1, durationMs: timeout },
-                                                });
-                                        } else {
-                                                resolve({
-                                                        success: true,
-                                                        output: displayOutput || '(no output)',
-                                                        truncated,
-                                                        metadata: { exitCode: 0 },
-                                                });
-                                        }
-                                });
-
-                                // Handle timeout
-                                setTimeout(() => {
-                                        proc.kill();
-                                        resolve({
-                                                success: false,
-                                                output: `Command timed out after ${timeout / 1000}s`,
-                                                truncated: false,
-                                                metadata: { exitCode: -1 },
-                                        });
-                                }, timeout + 1000);
-                        });
-
-                        return result;
+                        return {
+                                success: true,
+                                output: displayOutput || '(no output)',
+                                truncated,
+                                metadata: { exitCode: execResult.exitCode },
+                        };
                 } catch (error) {
                         return {
                                 success: false,
@@ -576,22 +551,17 @@ export class ConstructToolRegistryService extends Disposable implements IConstru
         }
 
         private async checkKaliWSL(): Promise<void> {
-                // Only check on Windows with Node.js runtime (not in browser/web)
+                // P0-4 FIX: child_process should not be used in browser layer.
+                // Kali WSL2 detection should be done via IPC to the node process.
+                // Use ITerminalExecutor to safely execute the detection command.
                 if (typeof process === 'undefined' || !process.versions?.node || process.platform !== 'win32') {
                         this._kaliAvailable = false;
                         return;
                 }
 
                 try {
-                        const { exec } = await import('child_process');
-                        const result = await new Promise<string>((resolve, reject) => {
-                                exec('wsl.exe -l -v', { timeout: 5000 }, (error, stdout) => {
-                                        if (error) { reject(error); return; }
-                                        resolve(stdout);
-                                });
-                        });
-
-                        this._kaliAvailable = result.toLowerCase().includes('kali');
+                        const result = await this.terminalExecutor.execute('wsl.exe -l -v', undefined, 5000);
+                        this._kaliAvailable = result.stdout.toLowerCase().includes('kali');
                         if (this._kaliAvailable) {
                                 this.logService.info('[ToolRegistry] Kali WSL2 detected');
                         }

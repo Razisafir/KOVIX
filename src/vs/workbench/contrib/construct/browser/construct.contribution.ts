@@ -69,6 +69,10 @@ import { IFileWatcherService } from '../../../../platform/construct/common/watch
 import { FileWatcherService } from './services/watcher/fileWatcherService.js';
 import { ISnapshotManager } from '../../../../platform/construct/common/snapshot/snapshotManager.js';
 import { SnapshotManagerService } from './services/snapshot/snapshotManager.js';
+import { IPendingChangesService } from '../../../../platform/construct/common/diff/pendingChanges.js';
+import { PendingChangesService } from './services/diff/pendingChangesService.js';
+import { IConstructNotificationService } from '../../../../platform/construct/common/notification/constructNotificationService.js';
+import { ConstructNotificationBrowserService } from './services/notification/constructNotificationService.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ConstructOnboardingWizard } from './constructOnboarding.js';
 import './constructMemoryConfig';
@@ -547,6 +551,8 @@ registerSingleton(ISecureKeyManager, SecureKeyManagerService, InstantiationType.
 registerSingleton(IAgentErrorRecovery, AgentErrorRecoveryService, InstantiationType.Delayed);
 registerSingleton(IFileWatcherService, FileWatcherService, InstantiationType.Delayed);
 registerSingleton(ISnapshotManager, SnapshotManagerService, InstantiationType.Delayed);
+registerSingleton(IPendingChangesService, PendingChangesService, InstantiationType.Delayed);
+registerSingleton(IConstructNotificationService, ConstructNotificationBrowserService, InstantiationType.Delayed);
 
 // --- Phase 1: Task-Level Undo Command -----------------------------------------
 registerAction2(class UndoTaskAction extends Action2 {

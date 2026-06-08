@@ -980,32 +980,50 @@ export class ConstructOnboardingWizard extends Disposable {
                                 desc.textContent = 'Ollama is running and models are available.';
 
                                 // Show model list
+                                // XSS FIX: Use DOM API instead of innerHTML with dynamic data
                                 if (data.models && data.models.length > 0) {
-                                        let html = '<div class="model-list">';
+                                        const listDiv = document.createElement('div');
+                                        listDiv.className = 'model-list';
                                         for (const m of data.models) {
-                                                html += \`
-                                                        <div class="model-item" onclick="selectModel('\${m.id}', this)">
-                                                                <div>
-                                                                        <div class="model-name">\${m.displayName}</div>
-                                                                        <div class="model-meta">Context: \${m.contextWindowTokens.toLocaleString()} tokens\${m.supportsTools ? ' | Tools: Yes' : ''}</div>
-                                                                </div>
-                                                                <div class="model-meta" id="model-check-\${m.id}"></div>
-                                                        </div>\`;
+                                                const item = document.createElement('div');
+                                                item.className = 'model-item';
+                                                item.addEventListener('click', () => selectModel(m.id, item));
+
+                                                const innerDiv = document.createElement('div');
+
+                                                const nameDiv = document.createElement('div');
+                                                nameDiv.className = 'model-name';
+                                                nameDiv.textContent = m.displayName;  // Safe: no HTML parsing
+
+                                                const metaDiv = document.createElement('div');
+                                                metaDiv.className = 'model-meta';
+                                                metaDiv.textContent = `Context: ${m.contextWindowTokens.toLocaleString()} tokens${m.supportsTools ? ' | Tools: Yes' : ''}`;  // Safe: no HTML parsing
+
+                                                const checkDiv = document.createElement('div');
+                                                checkDiv.className = 'model-meta';
+                                                checkDiv.id = `model-check-${m.id}`;
+
+                                                innerDiv.appendChild(nameDiv);
+                                                innerDiv.appendChild(metaDiv);
+                                                item.appendChild(innerDiv);
+                                                item.appendChild(checkDiv);
+                                                listDiv.appendChild(item);  // DOM append, no innerHTML
                                         }
-                                        html += '</div>';
-                                        detail.innerHTML = html;
+                                        detail.appendChild(listDiv);
 
                                         // Auto-select first model
                                         if (data.models.length > 0) {
                                                 selectModel(data.models[0].id, detail.querySelector('.model-item'));
                                         }
                                 } else {
+                                        // SAFE: Static HTML template, no dynamic data
                                         detail.innerHTML = '<div class="install-instructions">Ollama is running but no models are installed. Run <code>ollama pull llama3.1</code> to download a model.<br>Also pull the embedding model: <code>ollama pull nomic-embed-text</code></div>';
                                 }
                         } else if (data.ollamaStatus === 'noModels') {
                                 icon.className = 'card-icon pending';
                                 icon.textContent = '!';
                                 desc.textContent = 'Ollama is running but no models are installed.';
+                                // SAFE: Static HTML template, no dynamic data
                                 detail.innerHTML = \`
                                         <div class="install-instructions">
                                                 Download a model to get started:<br>
@@ -1020,6 +1038,8 @@ export class ConstructOnboardingWizard extends Disposable {
                                 icon.className = 'card-icon error';
                                 icon.textContent = '\\u2717';
                                 desc.textContent = 'Ollama is not running or not installed.';
+                                // SAFE: Static HTML template, no dynamic data
+                                // XSS FIX: Replace inline onclick with addEventListener
                                 detail.innerHTML = \`
                                         <div class="install-instructions">
                                                 <strong>Install Ollama for local AI:</strong><br>
@@ -1028,8 +1048,13 @@ export class ConstructOnboardingWizard extends Disposable {
                                                 3. Run <code>ollama pull llama3.1</code> to download a model<br>
                                                 4. Run <code>ollama pull nomic-embed-text</code> for codebase memory<br>
                                                 4. Click "Retry" below<br><br>
-                                                <button class="btn btn-secondary" onclick="retryOllama()" style="margin-top:8px;">Retry</button>
                                         </div>\`;
+                                const retryBtn = document.createElement('button');
+                                retryBtn.textContent = 'Retry';
+                                retryBtn.className = 'btn btn-secondary';
+                                retryBtn.style.marginTop = '8px';
+                                retryBtn.addEventListener('click', () => retryOllama());
+                                detail.appendChild(retryBtn);
                         }
                 }
 
@@ -1056,6 +1081,7 @@ export class ConstructOnboardingWizard extends Disposable {
                         const desc = document.getElementById('ollama-desc');
                         const detail = document.getElementById('ollama-detail');
                         icon.className = 'card-icon pending';
+                        // SAFE: Static HTML template, no dynamic data
                         icon.innerHTML = '<span class="spinner"></span>';
                         desc.textContent = 'Checking if Ollama is running...';
                         detail.innerHTML = '';
@@ -1092,6 +1118,7 @@ export class ConstructOnboardingWizard extends Disposable {
                                 icon.className = 'card-icon info';
                                 icon.textContent = '\\u2139';
                                 desc.textContent = 'Kali WSL2 is only available on Windows. Skipping.';
+                                // SAFE: Clearing element content, no dynamic data
                                 detail.innerHTML = '';
                                 // Auto-skip on non-Windows
                                 skipKali();
@@ -1102,16 +1129,25 @@ export class ConstructOnboardingWizard extends Disposable {
                                 icon.className = 'card-icon success';
                                 icon.textContent = '\\u2713';
                                 desc.textContent = 'Kali WSL2 is installed and available.';
-                                detail.innerHTML = \`
-                                        <div class="check-option" onclick="enableKali(true)">
-                                                <input type="checkbox" id="kali-checkbox">
-                                                <label for="kali-checkbox">Enable Kali terminal profile in CONSTRUCT</label>
-                                        </div>\`;
+                                // XSS FIX: Replace inline onclick with DOM API + addEventListener
+                                const checkOptDiv = document.createElement('div');
+                                checkOptDiv.className = 'check-option';
+                                const kaliCb = document.createElement('input');
+                                kaliCb.type = 'checkbox';
+                                kaliCb.id = 'kali-checkbox';
+                                const kaliLabel = document.createElement('label');
+                                kaliLabel.htmlFor = 'kali-checkbox';
+                                kaliLabel.textContent = 'Enable Kali terminal profile in CONSTRUCT';
+                                checkOptDiv.appendChild(kaliCb);
+                                checkOptDiv.appendChild(kaliLabel);
+                                checkOptDiv.addEventListener('click', () => enableKali(true));
+                                detail.appendChild(checkOptDiv);
                                 document.getElementById('step2-next').disabled = false;
                         } else {
                                 icon.className = 'card-icon error';
                                 icon.textContent = '\\u2717';
                                 desc.textContent = 'Kali WSL2 is not installed.';
+                                // SAFE: Static HTML template, no dynamic data
                                 detail.innerHTML = \`
                                         <div class="install-instructions">
                                                 <strong>To install Kali WSL2:</strong><br>

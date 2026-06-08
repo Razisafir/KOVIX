@@ -17,6 +17,8 @@ import {
 } from '../../../../../../platform/construct/common/llm/constructAIProvider.js';
 // SEC-5: Secret redaction for all log calls
 import { redactSecrets } from '../../../../../../platform/construct/common/security/secretRedactor.js';
+// P0-2: Resolve API keys through ISecureKeyManager (single source of truth)
+import { ISecureKeyManager, LLMProvider } from '../../../../../../platform/construct/common/security/secureKeyManager.js';
 
 const DEFAULT_CLOUD_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_CLOUD_MODEL = 'gpt-4o-mini';
@@ -71,14 +73,51 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                 @ILogService private readonly logService: ILogService,
                 @IConfigurationService private readonly configurationService: IConfigurationService,
                 @IStorageService private readonly _storageService: IStorageService,
+                @ISecureKeyManager private readonly _keyManager: ISecureKeyManager,
         ) {
                 super();
 
                 this._baseUrl = configurationService.getValue<string>('construct.cloud.baseUrl') || DEFAULT_CLOUD_BASE_URL;
-                this._apiKey = this._storageService.get(STORAGE_KEY_CLOUD_API_KEY, 0 /* StorageScope.APPLICATION */) ?? '';
+                // P0-2 FIX: Resolve key through ISecureKeyManager (OS keychain) first
+                this._resolveApiKey();
+
+                // Listen for key changes and re-resolve
+                this._register(this._keyManager.onDidChangeKey(() => {
+                        this._resolveApiKey();
+                }));
 
                 // SEC-5: Redact any potential secrets from log output
                 this.logService.info(redactSecrets('[CloudProvider] Initialized (baseUrl: ' + this._baseUrl + ', backend: ' + (this.isAnthropicKey ? 'Anthropic' : 'OpenAI-compatible') + ')'));
+        }
+
+        /**
+         * P0-2 FIX: Resolve API key through ISecureKeyManager (single source of truth).
+         * Falls back to IStorageService for backward compatibility.
+         */
+        private async _resolveApiKey(): Promise<void> {
+                // Try ISecureKeyManager first (OS keychain — single source of truth)
+                try {
+                        const activeProvider = await this._keyManager.getActiveProvider();
+                        if (activeProvider && (activeProvider.provider === 'openai' || activeProvider.provider === 'anthropic' || activeProvider.provider === 'litellm' || activeProvider.provider === 'custom')) {
+                                const key = await this._keyManager.getKey(activeProvider.provider);
+                                if (key) {
+                                        this._apiKey = key;
+                                        // Also sync to IStorageService for backward compatibility
+                                        this._storageService.store(STORAGE_KEY_CLOUD_API_KEY, key, 0 /* StorageScope.APPLICATION */, 1 /* StorageTarget.MACHINE */);
+                                        return;
+                                }
+                        }
+                } catch {
+                        // ISecureKeyManager may not be available in all contexts
+                }
+
+                // Fallback: read from IStorageService (backward compatibility with existing users)
+                this._apiKey = this._storageService.get(STORAGE_KEY_CLOUD_API_KEY, 0) ?? '';
+
+                // Secondary fallback: read from IConfigurationService
+                if (!this._apiKey) {
+                        this._apiKey = this.configurationService.getValue<string>('construct.cloud.apiKey') ?? '';
+                }
         }
 
         /** Whether the configured API key is for the Anthropic API. */
@@ -91,6 +130,9 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
         }
 
         async checkStatus(): Promise<ProviderStatus> {
+                // P0-2 FIX: Always resolve key from secure storage before checking
+                await this._resolveApiKey();
+
                 if (!this._apiKey) {
                         this._setStatus(ProviderStatus.NoModels);
                         return this._status;
@@ -271,6 +313,9 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
         }
 
         async *chat(messages: IChatMessage[], tools: IToolDefinition[], options?: IChatOptions): AsyncIterable<AIStreamEvent> {
+                // P0-2 FIX: Resolve key before chat
+                await this._resolveApiKey();
+
                 if (!this._activeModel) {
                         yield { type: 'error', text: 'No model selected. Please select a model in the CONSTRUCT model picker.' };
                         return;

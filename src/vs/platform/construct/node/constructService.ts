@@ -14,6 +14,12 @@ import { IConstructVectorStore } from '../common/memory/vectorStore.js';
 import { ConstructVectorStoreService } from './constructVectorStore.js';
 import { IConstructChatHistory } from '../common/memory/vectorStore.js';
 import { ConstructChatHistoryService } from './constructChatHistory.js';
+import { IConstructConfigService } from '../common/config/constructConfigService.js';
+import { ConstructConfigService } from './constructConfigService.js';
+import { ISecureKeyManager } from '../common/security/secureKeyManager.js';
+import { SecureKeyNodeService } from './constructSecureKeyService.js';
+import { IConstructNotificationService } from '../common/notification/constructNotificationService.js';
+import { ConstructNotificationNodeService } from './constructNotificationService.js';
 import { registerSingleton, InstantiationType } from '../../instantiation/common/extensions';
 
 class ConstructService implements IConstructService {
@@ -51,3 +57,12 @@ registerSingleton(IMCPProcessNodeService, MCPProcessNodeService, InstantiationTy
 registerSingleton(IConstructVectorStore, ConstructVectorStoreService, InstantiationType.Delayed);
 // SQLite-backed chat history for persistent conversation storage
 registerSingleton(IConstructChatHistory, ConstructChatHistoryService, InstantiationType.Delayed);
+
+// --- Config Service (P0: Single source of config truth) ---
+registerSingleton(IConstructConfigService, ConstructConfigService, InstantiationType.Delayed);
+
+// --- Secure Key Node Service (P0: OS keychain access) ---
+registerSingleton(ISecureKeyManager, SecureKeyNodeService, InstantiationType.Delayed);
+
+// --- Notification Service ---
+registerSingleton(IConstructNotificationService, ConstructNotificationNodeService, InstantiationType.Delayed);
