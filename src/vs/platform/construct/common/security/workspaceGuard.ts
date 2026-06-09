@@ -6,19 +6,59 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IWorkspaceContextService } from '../../../workspace/common/workspace.js';
+import * as path from 'path';
 
 /**
  * Assert that a path is within the workspace boundary.
  * Throws an error if the resolved absolute path escapes the workspace root.
  * Used for IPC input validation to prevent path traversal attacks.
+ *
+ * FIX: Previous implementation only checked for '..' in the path string,
+ * which allowed absolute paths like /etc/passwd to pass through.
+ * Now properly resolves and compares against workspace root.
  */
 export function assertWithinWorkspace(
-        absolutePath: string,
-        workspaceContextService?: IWorkspaceContextService
+        filePath: string,
+        workspaceRoot?: string | IWorkspaceContextService
 ): void {
-        // Reject path traversal
-        if (absolutePath.includes('..')) {
-                throw new Error(`Path traversal not allowed: "${absolutePath}"`);
+        // Reject path traversal attempts (e.g., ../../../etc/passwd)
+        const normalized = path.normalize(filePath);
+        if (normalized.includes('..')) {
+                throw new Error(`Path traversal not allowed: "${filePath}"`);
+        }
+
+        // If a workspace root is provided, enforce boundary
+        if (workspaceRoot) {
+                let root: string;
+                if (typeof workspaceRoot === 'string') {
+                        root = path.resolve(workspaceRoot);
+                } else {
+                        // IWorkspaceContextService — extract first workspace folder
+                        const folders = workspaceRoot.getWorkspace().folders;
+                        if (folders.length === 0) {
+                                // No workspace open — only allow relative paths within CWD
+                                if (path.isAbsolute(filePath)) {
+                                        throw new Error(`No workspace open. Absolute paths are not allowed: "${filePath}"`);
+                                }
+                                return;
+                        }
+                        root = path.resolve(folders[0].uri.fsPath);
+                }
+
+                // Resolve relative paths against the workspace root (not CWD)
+                // This ensures 'src/utils/math.ts' resolves to '<root>/src/utils/math.ts'
+                const resolved = path.isAbsolute(filePath)
+                        ? path.resolve(filePath)
+                        : path.resolve(root, filePath);
+
+                if (!resolved.startsWith(root + path.sep) && resolved !== root) {
+                        throw new Error(`Security: path "${resolved}" is outside workspace "${root}"`);
+                }
+        } else {
+                // No workspace root provided — reject absolute paths as a safety measure
+                if (path.isAbsolute(filePath)) {
+                        throw new Error(`Absolute paths require a workspace context: "${filePath}"`);
+                }
         }
 }
 

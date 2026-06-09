@@ -27,6 +27,10 @@ import { ISnapshotManager, IRestoreResult } from '../../../../../../platform/con
 import { IFileWatcherService } from '../../../../../../platform/construct/common/watcher/fileWatcherService.js';
 // SEC-6: Prompt sanitisation to prevent injection attacks
 import { PromptSanitiser } from '../../../../../../platform/construct/common/security/promptSanitiser.js';
+// SEC-4: Workspace boundary validation to prevent path traversal
+import { assertWithinWorkspace } from '../../../../../../platform/construct/common/security/workspaceGuard.js';
+// SEC-7: Secret redaction from tool outputs
+import { redactSecrets } from '../../../../../../platform/construct/common/security/secretRedactor.js';
 // P0-5: In-memory staging for agent-proposed changes
 import { IPendingChangesService } from '../../../../../../platform/construct/common/diff/pendingChanges.js';
 
@@ -621,6 +625,8 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                 case 'read_file': {
                                         const path = args.path;
                                         if (!path) { return 'Error: path is required'; }
+                                        // SEC-4: Validate path is within workspace
+                                        assertWithinWorkspace(path, this.workspaceContextService);
                                         const content = await this.mcpProcess.readFile(path);
                                         // SEC-6: Sanitise file content before injecting into LLM context
                                         return PromptSanitiser.sanitise(content);
@@ -631,6 +637,8 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         const path = args.path;
                                         const content = args.content;
                                         if (!path || content === undefined) { return 'Error: path and content are required'; }
+                                        // SEC-4: Validate path is within workspace
+                                        assertWithinWorkspace(path, this.workspaceContextService);
                                         // P0-5 FIX: Stage in memory, don't write to disk directly
                                         const writeUri = URI.file(path);
                                         await this.pendingChanges.stageFile(writeUri, content);
@@ -639,6 +647,10 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
                                 case 'list_directory': {
                                         const path = args.path ?? '.';
+                                        // SEC-4: Validate path is within workspace (allow '.' as CWD)
+                                        if (path !== '.') {
+                                                assertWithinWorkspace(path, this.workspaceContextService);
+                                        }
                                         const entries = await this.mcpProcess.listDirectory(path);
                                         // SEC-6: Sanitise directory listing before injecting into LLM context
                                         return PromptSanitiser.sanitise(entries.join('\n'));
@@ -648,6 +660,8 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         if (readOnly) { return 'Error: create_directory not available during planning phase'; }
                                         const path = args.path;
                                         if (!path) { return 'Error: path is required'; }
+                                        // SEC-4: Validate path is within workspace
+                                        assertWithinWorkspace(path, this.workspaceContextService);
                                         await this.mcpProcess.createDirectory(path);
                                         return `Directory created: ${path}`;
                                 }
@@ -664,7 +678,9 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         if (result.exitCode !== 0) {
                                                 output += `\nExit code: ${result.exitCode}`;
                                         }
-                                        return output || '(no output)';
+                                        // SEC-6: Sanitise command output to prevent injection
+                                        // SEC-7: Redact any secrets from command output
+                                        return PromptSanitiser.sanitise(redactSecrets(output || '(no output)'));
                                 }
 
                                 case 'edit_file': {
@@ -672,6 +688,8 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         const path = args.path;
                                         const diff = args.diff;
                                         if (!path || !diff) { return 'Error: path and diff are required'; }
+                                        // SEC-4: Validate path is within workspace
+                                        assertWithinWorkspace(path, this.workspaceContextService);
                                         // P0-5 FIX: Stage in memory, don't apply diff directly
                                         const editUri = URI.file(path);
                                         await this.pendingChanges.stageEdit(editUri, diff);
@@ -685,7 +703,9 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         try {
                                                 // Use command service to execute via the registry
                                                 const toolResult = await this.commandService.executeCommand('construct.executeTool', 'search_codebase', { query, topK: args.topK ?? 8 });
-                                                return typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+                                                const raw = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+                                                // SEC-6: Sanitise search results to prevent injection
+                                                return PromptSanitiser.sanitise(raw);
                                         } catch {
                                                 return 'Error: Codebase search unavailable. Qdrant may not be running.';
                                         }
@@ -697,7 +717,10 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         // Delegate to the tool registry which handles online mode
                                         try {
                                                 const toolResult = await this.commandService.executeCommand('construct.executeTool', 'web_search', { query, num: args.num ?? 10 });
-                                                return typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+                                                const raw = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+                                                // SEC-6: Sanitise web search results to prevent injection
+                                                // SEC-7: Redact secrets from web content
+                                                return PromptSanitiser.sanitise(redactSecrets(raw));
                                         } catch {
                                                 return 'Error: Web search unavailable. Enable online mode in settings.';
                                         }
@@ -712,7 +735,10 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                                 const toolName = name.slice(separatorIndex + 2);
                                                 try {
                                                         const result = await this.mcpServerManager.executeTool(serverName, toolName, args);
-                                                        return typeof result === 'string' ? result : JSON.stringify(result);
+                                                        const raw = typeof result === 'string' ? result : JSON.stringify(result);
+                                                        // SEC-6: Sanitise MCP tool output to prevent injection
+                                                        // SEC-7: Redact secrets from MCP output
+                                                        return PromptSanitiser.sanitise(redactSecrets(raw));
                                                 } catch (err: unknown) {
                                                         return 'Error: MCP tool ' + name + ' failed: ' + (err instanceof Error ? err.message : String(err));
                                                 }
