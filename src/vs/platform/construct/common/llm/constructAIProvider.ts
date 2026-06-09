@@ -104,7 +104,7 @@ export interface IToolCall {
 export interface IToolDefinition {
         name: string;
         description: string;
-        parameters: {
+        inputSchema: {
                 type: 'object';
                 properties: Record<string, unknown>;
                 required?: string[];

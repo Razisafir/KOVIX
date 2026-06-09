@@ -9,6 +9,9 @@ import { createDecorator } from '../../../instantiation/common/instantiation.js'
 
 export const IConstructToolRegistry = createDecorator<IConstructToolRegistry>('construct.toolRegistry');
 
+// Static import for browser-safe path utilities — no require() in common layer
+import * as path from '../../../../base/common/path.js';
+
 /**
  * SEC-4: Assert that a file path is within the workspace root.
  * Prevents path traversal attacks from LLM-generated arguments.
@@ -19,12 +22,6 @@ export const IConstructToolRegistry = createDecorator<IConstructToolRegistry>('c
  * require('path') which is unavailable in browser/web contexts.
  */
 export function assertWithinWorkspace(filePath: string, workspaceRoot: string): void {
-        // Use dynamic import of the portable path module to avoid
-        // require('path') which breaks in browser contexts.
-        // The caller (browser-layer services) should import vs/base/common/path
-        // directly and use the browser-safe version. This function is kept
-        // for backward compatibility but delegates to the same logic.
-        const path = require('../../../../base/common/path.js') as typeof import('../../../../base/common/path.js');
         const resolved = path.resolve(filePath);
         const root = path.resolve(workspaceRoot);
         if (!resolved.startsWith(root + path.sep) && resolved !== root) {

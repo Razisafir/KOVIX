@@ -430,7 +430,7 @@ export class OllamaProvider extends Disposable implements IConstructAIProvider {
                         function: {
                                 name: tool.name,
                                 description: tool.description,
-                                parameters: tool.parameters,
+                                parameters: tool.inputSchema,
                         },
                 }));
         }

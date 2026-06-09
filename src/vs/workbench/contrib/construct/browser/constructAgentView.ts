@@ -70,6 +70,7 @@ export class ConstructAgentViewPane extends ViewPane {
         private currentTaskId: string | null = null;
         private executionState: ExecutionState = 'idle';
         private currentCancellationToken: CancellationTokenSource | null = null;
+        private _abortController: AbortController | null = null;
 
         // Performance metrics tracking
         private taskStartTime = 0;
@@ -336,6 +337,12 @@ export class ConstructAgentViewPane extends ViewPane {
                                 this.currentCancellationToken.cancel();
                                 this.currentCancellationToken = null;
                         }
+                        // BUG 2 FIX: Abort via real AbortController, not CancellationToken cast
+                        const controller = this._abortController;
+                        if (controller) {
+                                controller.abort();
+                                this._abortController = null;
+                        }
                 };
 
                 inputArea.appendChild(this.inputBox);
@@ -500,6 +507,10 @@ export class ConstructAgentViewPane extends ViewPane {
         private async runPlanActFlow(task: string): Promise<void> {
                 this.setExecutionState('planning');
                 this.currentCancellationToken = new CancellationTokenSource();
+                // BUG 2 FIX: Create a real AbortController and bridge cancellation
+                this._abortController = new AbortController();
+                const abortController = this._abortController;
+                this.currentCancellationToken.token.onCancellationRequested(() => abortController.abort());
                 this.taskStartTime = Date.now();
                 this.planningStartTime = Date.now();
                 this.planningEndTime = 0;
@@ -513,10 +524,10 @@ export class ConstructAgentViewPane extends ViewPane {
                 const planningMsg = this.addAgentMessage('', 'info');
 
                 try {
-                        // Phase 1: Planning
-                        const plan = await this.agentLoop.runPlanningPhase(task, this.currentCancellationToken.token as unknown as AbortSignal);
+                        // Phase 1: Planning — pass real AbortSignal, NOT CancellationToken cast
+                        const plan = await this.agentLoop.runPlanningPhase(task, abortController.signal);
 
-                        if (this.currentCancellationToken.token.isCancellationRequested) {
+                        if (abortController.signal.aborted) {
                                 this.setExecutionState('stopped');
                                 this.updateMessageContent(planningMsg, '[STOP] Stopped by user');
                                 // Transition back to idle after showing stopped state
@@ -626,6 +637,10 @@ export class ConstructAgentViewPane extends ViewPane {
         private async runExecution(task: string): Promise<void> {
                 this.setExecutionState('executing');
                 this.currentCancellationToken = new CancellationTokenSource();
+                // BUG 2 FIX: Create a real AbortController and bridge cancellation
+                this._abortController = new AbortController();
+                const abortController = this._abortController;
+                this.currentCancellationToken.token.onCancellationRequested(() => abortController.abort());
 
                 // Clear and re-initialize progress panel for execution phase
                 if (this.progressPanel) {
@@ -647,7 +662,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 let currentToolDetail = '';
 
                 try {
-                        const stream = this.agentLoop.run(task, this.currentCancellationToken.token as unknown as AbortSignal);
+                        const stream = this.agentLoop.run(task, abortController.signal);
 
                         for await (const event of stream) {
                                 switch (event.type) {
@@ -738,7 +753,7 @@ export class ConstructAgentViewPane extends ViewPane {
                                 this.scrollToBottom();
                         }
 
-                        this.setExecutionState(this.currentCancellationToken.token.isCancellationRequested ? 'stopped' : 'complete');
+                        this.setExecutionState(abortController.signal.aborted ? 'stopped' : 'complete');
 
                         // Transition back to idle after a brief delay so the user can
                         // see the final state indicator, then send another message.

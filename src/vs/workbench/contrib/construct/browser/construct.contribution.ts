@@ -51,7 +51,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands';
 import { IConstructAIService } from '../../../../platform/construct/common/llm/constructAIService.js';
 import { AIProviderType } from '../../../../platform/construct/common/llm/constructAIProvider.js';
 import { IConstructToolRegistry } from '../../../../platform/construct/common/tools/constructToolRegistry.js';
-import { IMCPProcess } from '../../../../platform/construct/common/mcp/mcpProcess';
+import { IMCPProcess } from '../../../../platform/construct/common/mcp/mcpProcess.js';
 import { ITerminalExecutor } from '../../../../platform/construct/common/terminal/terminalExecutor.js';
 import { IDiffApplier } from '../../../../platform/construct/common/editor/diffApplier.js';
 import { IAgentLoop } from '../../../../platform/construct/common/agent/agentLoop.js';

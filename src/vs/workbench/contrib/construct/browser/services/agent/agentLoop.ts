@@ -13,7 +13,7 @@ import { IAgentLoop, AgentLoopEvent, IPlanResult, IPlanStep } from '../../../../
 import { LoadingState, FileChangeEntry } from '../../../../../../platform/construct/common/agent/loadingState.js';
 import { IConstructAIService } from '../../../../../../platform/construct/common/llm/constructAIService.js';
 import { IChatMessage, IToolDefinition, IToolCall } from '../../../../../../platform/construct/common/llm/constructAIProvider.js';
-import { IMCPProcess } from '../../../../../../platform/construct/common/mcp/mcpProcess';
+import { IMCPProcess } from '../../../../../../platform/construct/common/mcp/mcpProcess.js';
 import { IMCPServerManager } from '../../../../../../platform/construct/common/mcp/mcpServerManager.js';
 import { ITerminalExecutor } from '../../../../../../platform/construct/common/terminal/terminalExecutor.js';
 import { IDiffApplier } from '../../../../../../platform/construct/common/editor/diffApplier.js';
@@ -48,7 +48,7 @@ const AGENT_TOOLS: IToolDefinition[] = [
         {
                 name: 'read_file',
                 description: 'Read the contents of a file. Returns the file content as a string.',
-                parameters: {
+                inputSchema: {
                         type: 'object' as const,
                         properties: {
                                 path: { type: 'string' as const, description: 'Path to the file relative to workspace root' }
@@ -59,7 +59,7 @@ const AGENT_TOOLS: IToolDefinition[] = [
         {
                 name: 'write_file',
                 description: 'Write content to a file. Creates the file and parent directories if they don\'t exist.',
-                parameters: {
+                inputSchema: {
                         type: 'object' as const,
                         properties: {
                                 path: { type: 'string' as const, description: 'Path to the file relative to workspace root' },
@@ -71,7 +71,7 @@ const AGENT_TOOLS: IToolDefinition[] = [
         {
                 name: 'list_directory',
                 description: 'List the contents of a directory. Returns file and directory names.',
-                parameters: {
+                inputSchema: {
                         type: 'object' as const,
                         properties: {
                                 path: { type: 'string' as const, description: 'Path to the directory relative to workspace root' }
@@ -82,7 +82,7 @@ const AGENT_TOOLS: IToolDefinition[] = [
         {
                 name: 'create_directory',
                 description: 'Create a directory, including any necessary parent directories.',
-                parameters: {
+                inputSchema: {
                         type: 'object' as const,
                         properties: {
                                 path: { type: 'string' as const, description: 'Path to the directory relative to workspace root' }
@@ -93,7 +93,7 @@ const AGENT_TOOLS: IToolDefinition[] = [
         {
                 name: 'run_command',
                 description: 'Execute a shell command and return the output. Use for installing dependencies, running builds, tests, etc.',
-                parameters: {
+                inputSchema: {
                         type: 'object' as const,
                         properties: {
                                 command: { type: 'string' as const, description: 'The shell command to execute' },
@@ -105,7 +105,7 @@ const AGENT_TOOLS: IToolDefinition[] = [
         {
                 name: 'edit_file',
                 description: 'Apply a unified diff to an existing file. Use for targeted edits rather than rewriting entire files.',
-                parameters: {
+                inputSchema: {
                         type: 'object' as const,
                         properties: {
                                 path: { type: 'string' as const, description: 'Path to the file relative to workspace root' },
@@ -117,7 +117,7 @@ const AGENT_TOOLS: IToolDefinition[] = [
         {
                 name: 'search_codebase',
                 description: 'Search the codebase using semantic similarity. Returns the most relevant code chunks. Requires Qdrant vector store to be running.',
-                parameters: {
+                inputSchema: {
                         type: 'object' as const,
                         properties: {
                                 query: { type: 'string' as const, description: 'The search query in natural language' },
@@ -129,7 +129,7 @@ const AGENT_TOOLS: IToolDefinition[] = [
         {
                 name: 'web_search',
                 description: 'Search the web for information. Only available when online mode is enabled. Returns search results with URLs and snippets.',
-                parameters: {
+                inputSchema: {
                         type: 'object' as const,
                         properties: {
                                 query: { type: 'string' as const, description: 'The search query' },
@@ -704,10 +704,12 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                 }
 
                                 default: {
-                                        // Check if this is an MCP tool call (format: serverName__toolName)
-                                        const parts = name.split('__');
-                                        if (parts.length === 2) {
-                                                const [serverName, toolName] = parts;
+                                        // BUG 7 FIX: Check if this is an MCP tool call (format: serverName__toolName)
+                                        // Split only on the FIRST __ to handle tool names that contain __
+                                        const separatorIndex = name.indexOf('__');
+                                        if (separatorIndex !== -1) {
+                                                const serverName = name.slice(0, separatorIndex);
+                                                const toolName = name.slice(separatorIndex + 2);
                                                 try {
                                                         const result = await this.mcpServerManager.executeTool(serverName, toolName, args);
                                                         return typeof result === 'string' ? result : JSON.stringify(result);

@@ -928,7 +928,7 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                 return tools.map(tool => ({
                         name: tool.name,
                         description: tool.description,
-                        input_schema: tool.parameters,
+                        input_schema: tool.inputSchema,
                 }));
         }
 
@@ -941,7 +941,7 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                         function: {
                                 name: tool.name,
                                 description: tool.description,
-                                parameters: tool.parameters,
+                                parameters: tool.inputSchema,
                         },
                 }));
         }
