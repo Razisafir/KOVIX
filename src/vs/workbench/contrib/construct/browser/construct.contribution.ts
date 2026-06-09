@@ -734,3 +734,154 @@ registerAction2(class IndexWorkspaceAction extends Action2 {
                 }
         }
 });
+
+// --- MCP Server Management Commands (Phase 17) ---------------------------------
+
+registerAction2(class StartMCPServerAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.mcp.startServer',
+                        title: localize2('startMCPServer', "Start MCP Server"),
+                        f1: true,
+                        category: localize2('constructCategoryMCP', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const mcpManager = accessor.get(IMCPServerManager);
+                const quickInput = accessor.get(IQuickInputService);
+                const notificationService = accessor.get(INotificationService);
+                const logService = accessor.get(ILogService);
+
+                try {
+                        const servers = mcpManager.listInstalledServers();
+                        const stoppedServers = servers.filter(s => mcpManager.getServerStatus(s.name) !== 'running');
+
+                        if (stoppedServers.length === 0) {
+                                notificationService.info('All MCP servers are already running.');
+                                return;
+                        }
+
+                        const picks = stoppedServers.map(s => ({
+                                label: '$(circle-outline) ' + s.name,
+                                description: s.command,
+                                detail: mcpManager.getServerStatus(s.name),
+                                serverName: s.name,
+                        }));
+
+                        const pick = await quickInput.pick(picks, { placeHolder: 'Select an MCP server to start' });
+
+                        if (pick) {
+                                await mcpManager.startServer(pick.serverName);
+                                notificationService.info('MCP server started: ' + pick.serverName);
+                        }
+                } catch (error) {
+                        logService.error('[Construct] Failed to start MCP server:', error);
+                        notificationService.error('Failed to start MCP server: ' + (error instanceof Error ? error.message : String(error)));
+                }
+        }
+});
+
+registerAction2(class StopMCPServerAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.mcp.stopServer',
+                        title: localize2('stopMCPServer', "Stop MCP Server"),
+                        f1: true,
+                        category: localize2('constructCategoryMCP2', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const mcpManager = accessor.get(IMCPServerManager);
+                const quickInput = accessor.get(IQuickInputService);
+                const notificationService = accessor.get(INotificationService);
+                const logService = accessor.get(ILogService);
+
+                try {
+                        const servers = mcpManager.listInstalledServers();
+                        const runningServers = servers.filter(s => mcpManager.getServerStatus(s.name) === 'running');
+
+                        if (runningServers.length === 0) {
+                                notificationService.info('No MCP servers are currently running.');
+                                return;
+                        }
+
+                        const picks = runningServers.map(s => ({
+                                label: '$(circle-filled) ' + s.name,
+                                description: s.command,
+                                detail: mcpManager.getServerStatus(s.name),
+                                serverName: s.name,
+                        }));
+
+                        const pick = await quickInput.pick(picks, { placeHolder: 'Select an MCP server to stop' });
+
+                        if (pick) {
+                                await mcpManager.stopServer(pick.serverName);
+                                notificationService.info('MCP server stopped: ' + pick.serverName);
+                        }
+                } catch (error) {
+                        logService.error('[Construct] Failed to stop MCP server:', error);
+                        notificationService.error('Failed to stop MCP server: ' + (error instanceof Error ? error.message : String(error)));
+                }
+        }
+});
+
+// --- Provider Status Command ---
+
+registerAction2(class ProviderStatusAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.providerStatus',
+                        title: localize2('providerStatus', "Show AI Provider Status"),
+                        f1: true,
+                        category: localize2('constructCategoryProvider', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const aiService = accessor.get(IConstructAIService);
+                const notificationService = accessor.get(INotificationService);
+                const logService = accessor.get(ILogService);
+
+                try {
+                        const activeType = aiService.activeProviderType;
+                        const activeModel = aiService.getActiveModel();
+                        const isOffline = aiService.isOffline();
+                        const models = await aiService.listModels();
+
+                        const statusLines: string[] = [
+                                'Provider: ' + activeType + (isOffline ? ' (offline)' : ' (cloud)'),
+                                'Model: ' + (activeModel?.displayName ?? 'None selected'),
+                                'Available models: ' + models.length,
+                        ];
+
+                        // Check Ollama availability
+                        try {
+                                const ollamaProvider = aiService.getProvider('ollama');
+                                if (ollamaProvider) {
+                                        statusLines.push('Ollama: Available');
+                                } else {
+                                        statusLines.push('Ollama: Not detected');
+                                }
+                        } catch {
+                                statusLines.push('Ollama: Not detected');
+                        }
+
+                        // Check cloud availability
+                        try {
+                                const cloudProvider = aiService.getProvider('cloud');
+                                if (cloudProvider) {
+                                        statusLines.push('Cloud: Configured');
+                                } else {
+                                        statusLines.push('Cloud: Not configured');
+                                }
+                        } catch {
+                                statusLines.push('Cloud: Not configured');
+                        }
+
+                        notificationService.info('CONSTRUCT Status: ' + statusLines.join(' | '));
+                        logService.info('[Construct] Provider status: ' + statusLines.join(', '));
+                } catch (error) {
+                        logService.error('[Construct] Failed to get provider status:', error);
+                        notificationService.error('Failed to get provider status: ' + (error instanceof Error ? error.message : String(error)));
+                }
+        }
+});

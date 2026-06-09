@@ -36,6 +36,20 @@ export class ConstructOverloadedError extends Error {
         }
 }
 
+export class ConstructTimeoutError extends Error {
+        constructor(message: string, public readonly timeoutMs: number) {
+                super(message);
+                this.name = 'ConstructTimeoutError';
+        }
+}
+
+export class ConstructSecurityError extends Error {
+        constructor(message: string, public readonly code?: string) {
+                super(message);
+                this.name = 'ConstructSecurityError';
+        }
+}
+
 export const IConstructAIProvider = createDecorator<IConstructAIProvider>('construct.aiProvider');
 
 /**
