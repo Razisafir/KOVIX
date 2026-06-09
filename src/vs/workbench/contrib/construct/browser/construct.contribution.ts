@@ -57,7 +57,7 @@ import { IDiffApplier } from '../../../../platform/construct/common/editor/diffA
 import { IAgentLoop } from '../../../../platform/construct/common/agent/agentLoop.js';
 import { ConstructAIService } from './services/llm/constructAIService.js';
 import { ConstructToolRegistryService } from './services/tools/constructToolRegistryService.js';
-import { MCPProcessService } from './services/mcp/mcpProcess';
+import { MCPProcessService } from './services/mcp/mcpProcess.js';
 import { TerminalExecutorService } from './services/terminal/terminalExecutor.js';
 import { DiffApplierService } from './services/editor/diffApplier.js';
 import { AgentLoopService } from './services/agent/agentLoop.js';
@@ -714,23 +714,23 @@ registerAction2(class OpenOnboardingWizardAction extends Action2 {
 // --- Phase 8: Semantic Memory -- Index Workspace Command ---
 
 registerAction2(class IndexWorkspaceAction extends Action2 {
-	constructor() {
-		super({
-			id: 'construct.indexWorkspace',
-			title: localize2('indexWorkspace', "Index Workspace for Semantic Search"),
-			f1: true,
-			category: localize2('constructCategoryMemory', "Construct"),
-		});
-	}
-	async run(accessor: ServicesAccessor): Promise<void> {
-		const memoryService = accessor.get(IConstructMemoryService);
-		const notificationService = accessor.get(INotificationService);
-		notificationService.info('CONSTRUCT: Indexing workspace for semantic search...');
-		try {
-			await memoryService.addMemory('Workspace indexing initiated', { type: 'index-trigger', source: 'workspace-index' });
-			notificationService.info('CONSTRUCT: Workspace indexing complete.');
-		} catch (err) {
-			notificationService.error('CONSTRUCT: Workspace indexing failed: ' + (err instanceof Error ? err.message : String(err)));
-		}
-	}
+        constructor() {
+                super({
+                        id: 'construct.indexWorkspace',
+                        title: localize2('indexWorkspace', "Index Workspace for Semantic Search"),
+                        f1: true,
+                        category: localize2('constructCategoryMemory', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const memoryService = accessor.get(IConstructMemoryService);
+                const notificationService = accessor.get(INotificationService);
+                notificationService.info('CONSTRUCT: Indexing workspace for semantic search...');
+                try {
+                        await memoryService.addMemory('Workspace indexing initiated', { type: 'index-trigger', source: 'workspace-index' });
+                        notificationService.info('CONSTRUCT: Workspace indexing complete.');
+                } catch (err) {
+                        notificationService.error('CONSTRUCT: Workspace indexing failed: ' + (err instanceof Error ? err.message : String(err)));
+                }
+        }
 });
