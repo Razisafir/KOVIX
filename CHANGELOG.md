@@ -1,7 +1,23 @@
 # Changelog
 
-All notable changes to CONSTRUCT IDE are documented here.
-Format: [Keep a Changelog](https://keepachangelog.com)
+## [1.0.0] - 2026-06-09
+
+### Added
+- AI-native agent framework built on MCP (Model Context Protocol)
+- Vector memory integration via Qdrant
+- Local ML inference via Transformers.js (@xenova/transformers)
+- Persistent memory layer via Supermemory
+- Redis-backed session management via ioredis
+- Construct IDE branding and identity
+
+### Changed
+- Rebranded from Code-OSS to Construct IDE
+- Extension gallery pointed to Open VSX Registry (open-source marketplace)
+
+### Based On
+- Microsoft Code-OSS (VS Code open source) — MIT License
+
+---
 
 ## [1.0.0-beta] — 2025
 

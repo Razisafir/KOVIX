@@ -28,7 +28,7 @@
         "linuxIconName": "construct",
         "licenseFileName": "CONSTRUCT_LICENSE.txt",
         "reportIssueUrl": "https://github.com/Razisafir/CONSTRUCT-VSCODE/issues/new",
-        "privacyStatementUrl": null,
+        "privacyStatementUrl": "https://github.com/Razisafir/CONSTRUCT-VSCODE/blob/main/PRIVACY.md",
         "nodejsRepository": "https://nodejs.org",
         "urlProtocol": "construct",
         "extensionKind": {
@@ -41,7 +41,7 @@
                 "itemUrl": "https://open-vsx.org/vscode/item",
                 "resourceUrlTemplate": "https://open-vsx.org/vscode/unpkg/{publisher}/{name}/{version}/{path}"
         },
-        "webviewContentExternalBaseUrlTemplate": "",
+        "webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/stable/{{commit}}/out/vs/workbench/contrib/webview/browser/pre/",
         "updateUrl": "",
         "builtInExtensions": [
                 {

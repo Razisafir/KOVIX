@@ -1,0 +1,124 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Build Windows installer
+        run: node ./node_modules/gulp/bin/gulp.js vscode-win32-x64-inno-updater
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: construct-ide-windows
+          path: .build/win32-x64/**/*.exe
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Build macOS app
+        run: node ./node_modules/gulp/bin/gulp.js vscode-darwin-x64
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: construct-ide-macos
+          path: .build/darwin-x64/**/*.dmg
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Build Linux package
+        run: node ./node_modules/gulp/bin/gulp.js vscode-linux-x64
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: construct-ide-linux
+          path: .build/linux-x64/**/*.tar.gz
+
+  create-release:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            construct-ide-windows/**
+            construct-ide-macos/**
+            construct-ide-linux/**
+          body: |
+            ## Construct IDE Release
+
+            AI-native development environment built on VS Code open source.
+
+            ### Downloads
+            - **Windows**: Download the `.exe` installer
+            - **macOS**: Download the `.dmg` file
+            - **Linux**: Download the `.tar.gz` archive
+
+            ### What's New
+            See [CHANGELOG.md](https://github.com/Razisafir/CONSTRUCT-VSCODE/blob/main/CHANGELOG.md)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

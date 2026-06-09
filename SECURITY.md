@@ -1,16 +1,30 @@
-# CONSTRUCT IDE Security Policy
+# Security Policy
+
+## Reporting a Vulnerability
+
+If you discover a security vulnerability in Construct IDE, please report it by:
+
+1. **Do NOT open a public GitHub issue** for security vulnerabilities
+2. Email: security@construct-ide.dev
+3. Or use GitHub's private vulnerability reporting: https://github.com/Razisafir/CONSTRUCT-VSCODE/security/advisories/new
+
+We will respond within 72 hours.
 
 ## Supported Versions
 
 | Version | Supported |
 | ------- | --------- |
-| 0.1.0-beta | Yes |
+| 1.0.x   | ✅ Yes    |
 
-## Contact
+## Security Considerations for AI Features
 
-For security vulnerabilities, please contact: **security@construct-ide.dev**
+Construct IDE includes AI capabilities. Users should be aware:
 
-**Do NOT use the public issue tracker for security vulnerabilities.**
+- **Cloud AI providers**: AI features that connect to external APIs (Anthropic, OpenAI, etc.) will transmit code and context to those services. This only happens if you explicitly configure an API key and select a cloud provider. No cloud providers are configured by default.
+- **Local AI**: Local ML models (via Transformers.js / Xenova) and Ollama run entirely on-device. No data leaves your machine when using local providers.
+- **No telemetry**: No telemetry is collected by default. All Microsoft telemetry systems have been disabled in this fork.
+- **API key security**: API keys are stored in your operating system's secure credential storage (OS keychain / Credential Manager / libsecret), never in plaintext files.
+- **MCP servers**: MCP servers you configure may receive data from the agent. Review each server's privacy policy before connecting.
 
 ## Scope
 
@@ -32,11 +46,11 @@ The following components are in scope for our security policy:
 - Third-party Qdrant service (report to qdrant/qdrant)
 - Issues in dependencies not introduced by CONSTRUCT IDE changes
 
-## Reporting a Vulnerability
+## Reporting Process
 
 1. Email **security@construct-ide.dev** with a description of the vulnerability
 2. Include steps to reproduce, affected versions, and potential impact
-3. We will respond within **7 days** with an initial assessment
+3. We will respond within **72 hours** with an initial assessment
 4. We will work with you to coordinate disclosure once a fix is available
 
 ## Security Controls
