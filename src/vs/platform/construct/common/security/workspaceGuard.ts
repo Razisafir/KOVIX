@@ -5,7 +5,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace.js';
+import { IWorkspaceContextService } from '../../../workspace/common/workspace.js';
 
 /**
  * Assert that a path is within the workspace boundary.

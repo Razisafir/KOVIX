@@ -7,8 +7,8 @@
 
 import { ISecureKeyManager, LLMProvider, IProviderConfig, IMaskedKey, IProviderHealthResult } from '../common/security/secureKeyManager.js';
 import { ILogService } from '../../log/common/log.js';
-import { Emitter } from 'vs/base/common/event.js';
-import { Disposable } from 'vs/base/common/lifecycle.js';
+import { Emitter } from '../../../base/common/event.js';
+import { Disposable } from '../../../base/common/lifecycle.js';
 
 /**
  * Node-layer key management service.

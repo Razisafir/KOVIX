@@ -7,9 +7,9 @@
 
 import { IFileWatcherService, IFileChangeEvent, IFileChangeBatch, IFileWatcherConfig, FileChangeType } from '../common/watcher/fileWatcherService.js';
 import { ILogService } from '../../log/common/log.js';
-import { Emitter } from 'vs/base/common/event.js';
-import { Disposable } from 'vs/base/common/lifecycle.js';
-import { URI } from 'vs/base/common/uri.js';
+import { Emitter } from '../../../base/common/event.js';
+import { Disposable } from '../../../base/common/lifecycle.js';
+import { URI } from '../../../base/common/uri.js';
 
 /**
  * Default file watcher configuration.

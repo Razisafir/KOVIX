@@ -7,7 +7,7 @@
 
 import { ITerminalExecutor, ITerminalExecResult, sanitiseForAuditLog, TerminalRateLimiter } from '../common/terminal/terminalExecutor.js';
 import { ILogService } from '../../log/common/log.js';
-import { Disposable } from 'vs/base/common/lifecycle.js';
+import { Disposable } from '../../../base/common/lifecycle.js';
 import { execFile } from 'child_process';
 
 /**
