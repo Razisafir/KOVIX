@@ -126,7 +126,7 @@
     "yauzl": "^3.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.46.1",
+    "@playwright/test": "^1.60.0",
     "@stylistic/eslint-plugin-ts": "^2.8.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cookie": "^0.3.3",
