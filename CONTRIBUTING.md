@@ -1,4 +1,4 @@
-# Contributing to CONSTRUCT IDE
+# Contributing to Kovix
 
 Thank you for your interest in contributing! This guide covers the essentials for getting started.
 
@@ -40,7 +40,7 @@ All branches must follow these conventions:
 
 Open a GitHub issue with:
 
-- CONSTRUCT IDE version
+- Kovix version
 - Operating system
 - Steps to reproduce
 - Expected vs. actual behavior
@@ -61,4 +61,4 @@ See [SECURITY.md](./SECURITY.md) for the full security policy and response timel
 
 ## Thank You
 
-Your contributions — whether code, bug reports, or feature suggestions — make CONSTRUCT IDE better. Thank you for taking the time to contribute.
+Your contributions — whether code, bug reports, or feature suggestions — make Kovix better. Thank you for taking the time to contribute.

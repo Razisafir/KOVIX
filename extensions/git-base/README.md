@@ -1,6 +1,6 @@
 # Git static contributions and remote repository picker
 
-**Notice:** This extension is bundled with CONSTRUCT IDE. It can be disabled but not uninstalled.
+**Notice:** This extension is bundled with Kovix. It can be disabled but not uninstalled.
 
 ## Features
 

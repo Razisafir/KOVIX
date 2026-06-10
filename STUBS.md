@@ -1,4 +1,4 @@
-# CONSTRUCT IDE — Stub Audit Report
+# Kovix — Stub Audit Report
 Generated: 2026-06-09
 
 ## Confirmed Stubs

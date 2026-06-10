@@ -1,4 +1,4 @@
-# CONSTRUCT IDE — Ground Truth Audit
+# Kovix — Ground Truth Audit
 Generated: 2026-06-09 (Grand Boot session)
 
 ## Environment
@@ -25,7 +25,7 @@ cfafa73e feat: CONSTRUCT Phase 10 - documentation complete, v1.0.0-beta ready
 5de75aee feat: CONSTRUCT Phase 9 - packaging documented, CHANGELOG updated for v1.0.0-beta
 a255ea62 fix: add .js extension to MCP process import, verify security tools wired
 3bf236c6 docs: add TEST_RESULTS, STUBS, ENVIRONMENT, BLOCKERS documentation
-101bbf63 feat: CONSTRUCT IDE - Phases 1-8 complete
+101bbf63 feat: Kovix - Phases 1-8 complete
 ```
 
 ### Local = Remote
@@ -41,7 +41,7 @@ Local main and origin/main are at the same commit (2054a23c). All previous sessi
 | Claim | Reality | Status |
 |-------|---------|--------|
 | Phases 1-8 pushed to GitHub | CONFIRMED - on origin/main at 2054a23c | ✅ TRUE |
-| README.md updated | CONFIRMED - shows CONSTRUCT IDE v1.0.0-beta | ✅ TRUE |
+| README.md updated | CONFIRMED - shows Kovix v1.0.0-beta | ✅ TRUE |
 | INSTALL.md created | CONFIRMED - exists on GitHub main | ✅ TRUE |
 | CHANGELOG.md updated | CONFIRMED - v1.0.0-beta section exists | ✅ TRUE |
 | CONSTRUCT_LICENSE.txt exists | CONFIRMED - on GitHub main | ✅ TRUE |

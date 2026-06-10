@@ -30,7 +30,7 @@ Kovix includes AI capabilities. Users should be aware:
 
 The following components are in scope for our security policy:
 
-- **CONSTRUCT IDE application** — the Electron-based desktop application
+- **Kovix application** — the Electron-based desktop application
 - **Agent loop** — the LLM orchestration layer that executes tasks
 - **Terminal executor** — the shell command execution subsystem
 - **File tools** — read_file, write_file, and all filesystem-accessing tools
@@ -44,7 +44,7 @@ The following components are in scope for our security policy:
 - The underlying VS Code engine (reported to Microsoft separately)
 - Third-party Ollama service (report to ollama/ollama)
 - Third-party Qdrant service (report to qdrant/qdrant)
-- Issues in dependencies not introduced by CONSTRUCT IDE changes
+- Issues in dependencies not introduced by Kovix changes
 
 ## Reporting Process
 

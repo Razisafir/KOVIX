@@ -1,4 +1,4 @@
-# CONSTRUCT IDE E2E Verification — v0.1.0-beta.10
+# Kovix E2E Verification — v0.1.0-beta.10
 
 Date: 2026-06-06
 Machine: Linux (Debian 13, x86_64, headless CI sandbox with Xvfb)
@@ -6,14 +6,14 @@ Installer: construct_1.0.0-god-mode_amd64.deb (151.2 MB)
 
 ## Executive Summary
 
-CONSTRUCT IDE v0.1.0-beta.10 launches successfully on Linux. The window title is confirmed as **"Kovix"** via X11 window property inspection (`_NET_WM_NAME`). CLI reports **"Kovix 1.0.0-god-mode"**. All static rebranding checks pass with zero "Visual Studio Code" references in user-facing workbench code. All Phase 16 rebranding gaps are confirmed fixed in this build.
+Kovix v0.1.0-beta.10 launches successfully on Linux. The window title is confirmed as **"Kovix"** via X11 window property inspection (`_NET_WM_NAME`). CLI reports **"Kovix 1.0.0-god-mode"**. All static rebranding checks pass with zero "Visual Studio Code" references in user-facing workbench code. All Phase 16 rebranding gaps are confirmed fixed in this build.
 
 ## Beta.10 Specific Fixes Verified
 
 | Fix | Beta.9 | Beta.10 | Status |
 |-----|--------|---------|--------|
 | LICENSE.txt copyright | "Microsoft Corporation" | "Razisafir" | ✅ Fixed |
-| CLI --telemetry description | "VS code collects" | "CONSTRUCT IDE collects" | ✅ Fixed |
+| CLI --telemetry description | "VS code collects" | "Kovix collects" | ✅ Fixed |
 | CLI tunnel description | "vscode.dev" | "construct.dev" | ✅ Fixed |
 | Version commit hash | `034baabc` | `c6ebb185` (fix commit) | ✅ Correct |
 
@@ -24,7 +24,7 @@ CONSTRUCT IDE v0.1.0-beta.10 launches successfully on Linux. The window title is
 | `construct --version` | Version string | `1.0.0-god-mode` + `c6ebb185...` + `x64` | ✅ |
 | `construct --help` header | "Kovix" | "Kovix 1.0.0-god-mode" | ✅ |
 | `construct --help` usage | "construct [options]" | "construct [options][paths...]" | ✅ |
-| `construct --help` telemetry | "CONSTRUCT IDE collects" | **"CONSTRUCT IDE collects"** | ✅ |
+| `construct --help` telemetry | "Kovix collects" | **"Kovix collects"** | ✅ |
 | `construct --help` tunnel | "construct.dev" | **"construct.dev"** | ✅ |
 
 ## GUI Launch Test (Xvfb)
@@ -35,7 +35,7 @@ CONSTRUCT IDE v0.1.0-beta.10 launches successfully on Linux. The window title is
 | No crash on launch | Stable for 10+ seconds | App running at 10s mark | ✅ |
 | Window appears | X11 window created | Window ID found (1024x768) | ✅ |
 | Window title (`_NET_WM_NAME`) | "Kovix" | **"Kovix"** | ✅ |
-| Window class (`WM_CLASS`) | "CONSTRUCT IDE" | **('construct ide', 'CONSTRUCT IDE')** | ✅ |
+| Window class (`WM_CLASS`) | "Kovix" | **('construct ide', 'Kovix')** | ✅ |
 | Window is viewable | Map state = Viewable | **Viewable** | ✅ |
 | Dark theme renders | Window content visible | RGB(31,31,31) dark theme background fills window | ✅ |
 
@@ -85,7 +85,7 @@ CONSTRUCT IDE v0.1.0-beta.10 launches successfully on Linux. The window title is
 | `--vscode-` CSS vars | 0 | 0 | ✅ |
 | `--construct-` CSS vars | >0 | 1,391 | ✅ |
 | `construct://` URI refs | >0 | 35 | ✅ |
-| "CONSTRUCT IDE" refs | >0 | 36 | ✅ |
+| "Kovix" refs | >0 | 36 | ✅ |
 
 ### Windows Installer
 
@@ -112,10 +112,10 @@ CONSTRUCT IDE v0.1.0-beta.10 launches successfully on Linux. The window title is
 - **Fix**: Changed "Copyright (c) 2015 - present Microsoft Corporation" → "Copyright (c) 2024 - present Razisafir"
 - **Status**: ✅ Fixed and verified in beta.10 build
 
-### Issue 2: CLI help says "VS code" instead of "CONSTRUCT IDE"
+### Issue 2: CLI help says "VS code" instead of "Kovix"
 - **Severity**: Medium (user-visible in `--help` output)
 - **Affected files**: argv.ts, zsh/_code, code.ts, CodeTabExpansion.psm1
-- **Fix**: "VS code" → "CONSTRUCT IDE" in telemetry description
+- **Fix**: "VS code" → "Kovix" in telemetry description
 - **Status**: ✅ Fixed and verified in beta.10 build
 
 ### Issue 3: CLI help says "vscode.dev" instead of "construct.dev"
@@ -126,7 +126,7 @@ CONSTRUCT IDE v0.1.0-beta.10 launches successfully on Linux. The window title is
 
 ### Issue 4: Localization contribution description says "VS code"
 - **Severity**: Low (only visible to extension developers)
-- **Fix**: "VS code" → "CONSTRUCT IDE"
+- **Fix**: "VS code" → "Kovix"
 - **Status**: ✅ Fixed and verified in beta.10 build
 
 ## Not Yet Verified (Requires Physical Display)

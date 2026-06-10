@@ -3,7 +3,7 @@
         "serviceTreeID": "79c048b2-322f-4ed5-a1ea-252a1250e4b3",
         "instanceUrl": "https://devdiv.visualstudio.com/defaultcollection",
         "projectName": "DevDiv",
-        "areaPath": "DevDiv\\CONSTRUCT IDE (compliance tracking only)\\CONSTRUCT IDE Client",
+        "areaPath": "DevDiv\\Kovix (compliance tracking only)\\Kovix Client",
         "notificationAliases": [
                 "monacotools@microsoft.com"
         ],

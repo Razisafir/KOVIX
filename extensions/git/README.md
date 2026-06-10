@@ -1,6 +1,6 @@
-# Git integration for CONSTRUCT IDE
+# Git integration for Kovix
 
-**Notice:** This extension is bundled with CONSTRUCT IDE. It can be disabled but not uninstalled.
+**Notice:** This extension is bundled with Kovix. It can be disabled but not uninstalled.
 
 ## Features
 

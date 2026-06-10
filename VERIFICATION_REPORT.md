@@ -1,4 +1,4 @@
-# CONSTRUCT IDE — Phase 1 Core Maturity Verification Report
+# Kovix — Phase 1 Core Maturity Verification Report
 
 **Version**: v0.1.0-beta.12
 **Commit**: 37772a70 (latest), b09d1197 (CI-verified build)

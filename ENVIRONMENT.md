@@ -1,4 +1,4 @@
-# CONSTRUCT IDE — Environment Report
+# Kovix — Environment Report
 Generated: 2026-06-09
 
 ## System

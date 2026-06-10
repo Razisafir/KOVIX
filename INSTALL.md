@@ -1,9 +1,9 @@
-# CONSTRUCT IDE — Installation Guide
+# Kovix — Installation Guide
 
 ## System Requirements
 
 - **RAM**: 8GB minimum (16GB recommended for large workspaces + local LLM)
-- **Storage**: 5GB for CONSTRUCT IDE, additional 5–10GB for Ollama models
+- **Storage**: 5GB for Kovix, additional 5–10GB for Ollama models
 - **CPU**: 4+ cores recommended for local LLM inference
 - **GPU**: Optional — NVIDIA GPU with CUDA for faster Ollama inference
 - **Node.js**: 20+ (required for building from source)
@@ -33,7 +33,7 @@
 
    ```ini
    [Desktop Entry]
-   Name=CONSTRUCT IDE
+   Name=Kovix
    Comment=Offline-first AI coding environment
    Exec=/path/to/VSCode-linux-x64/construct
    Icon=/path/to/VSCode-linux-x64/resources/app/resources/linux/construct.png
@@ -93,19 +93,19 @@ NODE_OPTIONS="--max-old-space-size=8192" npm run compile
 1. Download the appropriate archive from [GitHub Releases](https://github.com/Razisafir/KOVIX/releases):
    - **Intel Macs**: `kovix-darwin-x64.zip`
    - **Apple Silicon (M1/M2/M3/M4)**: `kovix-darwin-arm64.zip`
-2. Open the DMG and drag **CONSTRUCT IDE** to your **Applications** folder
+2. Open the DMG and drag **Kovix** to your **Applications** folder
 3. On first launch, macOS Gatekeeper may block the app because it is not signed with an Apple Developer certificate. To bypass:
    - **Right-click** (or Control-click) the app → select **Open**
    - Click **Open** again in the confirmation dialog
    - Alternatively, go to **System Settings → Privacy & Security** and click **Open Anyway** next to the security warning
 4. *(Optional)* Install the `construct` command-line tool:
-   - Open CONSTRUCT IDE
+   - Open Kovix
    - Press `Cmd+Shift+P` to open the Command Palette
    - Search for **"Shell Command: Install 'construct' command in PATH"**
    - Click it to create the symlink
 
 **Apple Silicon Notes:**
-- CONSTRUCT IDE runs natively on Apple Silicon — no Rosetta translation needed.
+- Kovix runs natively on Apple Silicon — no Rosetta translation needed.
 - Ollama also runs natively on Apple Silicon and leverages the Neural Engine / GPU for fast inference.
 - If you previously used an Intel build, clear the cache: `rm -rf ~/Library/Application\ Support/Construct`
 
@@ -151,7 +151,7 @@ NODE_OPTIONS="--max-old-space-size=8192" npm run compile
 6. *(Optional)* Pin to taskbar: Right-click the running app → **Pin to taskbar**
 
 **Windows Defender Note:**
-- Some antivirus products may flag the Electron binary. Add an exclusion for the CONSTRUCT IDE folder if this happens.
+- Some antivirus products may flag the Electron binary. Add an exclusion for the Kovix folder if this happens.
 - The app does not contain malware — this is a common false positive for unsigned Electron applications.
 
 #### Build from Source
@@ -219,7 +219,7 @@ ollama list
 For cloud-based AI when local hardware is insufficient:
 
 1. Get an API key from https://console.anthropic.com
-2. In CONSTRUCT IDE, press `Ctrl+Shift+P`
+2. In Kovix, press `Ctrl+Shift+P`
 3. Run **"Construct: Set API Key"**
 4. Enter your key (starts with `sk-ant-`)
 5. Switch provider to **Cloud** via the status bar model picker
@@ -253,7 +253,7 @@ docker run --rm ghidra-headless analyzeHeadless 2>&1 | head -5
 
 ## Security Tools
 
-CONSTRUCT IDE integrates with security testing tools. These are optional but enhance the security analysis capabilities:
+Kovix integrates with security testing tools. These are optional but enhance the security analysis capabilities:
 
 ### Nmap — Network Scanner
 

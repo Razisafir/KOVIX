@@ -1,4 +1,4 @@
-# CONSTRUCT IDE — Security Audit Report
+# Kovix — Security Audit Report
 
 **Date of Audit:** 2026-06-07
 **Auditor:** CONSTRUCT Security Agent

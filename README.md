@@ -73,9 +73,9 @@ For detailed build instructions, see [BUILD.md](./BUILD.md).
 
 ## First Launch
 
-When you start CONSTRUCT for the first time, the setup wizard opens automatically and walks you through:
+When you start Kovix for the first time, the setup wizard opens automatically and walks you through:
 
-1. **Welcome** — Overview of CONSTRUCT features
+1. **Welcome** — Overview of Kovix features
 2. **Provider Setup** — Detects Ollama, lists available models, lets you pick a default
 3. **Kali Terminal** (Windows only) — Detects Kali WSL2 and offers to enable it
 4. **Ready** — Saves your configuration and starts the IDE
@@ -87,13 +87,13 @@ ollama pull llama3.2
 ollama pull nomic-embed-text
 ```
 
-You can re-open the wizard anytime via the Command Palette: `Construct: Open Setup Wizard`.
+You can re-open the wizard anytime via the Command Palette: `Kovix: Open Setup Wizard`.
 
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+Shift+K` | Open CONSTRUCT Agent panel |
+| `Ctrl+Shift+K` | Open Kovix Agent panel |
 | `Ctrl+Shift+I` | Show inline agent |
 | `Ctrl+Enter` | Send message |
 | `Ctrl+Shift+Enter` | Accept all pending diffs |
@@ -101,11 +101,11 @@ You can re-open the wizard anytime via the Command Palette: `Construct: Open Set
 
 ## Commands
 
-All CONSTRUCT commands are available from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
+All Kovix commands are available from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 
 | Command | Description |
 |---|---|
-| `construct.focusPanel` | Open the Construct Agent panel (`Ctrl+Shift+K`) |
+| `construct.focusPanel` | Open the Kovix Agent panel (`Ctrl+Shift+K`) |
 | `construct.newChat` | Start a new chat session |
 | `construct.setApiKey` | Set Anthropic API key (stored in OS keychain) |
 | `construct.clearApiKey` | Remove stored API key |
@@ -117,13 +117,13 @@ All CONSTRUCT commands are available from the Command Palette (`Ctrl+Shift+P` / 
 | `construct.addMemory` | Add a manual memory entry |
 | `construct.testCloudConnection` | Test cloud AI connection |
 | `construct.testMemoryConnection` | Test memory service connection |
-| `construct.openApiSettings` | Open Construct API settings |
+| `construct.openApiSettings` | Open Kovix API settings |
 | `construct.undoTask` | Undo last agent task |
 | `construct.showInlineAgent` | Show inline agent (`Ctrl+Shift+I`) |
 
 ## Configuration
 
-CONSTRUCT stores workspace settings in `.construct/settings.json`:
+Kovix stores workspace settings in `.kovix/settings.json`:
 
 ```json
 {
@@ -234,7 +234,7 @@ Kovix indexes your entire workspace for semantic search, enabling the agent to r
 
 ### How It Works
 
-1. **Indexing** — Run `Construct: Index Workspace` (or it triggers automatically). Files are chunked and embedded using Ollama's `nomic-embed-text` model (or falls back to pseudo-embeddings).
+1. **Indexing** — Run `Kovix: Index Workspace` (or it triggers automatically). Files are chunked and embedded using Ollama's `nomic-embed-text` model (or falls back to pseudo-embeddings).
 2. **Storage** — Embeddings are stored in a local Qdrant vector database running in-process. BM25 keyword indexing runs as a fallback.
 3. **Retrieval** — When you ask the agent a question, relevant code chunks are injected into the conversation context automatically.
 

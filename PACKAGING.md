@@ -1,4 +1,4 @@
-# CONSTRUCT IDE — Packaging Guide
+# Kovix — Packaging Guide
 
 ## Project Structure
 

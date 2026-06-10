@@ -1,4 +1,4 @@
-# CONSTRUCT IDE — Blockers
+# Kovix — Blockers
 Generated: 2026-06-09 (updated during Grand Boot session)
 
 ## E2E Testing Blocked (OOM Killer)
