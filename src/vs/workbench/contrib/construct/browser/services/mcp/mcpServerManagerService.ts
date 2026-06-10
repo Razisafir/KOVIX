@@ -223,7 +223,8 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
                 this.logService.info(`[MCP Manager] Executing tool ${toolName} on ${serverName}`);
 
                 try {
-                        const result = await this.connectionPool.executeWithRetry(
+                        const MCP_TOOL_TIMEOUT_MS = 30_000; // SEC: MCP tool execution must not hang indefinitely
+                        const mcpToolCall = this.connectionPool.executeWithRetry(
                                 serverName,
                                 async (client: any) => {
                                         return await client.callTool({
@@ -232,6 +233,10 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
                                         });
                                 }
                         );
+                        const timeoutPromise = new Promise<never>((_, reject) =>
+                                setTimeout(() => reject(new Error(`MCP tool execution timed out after ${MCP_TOOL_TIMEOUT_MS / 1000}s`)), MCP_TOOL_TIMEOUT_MS)
+                        );
+                        const result = await Promise.race([mcpToolCall, timeoutPromise]);
 
                         const duration = Date.now() - startTime;
 

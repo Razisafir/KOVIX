@@ -52,7 +52,7 @@ interface OnboardingConfig {
  * ConstructOnboardingWizard — a first-launch onboarding wizard shown as a webview panel.
  *
  * Steps:
- *  1. "Welcome to CONSTRUCT" — branding & mission
+ *  1. "Welcome to Kovix" — branding & mission
  *  2. "AI Provider Setup" — checks Ollama, Xenova, Cloud
  *  3. "Kali Linux (Optional)" — WSL2 check (Windows only)
  *  4. "You're Ready!" — saves config, opens editor
@@ -92,7 +92,7 @@ export class ConstructOnboardingWizard extends Disposable {
 
                 const input = this.webviewWorkbenchService.openWebview(
                         {
-                                title: 'CONSTRUCT Setup',
+                                title: 'Kovix Setup',
                                 options: {
                                         retainContextWhenHidden: true,
                                         enableFindWidget: false,
@@ -107,7 +107,7 @@ export class ConstructOnboardingWizard extends Disposable {
                                 extension: undefined,
                         },
                         ONBOARDING_VIEW_TYPE,
-                        'CONSTRUCT Setup',
+                        'Kovix Setup',
                         {},
                 );
 
@@ -322,12 +322,12 @@ export class ConstructOnboardingWizard extends Disposable {
 
                         this.postMessage({ type: 'configSaved' });
 
-                        this.notificationService.info('CONSTRUCT: Setup complete! Your IDE is ready.');
+                        this.notificationService.info('Kovix: Setup complete! Your IDE is ready.');
                         this.logService.info('[ConstructOnboarding] Config saved:', JSON.stringify(config));
                 } catch (error) {
                         this.logService.error('[ConstructOnboarding] Failed to save config:', error);
                         this.notificationService.error(
-                                `CONSTRUCT: Failed to save settings: ${error instanceof Error ? error.message : String(error)}`
+                                `Kovix: Failed to save settings: ${error instanceof Error ? error.message : String(error)}`
                         );
                 }
         }
@@ -361,7 +361,7 @@ export class ConstructOnboardingWizard extends Disposable {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${cspNonce}'; style-src 'unsafe-inline'; connect-src http://localhost:11434 http://localhost:6333;">
-        <title>CONSTRUCT Setup</title>
+        <title>Kovix Setup</title>
         <style>
                 :root {
                         --accent: #00E5FF;
@@ -764,7 +764,7 @@ export class ConstructOnboardingWizard extends Disposable {
                 <!-- Step 0: Welcome -->
                 <div class="step active" id="step-0">
                         <div class="hex-logo">&#x2B21;</div>
-                        <div class="step-title">Welcome to CONSTRUCT</div>
+                        <div class="step-title">Welcome to Kovix</div>
                         <div class="step-subtitle">
                                 The offline-first AI IDE that keeps you in control.<br>
                                 Your code, your models, your machine.
@@ -803,7 +803,7 @@ export class ConstructOnboardingWizard extends Disposable {
                 <div class="step" id="step-1">
                         <div class="step-title">AI Provider Setup</div>
                         <div class="step-subtitle">
-                                CONSTRUCT needs an AI provider to power your coding assistant.<br>
+                                Kovix needs an AI provider to power your coding assistant.<br>
                                 Let's check what's available on your system.
                         </div>
 
@@ -859,7 +859,7 @@ export class ConstructOnboardingWizard extends Disposable {
                 <div class="step" id="step-2">
                         <div class="step-title">Kali Linux (Optional)</div>
                         <div class="step-subtitle">
-                                CONSTRUCT can integrate with Kali Linux via WSL2 on Windows<br>
+                                Kovix can integrate with Kali Linux via WSL2 on Windows<br>
                                 for security testing tools and a dedicated terminal.
                         </div>
 
@@ -888,7 +888,7 @@ export class ConstructOnboardingWizard extends Disposable {
                         <div class="completion-checkmark">&#x2713;</div>
                         <div class="step-title">You're Ready!</div>
                         <div class="step-subtitle">
-                                CONSTRUCT is configured and ready to go.<br>
+                                Kovix is configured and ready to go.<br>
                                 Here's a summary of your setup:
                         </div>
 
@@ -908,7 +908,7 @@ export class ConstructOnboardingWizard extends Disposable {
                         </div>
 
                         <div class="btn-row" style="justify-content:center;">
-                                <button class="btn btn-success" onclick="finishSetup()">&#x2B21; Start Using CONSTRUCT</button>
+                                <button class="btn btn-success" onclick="finishSetup()">&#x2B21; Start Using Kovix</button>
                         </div>
                 </div>
         </div>
@@ -1137,7 +1137,7 @@ export class ConstructOnboardingWizard extends Disposable {
                                 kaliCb.id = 'kali-checkbox';
                                 const kaliLabel = document.createElement('label');
                                 kaliLabel.htmlFor = 'kali-checkbox';
-                                kaliLabel.textContent = 'Enable Kali terminal profile in CONSTRUCT';
+                                kaliLabel.textContent = 'Enable Kali terminal profile in Kovix';
                                 checkOptDiv.appendChild(kaliCb);
                                 checkOptDiv.appendChild(kaliLabel);
                                 checkOptDiv.addEventListener('click', () => enableKali(true));
@@ -1153,7 +1153,7 @@ export class ConstructOnboardingWizard extends Disposable {
                                                 <strong>To install Kali WSL2:</strong><br>
                                                 1. Open PowerShell as Administrator<br>
                                                 2. Run <code>wsl --install -d kali-linux</code><br>
-                                                3. Restart CONSTRUCT after installation<br><br>
+                                                3. Restart Kovix after installation<br><br>
                                                 You can also configure this later.
                                         </div>\`;
                                 document.getElementById('step2-next').disabled = false;
