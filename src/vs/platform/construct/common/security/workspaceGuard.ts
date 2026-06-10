@@ -6,7 +6,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IWorkspaceContextService } from '../../../workspace/common/workspace.js';
-import * as path from 'path';
+// Use VS Code's browser-safe path utilities — Node 'path' is NOT available in the renderer
+import * as path from '../../../../base/common/path.js';
 
 /**
  * Assert that a path is within the workspace boundary.

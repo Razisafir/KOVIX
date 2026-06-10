@@ -196,7 +196,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const title = dom.$('.construct-title');
                 title.style.cssText = `font-size: 14px; font-weight: 600; color: #E0E7FF; margin-bottom: 4px;`;
-                title.textContent = 'Construct Agent';
+                title.textContent = 'Kovix Agent';
 
                 const subtitle = dom.$('.construct-subtitle');
                 subtitle.style.cssText = `font-size: 12px; color: #4A5568; margin-bottom: 12px;`;
@@ -234,7 +234,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 this.inputBox = document.createElement('textarea');
                 this.inputBox.className = 'construct-chat-input';
                 this.inputBox.rows = 1;
-                this.inputBox.placeholder = 'Ask Construct anything...';
+                this.inputBox.placeholder = 'Ask Kovix anything...';
                 this.inputBox.style.cssText = `
                         flex: 1; background: #0A0E1A; border: 1px solid #1A1F2E;
                         border-radius: 4px; padding: 8px 10px; color: #E0E7FF;
@@ -830,7 +830,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 this.inputBox.disabled = isRunning;
 
                 if (state === 'idle') {
-                        this.inputBox.placeholder = 'Ask Construct anything...';
+                        this.inputBox.placeholder = 'Ask Kovix anything...';
                         // Clean up progress panel
                         if (this.progressPanel) {
                                 this.progressPanel.dispose();
@@ -896,7 +896,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const title = dom.$('.construct-title');
                 title.style.cssText = `font-size: 14px; font-weight: 600; color: #E0E7FF; margin-bottom: 4px;`;
-                title.textContent = 'Construct Agent';
+                title.textContent = 'Kovix Agent';
 
                 const subtitle = dom.$('.construct-subtitle');
                 subtitle.style.cssText = `font-size: 12px; color: #4A5568; margin-bottom: 12px;`;

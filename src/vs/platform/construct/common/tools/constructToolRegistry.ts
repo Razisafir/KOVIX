@@ -9,25 +9,8 @@ import { createDecorator } from '../../../instantiation/common/instantiation.js'
 
 export const IConstructToolRegistry = createDecorator<IConstructToolRegistry>('construct.toolRegistry');
 
-// Static import for browser-safe path utilities — no require() in common layer
-import * as path from '../../../../base/common/path.js';
-
-/**
- * SEC-4: Assert that a file path is within the workspace root.
- * Prevents path traversal attacks from LLM-generated arguments.
- * Must be called before every read_file and write_file operation.
- * The workspace root must come from IWorkspaceContextService — never from user input.
- *
- * Uses VS Code's portable path utilities (vs/base/common/path) instead of
- * require('path') which is unavailable in browser/web contexts.
- */
-export function assertWithinWorkspace(filePath: string, workspaceRoot: string): void {
-        const resolved = path.resolve(filePath);
-        const root = path.resolve(workspaceRoot);
-        if (!resolved.startsWith(root + path.sep) && resolved !== root) {
-                throw new Error(`Security: path "${resolved}" is outside workspace "${root}"`);
-        }
-}
+// Re-export from the canonical location for backward compatibility
+export { assertWithinWorkspace } from '../security/workspaceGuard.js';
 
 /**
  * Schema definition for a tool's input parameters.

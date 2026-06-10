@@ -15,28 +15,14 @@ import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IConstructVectorStore } from '../../../../../../platform/construct/common/memory/vectorStore.js';
 import {
-        IConstructToolRegistry, IToolDefinition, IToolResult
+        IConstructToolRegistry, IToolDefinition, IToolResult, assertWithinWorkspace
 } from '../../../../../../platform/construct/common/tools/constructToolRegistry.js';
 import { ITerminalExecutor } from '../../../../../../platform/construct/common/terminal/terminalExecutor.js';
 import { nmapToolDefinition } from '../../tools/security/nmapTool.js';
 import { ghidraToolDefinition } from '../../tools/security/ghidraTool.js';
 import { nucleiToolDefinition } from '../../tools/security/nucleiTool.js';
-
-// SEC-4: Path traversal prevention
+// Browser-safe path utilities
 import * as pathModule from '../../../../../../base/common/path.js';
-
-/**
- * SEC-4: Assert that a file path is within the workspace root.
- * Prevents path traversal attacks from LLM-generated arguments.
- * The workspace root comes from IWorkspaceContextService — never from user input.
- */
-function assertWithinWorkspace(filePath: string, workspaceRoot: string): void {
-        const resolved = pathModule.resolve(filePath);
-        const root = pathModule.resolve(workspaceRoot);
-        if (!resolved.startsWith(root + pathModule.sep) && resolved !== root) {
-                throw new Error(`Security: path "${resolved}" is outside workspace "${root}"`);
-        }
-}
 
 const MAX_OUTPUT_LENGTH = 100_000; // Characters
 const COMMAND_BLOCKLIST = [

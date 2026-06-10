@@ -79,13 +79,13 @@ import './constructMemoryConfig';
 import './constructApiConfig';
 import './constructApiSettings';
 
-const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Construct Agent view.'));
-const constructMemoryIcon = registerIcon('construct-memory-icon', Codicon.symbolEvent, localize('constructMemoryIcon', 'View icon of the Construct Memory view.'));
+const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Kovix Agent view.'));
+const constructMemoryIcon = registerIcon('construct-memory-icon', Codicon.symbolEvent, localize('constructMemoryIcon', 'View icon of the Kovix Memory view.'));
 
-// Register the Construct view container in the sidebar
+// Register the Kovix view container in the sidebar
 const constructViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
                 id: 'construct',
-                title: localize2('construct', "Construct Agent"),
+                title: localize2('construct', "Kovix Agent"),
                 ctorDescriptor: new SyncDescriptor(ViewPaneContainer, ['construct', { mergeViewWithContainerWhenSingleView: true }]),
                 icon: constructViewIcon,
                 order: 100,
@@ -124,16 +124,16 @@ class ConstructStatusBarContribution extends Disposable implements IWorkbenchCon
 
                                 // Agent status (left side)
                                 this._register(this.statusbarService.addEntry({
-                                                name: localize('constructAgentStatus', "Construct Agent Status"),
+                                                name: localize('constructAgentStatus', "Kovix Agent Status"),
                                                 text: '$(robot) Ready',
-                                                ariaLabel: localize('constructAgentStatusAria', "Construct Agent: Ready"),
-                                                tooltip: localize('constructAgentStatusTooltip', "Construct Agent: Idle -- click to open panel"),
+                                                ariaLabel: localize('constructAgentStatusAria', "Kovix Agent: Ready"),
+                                                tooltip: localize('constructAgentStatusTooltip', "Kovix Agent: Idle -- click to open panel"),
                                                 command: 'construct.focusPanel',
                                 }, 'construct.agentStatus', StatusbarAlignment.LEFT, 50));
 
                                 // Model info (left side) — dynamically updated from AI service
                                 this.modelEntryAccessor = this._register(this.statusbarService.addEntry({
-                                                name: localize('constructModel', "Construct Model"),
+                                                name: localize('constructModel', "Kovix Model"),
                                                 text: '$(zap) No Model local',
                                                 ariaLabel: localize('constructModelAria', "Active LLM: No model selected"),
                                                 tooltip: localize('constructModelTooltip', "Click to select a model"),
@@ -150,7 +150,7 @@ class ConstructStatusBarContribution extends Disposable implements IWorkbenchCon
 
                                 // Pending changes (right side)
                                 this._register(this.statusbarService.addEntry({
-                                                name: localize('constructChanges', "Construct Changes"),
+                                                name: localize('constructChanges', "Kovix Changes"),
                                                 text: '$(diff-added) 0 pending',
                                                 ariaLabel: localize('constructChangesAria', "No changes awaiting approval"),
                                                 tooltip: localize('constructChangesTooltip', "No changes awaiting approval"),
@@ -167,7 +167,7 @@ class ConstructStatusBarContribution extends Disposable implements IWorkbenchCon
                                 const modelName = model?.displayName ?? 'No Model';
 
                                 this.modelEntryAccessor.update({
-                                                name: localize('constructModel', "Construct Model"),
+                                                name: localize('constructModel', "Kovix Model"),
                                                 text: `${icon} ${modelName} ${suffix}`,
                                                 ariaLabel: localize('constructModelAria', `Active LLM: ${modelName} (${suffix})`),
                                                 tooltip: localize('constructModelTooltip', `Active LLM: ${modelName} (${suffix}) — click to change`),

@@ -763,7 +763,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
                 const mode = planningOnly ? 'PLANNING MODE -- use only read_file and list_directory to explore the workspace. Do NOT make any changes.' : '';
 
-                let prompt = `You are CONSTRUCT, an expert AI coding assistant.
+                let prompt = `You are Kovix, an expert AI coding assistant.
 
 ${mode}
 
