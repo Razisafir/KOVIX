@@ -549,6 +549,11 @@ export class ConstructAgentViewPane extends ViewPane {
 
                         // Transition back to idle after showing error
                         setTimeout(() => { this.setExecutionState('idle'); }, 2000);
+                } finally {
+                        // BUG 6 FIX: Clean up cancellation state to prevent stale references
+                        this.currentCancellationToken?.dispose();
+                        this.currentCancellationToken = null;
+                        this._abortController = null;
                 }
         }
 
@@ -778,6 +783,11 @@ export class ConstructAgentViewPane extends ViewPane {
 
                         // Transition back to idle after showing error
                         setTimeout(() => { this.setExecutionState('idle'); }, 2000);
+                } finally {
+                        // BUG 6 FIX: Clean up cancellation state to prevent stale references
+                        this.currentCancellationToken?.dispose();
+                        this.currentCancellationToken = null;
+                        this._abortController = null;
                 }
         }
 
