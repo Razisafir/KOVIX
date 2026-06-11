@@ -39,7 +39,6 @@ import { IIdeaRefinementService } from '../../../../platform/construct/common/ag
 import { IConstructSessionService } from '../../../../platform/construct/common/session/constructSessionService.js';
 import { ISelectablePlanStep, IApprovedPlan, IMilestone } from '../../../../platform/construct/common/agent/milestoneStateMachine.js';
 import { showStopModePicker } from './constructStopModePicker.js';
-import { ExecutionMode } from '../../../../platform/construct/common/agent/executionMode.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 
 type ExecutionState = 'idle' | 'planning' | 'refining' | 'awaiting_approval' | 'executing' | 'paused_at_milestone' | 'complete' | 'error' | 'stopped';
@@ -594,12 +593,9 @@ export class ConstructAgentViewPane extends ViewPane {
          * Render the plan with Approve/Cancel buttons.
          */
         private selectableSteps: ISelectablePlanStep[] = [];
-        private currentPlanTask: string = '';
-
         private renderPlan(plan: IPlanResult, task: string): void {
                 // Remove any existing plan container
                 this.planContainer?.remove();
-                this.currentPlanTask = task;
 
                 // Create selectable steps from the plan
                 this.selectableSteps = plan.steps.map((step, idx) => ({
@@ -995,8 +991,10 @@ export class ConstructAgentViewPane extends ViewPane {
                 const stateConfig: Record<ExecutionState, { text: string; color: string }> = {
                         idle: { text: '\u25CF Ready', color: '#00C853' },
                         planning: { text: '\u25CF Planning...', color: '#FFB300' },
+                        refining: { text: '\u25CF Refining...', color: '#AB47BC' },
                         awaiting_approval: { text: '\u25CF Awaiting Approval', color: '#FFB300' },
                         executing: { text: '\u25CF Executing...', color: '#00E5FF' },
+                        paused_at_milestone: { text: '\u25CF Paused at Milestone', color: '#FF9800' },
                         complete: { text: '\u25CF Complete', color: '#00C853' },
                         error: { text: '\u25CF Error', color: '#FF4444' },
                         stopped: { text: '\u25CF Stopped', color: '#FF9800' },
@@ -1055,8 +1053,10 @@ export class ConstructAgentViewPane extends ViewPane {
                 const stateConfig: Record<ExecutionState, { text: string; color: string }> = {
                         idle: { text: '\u25CF Ready', color: '#00C853' },
                         planning: { text: '\u25CF Planning...', color: '#FFB300' },
+                        refining: { text: '\u25CF Refining...', color: '#AB47BC' },
                         awaiting_approval: { text: '\u25CF Awaiting Approval', color: '#FFB300' },
                         executing: { text: '\u25CF Executing...', color: '#00E5FF' },
+                        paused_at_milestone: { text: '\u25CF Paused at Milestone', color: '#FF9800' },
                         complete: { text: '\u25CF Complete', color: '#00C853' },
                         error: { text: '\u25CF Error', color: '#FF4444' },
                         stopped: { text: '\u25CF Stopped', color: '#FF9800' },

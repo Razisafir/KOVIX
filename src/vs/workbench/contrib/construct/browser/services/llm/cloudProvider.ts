@@ -8,7 +8,6 @@
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { Emitter } from '../../../../../../base/common/event.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
-import { IStorageService } from '../../../../../../platform/storage/common/storage.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import {
         IConstructAIProvider, AIProviderType, AIStreamEvent, IChatMessage,
@@ -17,8 +16,8 @@ import {
 } from '../../../../../../platform/construct/common/llm/constructAIProvider.js';
 // SEC-5: Secret redaction for all log calls
 import { redactSecrets } from '../../../../../../platform/construct/common/security/secretRedactor.js';
-// P0-2: Resolve API keys through ISecureKeyManager (single source of truth)
-import { ISecureKeyManager } from '../../../../../../platform/construct/common/security/secureKeyManager.js';
+// Resolve API keys through ISecureKeyManager (single source of truth)
+import { ISecureKeyManager, LLMProvider } from '../../../../../../platform/construct/common/security/secureKeyManager.js';
 import { ConstructAuthError, ConstructRateLimitError, ConstructOverloadedError } from '../../../../../../platform/construct/common/llm/constructAIProvider.js';
 
 const DEFAULT_CLOUD_BASE_URL = 'https://api.openai.com/v1';
@@ -26,7 +25,6 @@ const DEFAULT_CLOUD_MODEL = 'gpt-4o-mini';
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
 const MAX_RETRIES = 3;
-const STORAGE_KEY_CLOUD_API_KEY = 'construct.cloud.apiKey';
 
 /**
  * Parsed SSE chunk from the Anthropic streaming API.
@@ -73,13 +71,12 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
         constructor(
                 @ILogService private readonly logService: ILogService,
                 @IConfigurationService private readonly configurationService: IConfigurationService,
-                @IStorageService private readonly _storageService: IStorageService,
                 @ISecureKeyManager private readonly _keyManager: ISecureKeyManager,
         ) {
                 super();
 
                 this._baseUrl = configurationService.getValue<string>('construct.cloud.baseUrl') || DEFAULT_CLOUD_BASE_URL;
-                // P0-2 FIX: Resolve key through ISecureKeyManager (OS keychain) first
+                // Resolve key through ISecureKeyManager (OS keychain — single source of truth)
                 this._resolveApiKey();
 
                 // Listen for key changes and re-resolve
@@ -92,19 +89,28 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
         }
 
         /**
-         * P0-2 FIX: Resolve API key through ISecureKeyManager (single source of truth).
-         * Falls back to IStorageService for backward compatibility.
+         * Resolve API key through ISecureKeyManager (OS keychain — single source of truth).
+         * No plaintext fallback: keys must come from secure storage.
          */
         private async _resolveApiKey(): Promise<void> {
-                // Try ISecureKeyManager first (OS keychain — single source of truth)
+                // ISecureKeyManager is the ONLY source of API keys.
+                // Plaintext storage in IStorageService/state.vscdb is no longer used.
                 try {
                         const activeProvider = await this._keyManager.getActiveProvider();
                         if (activeProvider && (activeProvider.provider === 'openai' || activeProvider.provider === 'anthropic' || activeProvider.provider === 'litellm' || activeProvider.provider === 'custom')) {
                                 const key = await this._keyManager.getKey(activeProvider.provider);
                                 if (key) {
                                         this._apiKey = key;
-                                        // Also sync to IStorageService for backward compatibility
-                                        this._storageService.store(STORAGE_KEY_CLOUD_API_KEY, key, 0 /* StorageScope.APPLICATION */, 1 /* StorageTarget.MACHINE */);
+                                        return;
+                                }
+                        }
+
+                        // If no active provider, try all cloud-capable providers
+                        const cloudProviders: LLMProvider[] = ['openai', 'anthropic', 'litellm', 'custom'];
+                        for (const provider of cloudProviders) {
+                                const key = await this._keyManager.getKey(provider);
+                                if (key) {
+                                        this._apiKey = key;
                                         return;
                                 }
                         }
@@ -112,13 +118,8 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                         // ISecureKeyManager may not be available in all contexts
                 }
 
-                // Fallback: read from IStorageService (backward compatibility with existing users)
-                this._apiKey = this._storageService.get(STORAGE_KEY_CLOUD_API_KEY, 0) ?? '';
-
-                // Secondary fallback: read from IConfigurationService
-                if (!this._apiKey) {
-                        this._apiKey = this.configurationService.getValue<string>('construct.cloud.apiKey') ?? '';
-                }
+                // No key found in secure storage — user must configure one via SecureKeyManager
+                this._apiKey = '';
         }
 
         /** Whether the configured API key is for the Anthropic API. */

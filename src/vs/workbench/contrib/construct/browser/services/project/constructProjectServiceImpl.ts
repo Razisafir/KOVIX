@@ -12,6 +12,7 @@ import { IWorkspaceContextService } from '../../../../../../platform/workspace/c
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { URI } from '../../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../../base/common/uuid.js';
+import { VSBuffer } from '../../../../../../base/common/buffer.js';
 import {
         IConstructProjectService,
 } from '../../../../../../platform/construct/common/project/constructProjectService.js';
@@ -83,7 +84,7 @@ export class ConstructProjectServiceImpl extends Disposable implements IConstruc
 
         constructor(
                 @IFileService private readonly fileService: IFileService,
-                @IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
+                @IWorkspaceContextService _workspaceContextService: IWorkspaceContextService,
                 @ILogService private readonly logService: ILogService,
         ) {
                 super();
@@ -122,7 +123,7 @@ export class ConstructProjectServiceImpl extends Disposable implements IConstruc
                         const fileUri = URI.joinPath(workspaceRoot, file.path);
                         try {
                                 await this.ensureParentDirectory(fileUri);
-                                await this.fileService.writeFile(fileUri, new TextEncoder().encode(file.content));
+                                await this.fileService.writeFile(fileUri, VSBuffer.wrap(new TextEncoder().encode(file.content)));
                         } catch (error) {
                                 this.logService.warn(`[ConstructProject] Failed to write scaffold file ${file.path}: ${error instanceof Error ? error.message : String(error)}`);
                         }
@@ -142,7 +143,7 @@ export class ConstructProjectServiceImpl extends Disposable implements IConstruc
                         status: ProjectStatus.Active,
                         updatedAt: Date.now(),
                 }, null, 2);
-                await this.fileService.writeFile(manifestUri, new TextEncoder().encode(manifestContent));
+                await this.fileService.writeFile(manifestUri, VSBuffer.wrap(new TextEncoder().encode(manifestContent)));
 
                 // 3. Update project status to active
                 const activeProject: IKovixProject = {
@@ -206,7 +207,7 @@ export class ConstructProjectServiceImpl extends Disposable implements IConstruc
                 try {
                         const manifestUri = URI.joinPath(URI.file(project.workspaceRoot), CONSTRUCT_DIR, PROJECT_MANIFEST);
                         const content = await this.fileService.readFile(manifestUri);
-                        const manifest = JSON.parse(new TextDecoder().decode(content.value)) as IKovixProject;
+                        const manifest = JSON.parse(new TextDecoder().decode(content.value.buffer)) as IKovixProject;
 
                         const updatedProject: IKovixProject = {
                                 ...manifest,
@@ -246,7 +247,7 @@ export class ConstructProjectServiceImpl extends Disposable implements IConstruc
                 try {
                         const manifestUri = URI.joinPath(URI.file(project.workspaceRoot), CONSTRUCT_DIR, PROJECT_MANIFEST);
                         const manifestContent = JSON.stringify(updatedProject, null, 2);
-                        await this.fileService.writeFile(manifestUri, new TextEncoder().encode(manifestContent));
+                        await this.fileService.writeFile(manifestUri, VSBuffer.wrap(new TextEncoder().encode(manifestContent)));
                 } catch (error) {
                         this.logService.warn(`[ConstructProject] Could not update manifest on disk: ${error instanceof Error ? error.message : String(error)}`);
                 }
@@ -281,7 +282,7 @@ export class ConstructProjectServiceImpl extends Disposable implements IConstruc
 
                 try {
                         const content = await this.fileService.readFile(manifestUri);
-                        const manifest = JSON.parse(new TextDecoder().decode(content.value)) as IKovixProject;
+                        const manifest = JSON.parse(new TextDecoder().decode(content.value.buffer)) as IKovixProject;
 
                         this._projects.set(manifest.id, manifest);
                         this._activeProject = manifest;
@@ -459,7 +460,7 @@ export class ConstructProjectServiceImpl extends Disposable implements IConstruc
                         },
                         {
                                 path: 'src/index.ts',
-                                content: `/**\n * ${projectName} — API Server Entry Point\n */\n\nimport express from 'express';\nimport cors from 'cors';\nimport dotenv from 'dotenv';\n\nimport { healthRouter } from './routes/health.js';\nimport { apiRouter } from './routes/api.js';\n\ndotenv.config();\n\nconst app = express();\nconst PORT = process.env.PORT ?? 3001;\n\n// Middleware\napp.use(cors());\napp.use(express.json());\n\n// Routes\napp.use('/health', healthRouter);\napp.use('/api', apiRouter);\n\napp.listen(PORT, () => {\n\tconsole.log(\`[\\${process.env.NODE_ENV ?? 'development'}] API server running on http://localhost:\\${PORT}\`);\n});\n`,
+                                content: `/**\n * ${projectName} — API Server Entry Point\n */\n\nimport express from 'express';\nimport cors from 'cors';\nimport dotenv from 'dotenv';\n\nimport { healthRouter } from './routes/health.js';\nimport { apiRouter } from './routes/api.js';\n\ndotenv.config();\n\nconst app = express();\nconst PORT = process.env.PORT ?? 3001;\n\n// Middleware\napp.use(cors());\napp.use(express.json());\n\n// Routes\napp.use('/health', healthRouter);\napp.use('/api', apiRouter);\n\napp.listen(PORT, () => {\n\tconsole.log(\`[\${process.env.NODE_ENV ?? 'development'}] API server running on http://localhost:\${PORT}\`);\n});\n`,
                         },
                         {
                                 path: 'src/routes/health.ts',
@@ -531,7 +532,7 @@ export class ConstructProjectServiceImpl extends Disposable implements IConstruc
                         },
                         {
                                 path: 'src/index.ts',
-                                content: `#!/usr/bin/env node\n\n/**\n * ${projectName} — CLI Tool\n */\n\nimport { Command } from 'commander';\n\nconst program = new Command();\n\nprogram\n\t.name('${this.sanitizePackageName(projectName)}')\n\t.description('${projectName} CLI tool')\n\t.version('0.1.0');\n\nprogram\n\t.command('hello')\n\t.description('Say hello')\n\t.option('-n, --name <name>', 'your name', 'World')\n\t.action((options) => {\n\t\tconsole.log(\`Hello, \\${options.name}!\`);\n\t});\n\nprogram.parse();\n`,
+                                content: `#!/usr/bin/env node\n\n/**\n * ${projectName} — CLI Tool\n */\n\nimport { Command } from 'commander';\n\nconst program = new Command();\n\nprogram\n\t.name('${this.sanitizePackageName(projectName)}')\n\t.description('${projectName} CLI tool')\n\t.version('0.1.0');\n\nprogram\n\t.command('hello')\n\t.description('Say hello')\n\t.option('-n, --name <name>', 'your name', 'World')\n\t.action((options) => {\n\t\tconsole.log(\`Hello, \${options.name}!\`);\n\t});\n\nprogram.parse();\n`,
                         },
                         {
                                 path: '.gitignore',
@@ -823,7 +824,7 @@ export class ConstructProjectServiceImpl extends Disposable implements IConstruc
                 try {
                         const uri = URI.file(registryPath);
                         const content = await this.fileService.readFile(uri);
-                        return JSON.parse(new TextDecoder().decode(content.value)) as IGlobalRegistryEntry[];
+                        return JSON.parse(new TextDecoder().decode(content.value.buffer)) as IGlobalRegistryEntry[];
                 } catch {
                         return [];
                 }
@@ -847,7 +848,7 @@ export class ConstructProjectServiceImpl extends Disposable implements IConstruc
 
                         const uri = URI.file(registryPath);
                         const content = JSON.stringify(entries, null, 2);
-                        await this.fileService.writeFile(uri, new TextEncoder().encode(content));
+                        await this.fileService.writeFile(uri, VSBuffer.wrap(new TextEncoder().encode(content)));
                 } catch (error) {
                         this.logService.warn(`[ConstructProject] Failed to write global registry: ${error instanceof Error ? error.message : String(error)}`);
                 }

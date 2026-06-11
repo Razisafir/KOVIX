@@ -16,11 +16,13 @@ import { AIProviderType } from '../../../../../../platform/construct/common/llm/
 
 // Storage keys for non-sensitive configuration
 const STORAGE_KEY_PREFIX = 'construct.keyManager';
-// P0-2: Generic cloud API key storage key for CloudProvider backward compatibility
+// Legacy plaintext key storage key (used by old CloudProvider — DO NOT write new keys here)
 const STORAGE_KEY_CLOUD_API_KEY = 'construct.cloud.apiKey';
 const MASKED_KEY_STORAGE_KEY = `${STORAGE_KEY_PREFIX}.maskedKeys`;
 const ACTIVE_PROVIDER_STORAGE_KEY = `${STORAGE_KEY_PREFIX}.activeProvider`;
 const PROVIDERS_STORAGE_KEY = `${STORAGE_KEY_PREFIX}.providers`;
+// Flag to ensure one-time migration runs only once
+const MIGRATION_DONE_KEY = `${STORAGE_KEY_PREFIX}.migrationDone`;
 
 // Secret storage key prefix for actual API keys
 const SECRET_KEY_PREFIX = 'construct.apiKey';
@@ -109,6 +111,10 @@ export class SecureKeyManagerService extends Disposable implements ISecureKeyMan
                                 this.logService.info(`[SecureKeyManager] Synced active provider from AIService: ${providerType} -> ${llmProvider}`);
                         }
                 }));
+
+                // One-time migration: move any plaintext API keys from IStorageService
+                // into ISecretStorageService (OS keychain) and delete the plaintext copies.
+                this.migratePlaintextKeys();
         }
 
         // ─── Key CRUD ────────────────────────────────────────────────────────────────
@@ -129,14 +135,9 @@ export class SecureKeyManagerService extends Disposable implements ISecureKeyMan
                 const masked = this.computeMaskedDisplay(key);
                 this.storeMaskedKey(provider, masked);
 
-                // P0-2 FIX: Sync to IStorageService so CloudProvider (pre-migration) still works
-                const storageKey = `construct.${provider}.apiKey`;
-                this.storageService.store(storageKey, key, StorageScope.PROFILE, StorageTarget.MACHINE);
-
-                // P0-2 FIX: Also sync the generic cloud key for CloudProvider backward compatibility
-                if (provider === 'openai' || provider === 'anthropic' || provider === 'litellm' || provider === 'custom') {
-                        this.storageService.store(STORAGE_KEY_CLOUD_API_KEY, key, StorageScope.APPLICATION, StorageTarget.MACHINE);
-                }
+                // SECURITY: API keys are ONLY stored in ISecretStorageService (OS keychain).
+                // No plaintext key values are written to IStorageService (state.vscdb).
+                // CloudProvider and other consumers must use ISecureKeyManager to retrieve keys.
 
                 this.logService.info(`[SecureKeyManager] API key stored for provider: ${provider}`);
                 this._onDidChangeKey.fire(provider);
@@ -149,6 +150,8 @@ export class SecureKeyManagerService extends Disposable implements ISecureKeyMan
                         return cached;
                 }
 
+                // SECURITY: Keys are ONLY retrieved from ISecretStorageService (OS keychain).
+                // No fallback to IStorageService — plaintext key storage is prohibited.
                 const secretKey = this.getSecretKey(provider);
                 const value = await this.secretStorageService.get(secretKey);
 
@@ -170,7 +173,8 @@ export class SecureKeyManagerService extends Disposable implements ISecureKeyMan
                 // Remove masked display
                 this.removeMaskedKey(provider);
 
-                // P0-2 FIX: Clean up IStorageService sync entries on delete
+                // Clean up any legacy plaintext entries from IStorageService
+                // (from before migration to ISecretStorageService-only storage)
                 const storageKey = `construct.${provider}.apiKey`;
                 this.storageService.remove(storageKey, StorageScope.PROFILE);
                 if (provider === 'openai' || provider === 'anthropic' || provider === 'litellm' || provider === 'custom') {
@@ -573,5 +577,80 @@ export class SecureKeyManagerService extends Disposable implements ISecureKeyMan
         override dispose(): void {
                 this.keyCache.clear();
                 super.dispose();
+        }
+
+        // ─── One-time Migration ────────────────────────────────────────────────────
+
+        /**
+         * Migrate any API keys stored in plaintext (IStorageService / state.vscdb)
+         * to ISecretStorageService (OS keychain), then delete the plaintext copies.
+         *
+         * This runs once per application scope. The MIGRATION_DONE_KEY flag prevents
+         * re-running on every startup.
+         */
+        private async migratePlaintextKeys(): Promise<void> {
+                const migrationDone = this.storageService.get(MIGRATION_DONE_KEY, StorageScope.APPLICATION);
+                if (migrationDone === 'true') {
+                        return;
+                }
+
+                let migrated = 0;
+
+                try {
+                        // 1. Migrate the generic cloud API key (construct.cloud.apiKey)
+                        const cloudKey = this.storageService.get(STORAGE_KEY_CLOUD_API_KEY, StorageScope.APPLICATION);
+                        if (cloudKey) {
+                                // Determine which provider this key belongs to based on prefix
+                                let provider: LLMProvider | undefined;
+                                if (cloudKey.startsWith('sk-ant-')) {
+                                        provider = 'anthropic';
+                                } else if (cloudKey.startsWith('sk-')) {
+                                        provider = 'openai';
+                                } else {
+                                        // Generic key — store under 'openai' as default cloud provider
+                                        provider = 'openai';
+                                }
+
+                                const secretKey = this.getSecretKey(provider);
+                                const existing = await this.secretStorageService.get(secretKey);
+                                if (!existing) {
+                                        await this.secretStorageService.set(secretKey, cloudKey);
+                                }
+                                // Delete the plaintext copy
+                                this.storageService.remove(STORAGE_KEY_CLOUD_API_KEY, StorageScope.APPLICATION);
+                                migrated++;
+                                this.logService.info(`[SecureKeyManager] Migrated API key to secure storage (provider: ${provider})`);
+                        }
+
+                        // 2. Migrate per-provider keys (construct.{provider}.apiKey)
+                        const providerTypes: LLMProvider[] = ['openai', 'anthropic', 'litellm', 'custom'];
+                        for (const p of providerTypes) {
+                                const storageKey = `construct.${p}.apiKey`;
+                                const plainKey = this.storageService.get(storageKey, StorageScope.PROFILE);
+                                if (plainKey) {
+                                        const secretKey = this.getSecretKey(p);
+                                        const existing = await this.secretStorageService.get(secretKey);
+                                        if (!existing) {
+                                                await this.secretStorageService.set(secretKey, plainKey);
+                                        }
+                                        // Delete the plaintext copy
+                                        this.storageService.remove(storageKey, StorageScope.PROFILE);
+                                        migrated++;
+                                        this.logService.info(`[SecureKeyManager] Migrated API key to secure storage (provider: ${p})`);
+                                }
+                        }
+
+                        // 3. Mark migration as done
+                        this.storageService.store(MIGRATION_DONE_KEY, 'true', StorageScope.APPLICATION, StorageTarget.MACHINE);
+
+                        if (migrated > 0) {
+                                this.logService.info(`[SecureKeyManager] Migration complete: ${migrated} API key(s) moved from plaintext to OS keychain`);
+                        } else {
+                                this.logService.trace('[SecureKeyManager] No plaintext API keys found to migrate');
+                        }
+                } catch (error) {
+                        this.logService.error(`[SecureKeyManager] Key migration failed: ${error instanceof Error ? error.message : String(error)}`);
+                        // Don't set migration flag so it retries next startup
+                }
         }
 }

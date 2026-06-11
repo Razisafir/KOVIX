@@ -37,7 +37,7 @@ import { redactSecrets } from '../../../../../../platform/construct/common/secur
 import { IPendingChangesService } from '../../../../../../platform/construct/common/diff/pendingChanges.js';
 import { IUniversalMemoryService } from '../../../../../../platform/construct/common/memory/universalMemoryService.js';
 import { IObsidianMemoryService } from '../../../../../../platform/construct/common/memory/obsidianMemoryService.js';
-import { IConstructToolRegistry, IToolDefinition as IRegistryToolDefinition } from '../../../../../../platform/construct/common/tools/constructToolRegistry.js';
+import { IConstructToolRegistry } from '../../../../../../platform/construct/common/tools/constructToolRegistry.js';
 // H3: Prompt sanitizer for memory injection prevention
 import { sanitizeMemoryContext } from '../../../../../../platform/construct/common/agent/promptSanitizer.js';
 
@@ -190,6 +190,9 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
         private _executionConfig: { mode: ExecutionMode; selectedMilestoneIds?: string[] } | null = null;
         private _milestoneResumeResolver: (() => void) | null = null;
         private _currentPlanContext: string | null = null;
+        get currentPlanContext(): string | null {
+                return this._currentPlanContext;
+        }
         private _completedMilestoneIds: Set<string> = new Set();
 
         constructor(
@@ -737,7 +740,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                 this._executionState = ExecutionState.Error;
                         }
                 };
-                runAsync();
+                runAsync().catch(err => { this._executionState = ExecutionState.Error; this._onError.fire({ text: err instanceof Error ? err.message : String(err), recoverable: false }); this.logService.error('[AgentLoop] startExecution failed:', err); });
         }
 
         /**

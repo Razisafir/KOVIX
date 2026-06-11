@@ -118,10 +118,25 @@ export class MCPConnectionPool extends Disposable {
                 try {
                         if (def.transport === MCPTransportType.Stdio) {
                                 const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
+                                // Security (F-C-002): Do NOT spread process.env — it contains host secrets
+                                const minimalEnv: Record<string, string> = {
+                                        PATH: process.env.PATH || '',
+                                        HOME: process.env.HOME || '',
+                                        USER: process.env.USER || '',
+                                        TEMP: process.env.TEMP || process.env.TMP || '',
+                                        TMPDIR: process.env.TMPDIR || '',
+                                        ...(process.platform === 'win32' ? {
+                                                SYSTEMROOT: process.env.SYSTEMROOT || '',
+                                                COMSPEC: process.env.COMSPEC || '',
+                                                PROGRAMFILES: process.env.PROGRAMFILES || '',
+                                        } : {}),
+                                        // Only pass MCP-server-specific env vars from the definition
+                                        ...(def.env || {}),
+                                };
                                 transport = new StdioClientTransport({
                                         command: def.command,
                                         args: def.args,
-                                        env: { ...process.env as Record<string, string>, ...def.env }
+                                        env: minimalEnv
                                 });
                         } else {
                                 const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js');
@@ -197,8 +212,23 @@ export class MCPConnectionPool extends Disposable {
                 const { spawn } = await import('child_process');
                 const def = entry.definition;
 
+                // Security (F-C-002): Do NOT spread process.env — it contains host secrets
+                const minimalEnv: Record<string, string> = {
+                        PATH: process.env.PATH || '',
+                        HOME: process.env.HOME || '',
+                        USER: process.env.USER || '',
+                        TEMP: process.env.TEMP || process.env.TMP || '',
+                        TMPDIR: process.env.TMPDIR || '',
+                        ...(process.platform === 'win32' ? {
+                                SYSTEMROOT: process.env.SYSTEMROOT || '',
+                                COMSPEC: process.env.COMSPEC || '',
+                                PROGRAMFILES: process.env.PROGRAMFILES || '',
+                        } : {}),
+                        // Only pass MCP-server-specific env vars from the definition
+                        ...(def.env || {}),
+                };
                 const childProcess: any = spawn(def.command, def.args, {
-                        env: { ...process.env as Record<string, string>, ...def.env },
+                        env: minimalEnv,
                         stdio: ['pipe', 'pipe', 'pipe']
                 });
 
@@ -360,10 +390,25 @@ export class MCPConnectionPool extends Disposable {
 
                 if (def.transport === MCPTransportType.Stdio) {
                         const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
+                        // Security (F-C-002): Do NOT spread process.env — it contains host secrets
+                        const minimalEnv: Record<string, string> = {
+                                PATH: process.env.PATH || '',
+                                HOME: process.env.HOME || '',
+                                USER: process.env.USER || '',
+                                TEMP: process.env.TEMP || process.env.TMP || '',
+                                TMPDIR: process.env.TMPDIR || '',
+                                ...(process.platform === 'win32' ? {
+                                        SYSTEMROOT: process.env.SYSTEMROOT || '',
+                                        COMSPEC: process.env.COMSPEC || '',
+                                        PROGRAMFILES: process.env.PROGRAMFILES || '',
+                                } : {}),
+                                // Only pass MCP-server-specific env vars from the definition
+                                ...(def.env || {}),
+                        };
                         transport = new StdioClientTransport({
                                 command: def.command,
                                 args: def.args,
-                                env: { ...process.env as Record<string, string>, ...def.env }
+                                env: minimalEnv
                         });
                 } else {
                         const { SSEClientTransport } = await import('@modelcontextprotocol/sdk/client/sse.js');
