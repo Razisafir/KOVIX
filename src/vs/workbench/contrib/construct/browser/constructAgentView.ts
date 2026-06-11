@@ -713,7 +713,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 approveBtn.onclick = async () => {
                         // Show stop mode picker
-                        const milestones = (this.agentLoop as any).extractMilestonesFromPlan?.(plan.steps) ?? [];
+                        const milestones = this.agentLoop.extractMilestonesFromPlan(plan.steps);
                         const selectedMode = await showStopModePicker(this.quickInputService, milestones);
                         if (!selectedMode) { return; } // cancelled
 

@@ -78,7 +78,7 @@ import { ConstructProjectServiceImpl } from './services/project/constructProject
 import { IIdeaRefinementService } from '../../../../platform/construct/common/agent/ideaRefinementService.js';
 import { IdeaRefinementServiceImpl } from './services/agent/ideaRefinementServiceImpl.js';
 import { IUniversalMemoryService } from '../../../../platform/construct/common/memory/universalMemoryService.js';
-import { UniversalMemoryServiceImpl } from './services/memory/universalMemoryService.js';
+import { UniversalMemoryService } from './services/memory/universalMemoryService.js';
 import { IConstructSessionService } from '../../../../platform/construct/common/session/constructSessionService.js';
 import { ConstructSessionServiceImpl } from './services/session/constructSessionServiceImpl.js';
 import { showProjectWizard } from './constructProjectWizard.js';
@@ -613,7 +613,7 @@ registerSingleton(IConstructNotificationService, ConstructNotificationBrowserSer
 // --- Feature Build: Project, Idea Refinement, Universal Memory, Session -----------
 registerSingleton(IConstructProjectService, ConstructProjectServiceImpl, InstantiationType.Delayed);
 registerSingleton(IIdeaRefinementService, IdeaRefinementServiceImpl, InstantiationType.Delayed);
-registerSingleton(IUniversalMemoryService, UniversalMemoryServiceImpl, InstantiationType.Delayed);
+registerSingleton(IUniversalMemoryService, UniversalMemoryService, InstantiationType.Delayed);
 registerSingleton(IConstructSessionService, ConstructSessionServiceImpl, InstantiationType.Delayed);
 
 // --- Feature Build: Project Commands -----------------------------------------

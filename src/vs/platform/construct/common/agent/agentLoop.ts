@@ -172,4 +172,14 @@ export interface IAgentLoop {
          * The current milestone being executed, if paused.
          */
         readonly currentMilestone: IMilestone | null;
+
+        /**
+         * Extract milestones from a plan's steps.
+         * Groups plan steps into logical milestones based on action type
+         * and target patterns.
+         *
+         * @param steps The plan steps from a planning result.
+         * @returns Array of milestones with their associated steps.
+         */
+        extractMilestonesFromPlan(steps: IPlanStep[]): IMilestone[];
 }

@@ -79,4 +79,20 @@ export interface IConstructSessionService {
          * Rename a session.
          */
         renameSession(id: string, newTitle: string): Promise<void>;
+
+        /**
+         * Auto-generate a session title from the first user message.
+         * Only updates the title if it is still the default.
+         */
+        updateSessionFromFirstMessage(sessionId: string, firstMessage: string): void;
+
+        /**
+         * Increment the message count for a session.
+         */
+        incrementMessageCount(sessionId: string): void;
+
+        /**
+         * Update the provider/model info for a session.
+         */
+        updateSessionProviderInfo(sessionId: string, providerType?: string, modelId?: string): void;
 }
