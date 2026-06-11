@@ -4,7 +4,7 @@
 - [x] README.md updated (no longer says "Microsoft")
 - [x] CHANGELOG.md created
 - [x] PRIVACY.md created
-- [ ] SECURITY.md updated
+- [x] SECURITY.md updated
 - [x] Logo/icon assets replaced in resources/
 - [x] GitHub Actions release workflow created
 - [x] product.json privacyStatementUrl filled in

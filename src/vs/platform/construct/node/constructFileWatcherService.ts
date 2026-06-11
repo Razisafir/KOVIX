@@ -5,6 +5,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
+import * as path from '../../../base/common/path.js';
 import { IFileWatcherService, IFileChangeEvent, IFileChangeBatch, IFileWatcherConfig, FileChangeType } from '../common/watcher/fileWatcherService.js';
 import { ILogService } from '../../log/common/log.js';
 import { Emitter } from '../../../base/common/event.js';
@@ -17,170 +19,171 @@ import { join } from '../../../base/common/path.js';
  * Default file watcher configuration.
  */
 const DEFAULT_CONFIG: IFileWatcherConfig = {
-        debounceMs: 100,
-        animateAppearance: true,
-        animationDurationMs: 200,
-        ignorePatterns: ['**/node_modules/**', '**/.git/**', '**/.construct/**'],
+	debounceMs: 300,
+	animateAppearance: true,
+	animationDurationMs: 200,
+	ignorePatterns: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/.construct/**'],
 };
+
+/**
+ * Directories to exclude from recursive watching.
+ */
+const EXCLUDED_DIRS = new Set(['node_modules', '.git', 'dist', '.construct']);
+
+/**
+ * Check if a file path should be excluded from watching.
+ */
+function isExcluded(filePath: string): boolean {
+	const segments = filePath.split(/[/\\]/);
+	return segments.some(seg => EXCLUDED_DIRS.has(seg));
+}
 
 /**
  * Node-layer file watcher service using fs.watch.
  * Provides reliable filesystem event streaming with debounce.
- * P2: This is a future-facing implementation. Browser-side FileWatcherService
- * currently uses VS Code's built-in file watcher.
  */
 export class FileWatcherNodeService extends Disposable implements IFileWatcherService {
-        declare readonly _serviceBrand: undefined;
+	declare readonly _serviceBrand: undefined;
 
-        private _isWatching = false;
-        private readonly _watchers = new Map<string, { close(): void }>();
-        private _config: IFileWatcherConfig = { ...DEFAULT_CONFIG };
+	private _isWatching = false;
+	private readonly _watchers = new Map<string, { close(): void }>();
+	private _config: IFileWatcherConfig = { ...DEFAULT_CONFIG };
 
-        // Debounce state
-        private _pendingChanges: IFileChangeEvent[] = [];
-        private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
-        private _coalescedCount = 0;
+	// Debounce state
+	private _pendingChanges: IFileChangeEvent[] = [];
+	private _debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private _coalescedCount = 0;
 
-        private readonly _onDidChangeFiles = this._register(new Emitter<IFileChangeBatch>());
-        readonly onDidChangeFiles = this._onDidChangeFiles.event;
+	private readonly _onDidChangeFiles = this._register(new Emitter<IFileChangeBatch>());
+	readonly onDidChangeFiles = this._onDidChangeFiles.event;
 
-        constructor(
-                @ILogService private readonly logService: ILogService,
-        ) {
-                super();
-                this.logService.info('[FileWatcherNode] Service created');
-        }
+	constructor(
+		@ILogService private readonly logService: ILogService,
+	) {
+		super();
+		this.logService.info('[FileWatcherNode] Service created');
+	}
 
-        get isWatching(): boolean { return this._isWatching; }
+	get isWatching(): boolean { return this._isWatching; }
 
-        get config(): IFileWatcherConfig { return this._config; }
+	get config(): IFileWatcherConfig { return this._config; }
 
-        updateConfig(config: Partial<IFileWatcherConfig>): void {
-                this._config = { ...this._config, ...config };
-                this.logService.info(`[FileWatcherNode] Config updated: debounceMs=${this._config.debounceMs}`);
-        }
+	updateConfig(config: Partial<IFileWatcherConfig>): void {
+		this._config = { ...this._config, ...config };
+		this.logService.info(`[FileWatcherNode] Config updated: debounceMs=${this._config.debounceMs}`);
+	}
 
-        startWatching(workspaceRoot: URI): void {
-                if (this._isWatching) { return; }
-                this._isWatching = true;
-                this.logService.info(`[FileWatcherNode] Starting file watching for: ${workspaceRoot.fsPath}`);
+	startWatching(workspaceRoot: URI): void {
+		if (this._isWatching) { return; }
+		this._isWatching = true;
+		this.logService.info(`[FileWatcherNode] Started watching: ${workspaceRoot.fsPath}`);
 
-                const watchPath = workspaceRoot.fsPath;
-                let pendingFileChanges = new Map<string, FileChangeType>();
-                let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+		try {
+			// Use fs.watch with recursive: true for efficient directory watching
+			const watcher = fs.watch(
+				workspaceRoot.fsPath,
+				{ recursive: true },
+				(eventType: string, filename: string | null) => {
+					if (!filename) { return; }
 
-                const flushFileChanges = () => {
-                        for (const [filePath, changeType] of pendingFileChanges) {
-                                switch (changeType) {
-                                        case 'created':
-                                                this.notifyAgentFileCreated(URI.file(filePath));
-                                                break;
-                                        case 'modified':
-                                                this.notifyAgentFileModified(URI.file(filePath));
-                                                break;
-                                        case 'deleted':
-                                                this.notifyAgentFileDeleted(URI.file(filePath));
-                                                break;
-                                }
-                        }
-                        pendingFileChanges.clear();
-                        debounceTimer = null;
-                };
+					// Skip excluded directories
+					if (isExcluded(filename)) { return; }
 
-                try {
-                        const fsWatcher = watch(watchPath, { recursive: true }, (eventType, filename) => {
-                                if (!filename) { return; }
-                                // Skip ignored patterns
-                                if (this._shouldIgnore(filename)) { return; }
+					// Build the full URI for the changed file
+					const fullPath = path.join(workspaceRoot.fsPath, filename);
+					const fileUri = URI.file(fullPath);
 
-                                const fullPath = join(watchPath, filename);
+					// Map fs.watch event types to our FileChangeType
+					// 'rename' covers both creation and deletion; 'change' is modification
+					if (eventType === 'rename') {
+						// Determine if file was created or deleted by checking existence
+						fs.access(fullPath, fs.constants.F_OK, (err) => {
+							if (err) {
+								// File doesn't exist → deleted
+								this.notifyAgentFileDeleted(fileUri);
+							} else {
+								// File exists → created (could also be a rename-to)
+								this.notifyAgentFileCreated(fileUri);
+							}
+						});
+					} else if (eventType === 'change') {
+						this.notifyAgentFileModified(fileUri);
+					}
+				}
+			);
 
-                                // Map fs.watch event types to our FileChangeType
-                                let changeType: FileChangeType;
-                                if (eventType === 'rename') {
-                                        // 'rename' can mean create or delete; we'll treat it as create.
-                                        // The notifyAgentFile* methods add to the debounced pipeline,
-                                        // so a subsequent modification will correct the type.
-                                        changeType = 'created';
-                                } else {
-                                        changeType = 'modified';
-                                }
+			// Handle watcher errors
+			watcher.on('error', (err) => {
+				this.logService.error(`[FileWatcherNode] Watcher error: ${err instanceof Error ? err.message : String(err)}`);
+			});
 
-                                pendingFileChanges.set(fullPath, changeType);
+			// Store the watcher so it can be closed later
+			this._watchers.set(workspaceRoot.fsPath, watcher);
 
-                                if (debounceTimer) { clearTimeout(debounceTimer); }
-                                debounceTimer = setTimeout(flushFileChanges, 300);
-                        });
+			this.logService.info(`[FileWatcherNode] fs.watch recursive active on ${workspaceRoot.fsPath}`);
+		} catch (err) {
+			this.logService.error(`[FileWatcherNode] Failed to start fs.watch: ${err instanceof Error ? err.message : String(err)}`);
+			this._isWatching = false;
+		}
+	}
 
-                        this._watchers.set(workspaceRoot.toString(), { close: () => fsWatcher.close() });
-                        this.logService.info(`[FileWatcherNode] fs.watch active on: ${watchPath}`);
-                } catch (error) {
-                        this.logService.error('[FileWatcherNode] Failed to start watching:', error);
-                        this._isWatching = false;
-                }
-        }
+	stopWatching(): void {
+		for (const [, watcher] of this._watchers) {
+			try { watcher.close(); } catch { /* ignore */ }
+		}
+		this._watchers.clear();
+		this._isWatching = false;
+		if (this._debounceTimer) {
+			clearTimeout(this._debounceTimer);
+			this._debounceTimer = null;
+		}
+		this._pendingChanges = [];
+		this.logService.info('[FileWatcherNode] Stopped watching');
+	}
 
-        private _shouldIgnore(filename: string): boolean {
-                const ignorePatterns = ['node_modules', '.git', 'dist', '.construct', '__pycache__', '.next', '.DS_Store'];
-                return ignorePatterns.some(pattern => filename.includes(pattern));
-        }
+	notifyAgentFileCreated(uri: URI): void {
+		this._addChange(uri, 'created');
+	}
 
-        stopWatching(): void {
-                for (const [, watcher] of this._watchers) {
-                        try { watcher.close(); } catch { /* ignore */ }
-                }
-                this._watchers.clear();
-                this._isWatching = false;
-                if (this._debounceTimer) {
-                        clearTimeout(this._debounceTimer);
-                        this._debounceTimer = null;
-                }
-                this._pendingChanges = [];
-        }
+	notifyAgentFileModified(uri: URI): void {
+		this._addChange(uri, 'modified');
+	}
 
-        notifyAgentFileCreated(uri: URI): void {
-                this._addChange(uri, 'created');
-        }
+	notifyAgentFileDeleted(uri: URI): void {
+		this._addChange(uri, 'deleted');
+	}
 
-        notifyAgentFileModified(uri: URI): void {
-                this._addChange(uri, 'modified');
-        }
+	private _addChange(uri: URI, type: FileChangeType): void {
+		this._pendingChanges.push({ uri, type, timestamp: Date.now() });
+		this._coalescedCount++;
 
-        notifyAgentFileDeleted(uri: URI): void {
-                this._addChange(uri, 'deleted');
-        }
+		// Debounce: reset timer
+		if (this._debounceTimer) {
+			clearTimeout(this._debounceTimer);
+		}
+		this._debounceTimer = setTimeout(() => {
+			this._flushChanges();
+		}, this._config.debounceMs);
+	}
 
-        private _addChange(uri: URI, type: FileChangeType): void {
-                this._pendingChanges.push({ uri, type, timestamp: Date.now() });
-                this._coalescedCount++;
+	private _flushChanges(): void {
+		if (this._pendingChanges.length === 0) { return; }
 
-                // Debounce: reset timer
-                if (this._debounceTimer) {
-                        clearTimeout(this._debounceTimer);
-                }
-                this._debounceTimer = setTimeout(() => {
-                        this._flushChanges();
-                }, this._config.debounceMs);
-        }
+		const batch: IFileChangeBatch = {
+			changes: [...this._pendingChanges],
+			timestamp: Date.now(),
+			coalescedCount: this._coalescedCount,
+		};
 
-        private _flushChanges(): void {
-                if (this._pendingChanges.length === 0) { return; }
+		this._pendingChanges = [];
+		this._coalescedCount = 0;
+		this._debounceTimer = null;
 
-                const batch: IFileChangeBatch = {
-                        changes: [...this._pendingChanges],
-                        timestamp: Date.now(),
-                        coalescedCount: this._coalescedCount,
-                };
+		this._onDidChangeFiles.fire(batch);
+	}
 
-                this._pendingChanges = [];
-                this._coalescedCount = 0;
-                this._debounceTimer = null;
-
-                this._onDidChangeFiles.fire(batch);
-        }
-
-        override dispose(): void {
-                this.stopWatching();
-                super.dispose();
-        }
+	override dispose(): void {
+		this.stopWatching();
+		super.dispose();
+	}
 }

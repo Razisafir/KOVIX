@@ -36,6 +36,10 @@ import { redactSecrets } from '../../../../../../platform/construct/common/secur
 // P0-5: In-memory staging for agent-proposed changes
 import { IPendingChangesService } from '../../../../../../platform/construct/common/diff/pendingChanges.js';
 import { IUniversalMemoryService } from '../../../../../../platform/construct/common/memory/universalMemoryService.js';
+import { IObsidianMemoryService } from '../../../../../../platform/construct/common/memory/obsidianMemoryService.js';
+import { IConstructToolRegistry, IToolDefinition as IRegistryToolDefinition } from '../../../../../../platform/construct/common/tools/constructToolRegistry.js';
+// H3: Prompt sanitizer for memory injection prevention
+import { sanitizeMemoryContext } from '../../../../../../platform/construct/common/agent/promptSanitizer.js';
 
 const MAX_ROUNDS = 15;
 
@@ -170,6 +174,9 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
         private readonly _onFileChange = this._register(new Emitter<FileChangeEntry>());
         readonly onFileChange = this._onFileChange.event;
 
+        /** H2: Multi-turn conversation history preserved across run() calls. */
+        private _conversationHistory: IChatMessage[] = [];
+
         /** Active snapshot ID for the current task (for undo support). */
         private _activeSnapshotId: string | null = null;
 
@@ -199,9 +206,11 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                 @IPendingChangesService private readonly pendingChanges: IPendingChangesService,
                 @IMCPServerManager private readonly mcpServerManager: IMCPServerManager,
                 @IUniversalMemoryService private readonly universalMemory: IUniversalMemoryService,
+                @IObsidianMemoryService private readonly obsidianMemory: IObsidianMemoryService,
+                @IConstructToolRegistry private readonly toolRegistry: IConstructToolRegistry,
         ) {
                 super();
-                this.logService.info('[AgentLoop] Service created with error recovery, snapshots, file watcher, pending changes, and universal memory');
+                this.logService.info('[AgentLoop] Service created with error recovery, snapshots, file watcher, pending changes, universal memory, obsidian memory, and tool registry');
         }
 
         get isRunning(): boolean {
@@ -214,6 +223,15 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
         get currentMilestone(): IMilestone | null {
                 return this._currentMilestone;
+        }
+
+        /**
+         * H2: Clear the multi-turn conversation history.
+         * Called when the user starts a new chat session.
+         */
+        clearConversationHistory(): void {
+                this._conversationHistory = [];
+                this.logService.info('[AgentLoop] Conversation history cleared');
         }
 
         async runPlanningPhase(task: string, signal?: AbortSignal): Promise<IPlanResult> {
@@ -263,7 +281,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
                                 const stream = this.aiService.chat(
                                         conversationMessages,
-                                        PLANNING_TOOLS,
+                                        this.getAllPlanningTools(),
                                         { signal: timeoutController.signal, systemPrompt }
                                 );
 
@@ -297,7 +315,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
                                                         // Execute the tool ONCE and cache the result
                                                         if (!toolResultCache.has(event.toolId)) {
-                                                                const toolResult = await this.executeTool(event.toolName, event.toolInput, true);
+                                                                                                const toolResult = await this.executeTool(event.toolName, event.toolInput, true, signal);
                                                                 toolResultCache.set(event.toolId, {
                                                                         output: toolResult,
                                                                         isError: toolResult.startsWith('Error:'),
@@ -336,7 +354,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                                         // Fallback: should not happen, but execute once if cache miss
                                                         this.logService.warn(`[AgentLoop] Cache miss for tool ${toolCall.id}, executing as fallback`);
                                                         const input = JSON.parse(toolCall.arguments);
-                                                        const result = await this.executeTool(toolCall.name, input, true);
+                                                        const result = await this.executeTool(toolCall.name, input, true, signal);
                                                         conversationMessages.push({
                                                                 role: 'tool',
                                                                 content: result,
@@ -401,7 +419,13 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                         // Build system prompt with memory context
                         const systemPrompt = await this.buildSystemPrompt(task, false);
 
+                        // Record conversation turn in Obsidian memory
+                        const sessionId = `agent-${Date.now()}`;
+                        this.obsidianMemory.recordConversationTurn(sessionId, 'user', task);
+
+                        // H2: Prepend conversation history so multi-turn context is preserved
                         const conversationMessages: IChatMessage[] = [
+                                ...this._conversationHistory,
                                 {
                                         role: 'user',
                                         content: task
@@ -432,7 +456,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
                                 const stream = this.aiService.chat(
                                         conversationMessages,
-                                        AGENT_TOOLS,
+                                        this.getAllTools(),
                                         { signal: timeoutController.signal, systemPrompt }
                                 );
 
@@ -476,7 +500,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                                         yield { type: 'tool_executing', toolId: event.toolId, toolName: event.toolName, detail: 'Executing...' };
 
                                                         // Execute the tool with error recovery
-                                                        let toolResult = await this.executeTool(event.toolName, event.toolInput, false);
+                                                        let toolResult = await this.executeTool(event.toolName, event.toolInput, false, signal);
                                                         let success = !toolResult.startsWith('Error:');
 
                                                         // Error recovery: if tool failed, attempt recovery
@@ -592,6 +616,25 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
                                 // If end_turn or no more tool calls, we're done
                                 if (stopReason === 'end_turn' || !hasToolCalls) {
+                                        // H2: Append user message and assistant response to conversation history
+                                        this._conversationHistory.push({ role: 'user', content: task });
+                                        this._conversationHistory.push({ role: 'assistant', content: currentText || finalSummary || 'Task completed.' });
+
+                                        // H2: Cap conversation history at 50 messages, keeping first system message if any
+                                        const MAX_HISTORY = 50;
+                                        if (this._conversationHistory.length > MAX_HISTORY) {
+                                                const firstMsg = this._conversationHistory[0];
+                                                const isSystem = firstMsg?.role === 'system';
+                                                if (isSystem) {
+                                                        // Keep the system message + most recent (MAX_HISTORY - 1) messages
+                                                        this._conversationHistory = [
+                                                                firstMsg,
+                                                                ...this._conversationHistory.slice(-(MAX_HISTORY - 1))
+                                                        ];
+                                                } else {
+                                                        this._conversationHistory = this._conversationHistory.slice(-MAX_HISTORY);
+                                                }
+                                        }
                                         break;
                                 }
                         }
@@ -607,6 +650,12 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                         // Auto-extract universal memory from completed task
                         if (this.universalMemory && finalSummary) {
                                 this.universalMemory.autoExtractFromTask(task, finalSummary.substring(0, 500)).catch(() => { /* non-critical */ });
+                        }
+
+                        // Record assistant turn and auto-extract from Obsidian memory
+                        if (finalSummary) {
+                                this.obsidianMemory.recordConversationTurn(sessionId, 'assistant', finalSummary.substring(0, 500));
+                                this.obsidianMemory.autoExtractFromConversation(sessionId).catch(() => { /* non-critical */ });
                         }
 
                         yield { type: 'complete', summary: finalSummary || 'Task completed.' };
@@ -860,8 +909,23 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
         /**
          * Execute a tool and return the result as a string.
          */
-        private async executeTool(name: string, input: unknown, readOnly: boolean): Promise<string> {
+        private async executeTool(name: string, input: unknown, readOnly: boolean, signal?: AbortSignal): Promise<string> {
                 const args = (input as Record<string, string> | null) ?? {};
+
+                // Try tool registry first
+                try {
+                        const registryTool = this.toolRegistry?.getTool(name);
+                        if (registryTool) {
+                                const result = await this.toolRegistry.execute(name, args as Record<string, unknown>, signal);
+                                if (result.success) {
+                                        return result.output;
+                                } else {
+                                        return `Error: ${result.output}`;
+                                }
+                        }
+                } catch {
+                        // Fall through to hardcoded implementation
+                }
 
                 try {
                         switch (name) {
@@ -914,7 +978,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         const command = args.command;
                                         if (!command) { return 'Error: command is required'; }
                                         const cwd = args.cwd;
-                                        const result = await this.terminalExecutor.execute(command, cwd, 60000);
+                                        const result = await this.terminalExecutor.execute(command, cwd, 60000, signal);
                                         let output = '';
                                         if (result.stdout) { output += result.stdout; }
                                         if (result.stderr) { output += (output ? '\n' : '') + result.stderr; }
@@ -977,7 +1041,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                                 const serverName = name.slice(0, separatorIndex);
                                                 const toolName = name.slice(separatorIndex + 2);
                                                 try {
-                                                        const result = await this.mcpServerManager.executeTool(serverName, toolName, args);
+                                                        const result = await this.mcpServerManager.executeTool(serverName, toolName, args, signal);
                                                         const raw = typeof result === 'string' ? result : JSON.stringify(result);
                                                         // SEC-6: Sanitise MCP tool output to prevent injection
                                                         // SEC-7: Redact secrets from MCP output
@@ -1028,8 +1092,8 @@ Guidelines:
                         try {
                                 const projectId = this.workspaceContextService.getWorkspace().folders[0]?.name ?? 'default';
                                 prompt = await this.memoryOrchestrator.injectContextIntoPrompt(prompt, projectId);
-                                // SEC-6: Sanitise the entire prompt after memory injection
-                                // We only sanitise the memory-injected portion, not the system prompt itself
+                                // H3: Sanitize memory-injected prompt to prevent injection attacks
+                                prompt = sanitizeMemoryContext(prompt);
                         } catch (error) {
                                 this.logService.warn('[AgentLoop] Memory context injection failed, using base prompt:', error instanceof Error ? error.message : String(error));
                         }
@@ -1040,10 +1104,26 @@ Guidelines:
                         try {
                                 const universalContext = await this.universalMemory.getContextForTask(task, 5);
                                 if (universalContext) {
-                                        prompt += `\n\n[Universal Knowledge]\n${universalContext}`;
+                                        // H3: Sanitize universal memory context before appending
+                                        const sanitizedContext = sanitizeMemoryContext(universalContext);
+                                        prompt += `\n\n[Universal Knowledge]\n${sanitizedContext}`;
                                 }
                         } catch (error) {
                                 this.logService.warn('[AgentLoop] Universal memory context injection failed:', error instanceof Error ? error.message : String(error));
+                        }
+                }
+
+                // Inject Obsidian memory context (persistent, editable memories)
+                if (this.obsidianMemory) {
+                        try {
+                                const obsidianContext = this.obsidianMemory.getRelevantContext(task, 5);
+                                if (obsidianContext) {
+                                        // H3: Sanitize Obsidian memory context before appending
+                                        const sanitizedContext = sanitizeMemoryContext(obsidianContext);
+                                        prompt += `\n\n${sanitizedContext}`;
+                                }
+                        } catch (error) {
+                                this.logService.warn('[AgentLoop] Obsidian memory context injection failed:', error instanceof Error ? error.message : String(error));
                         }
                 }
 
@@ -1105,6 +1185,52 @@ Guidelines:
                                 // Non-critical -- file explorer will refresh eventually via watchers
                         }
                 }
+        }
+
+        /**
+         * Merge hardcoded core tool definitions with any tools from the registry.
+         * Registry tools that share a name with a core tool are skipped to avoid
+         * duplicates (the core definition takes precedence for the LLM schema;
+         * execution still routes through the registry via executeTool()).
+         */
+        private getAllTools(): IToolDefinition[] {
+                const coreTools = AGENT_TOOLS;
+                const registryTools = this.toolRegistry?.listTools() ?? [];
+                const coreNames = new Set(coreTools.map(t => t.name));
+                const extraTools: IToolDefinition[] = registryTools
+                        .filter(t => !coreNames.has(t.name))
+                        .map(t => ({
+                                name: t.name,
+                                description: t.description,
+                                inputSchema: {
+                                        type: 'object' as const,
+                                        properties: t.inputSchema.properties as Record<string, unknown>,
+                                        required: t.inputSchema.required,
+                                },
+                        }));
+                return [...coreTools, ...extraTools];
+        }
+
+        /**
+         * Get planning-phase tools (read-only) plus any read-only registry tools.
+         */
+        private getAllPlanningTools(): IToolDefinition[] {
+                const corePlanning = PLANNING_TOOLS;
+                const registryTools = this.toolRegistry?.listTools() ?? [];
+                const coreNames = new Set(corePlanning.map(t => t.name));
+                // Only include registry tools that don't modify files for planning
+                const extraReadOnly: IToolDefinition[] = registryTools
+                        .filter(t => !coreNames.has(t.name) && !t.modifiesFiles)
+                        .map(t => ({
+                                name: t.name,
+                                description: t.description,
+                                inputSchema: {
+                                        type: 'object' as const,
+                                        properties: t.inputSchema.properties as Record<string, unknown>,
+                                        required: t.inputSchema.required,
+                                },
+                        }));
+                return [...corePlanning, ...extraReadOnly];
         }
 
         override dispose(): void {

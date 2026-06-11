@@ -2,53 +2,48 @@
 
 ## Reporting a Vulnerability
 
-We take security vulnerabilities seriously. If you discover a security issue in Kovix, please report it responsibly:
+We take security vulnerabilities seriously. If you discover a security vulnerability in Kovix, please report it responsibly.
 
-- **Email**: Send details to [security@kovix.dev](mailto:security@kovix.dev)
-- **GitHub**: Use the [Security Advisories](https://github.com/Razisafir/KOVIX/security/advisories) tab to privately report a vulnerability
+### How to Report
 
-Please do not file public issues for security vulnerabilities. We aim to acknowledge reports within 48 hours and provide a substantive response within 5 business days.
+- **GitHub Security Advisories**: Use [GitHub's private vulnerability reporting](https://github.com/Razisafir/KOVIX/security/advisories/new)
+- **Email**: Send details to security@kovix.dev (if configured)
+
+Please include:
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (if any)
+
+### Response Timeline
+
+- **Acknowledgment**: Within 48 hours
+- **Initial Assessment**: Within 5 business days
+- **Fix Development**: Depends on severity (Critical: 7 days, High: 14 days, Medium: 30 days)
+- **Disclosure**: After fix is released, or 90 days from report (whichever comes first)
 
 ## Supported Versions
 
 | Version | Supported |
 | ------- | --------- |
-| v1.0.x  | ✅ Yes    |
-| < v1.0  | ❌ No     |
-
-Only the latest patch release within the v1.0.x line receives security updates. We encourage all users to upgrade to the most recent release.
-
-## Security Update Policy
-
-- Security patches are released as patch versions (e.g., v1.0.1 → v1.0.2) and are published through the standard GitHub Releases workflow.
-- Critical vulnerabilities are addressed with the highest priority and typically patched within 72 hours of confirmation.
-- Medium and low-severity issues are triaged into the next scheduled release.
-- All security fixes are documented in [CHANGELOG.md](./CHANGELOG.md) and referenced in [SECURITY_AUDIT.md](./SECURITY_AUDIT.md).
-
-## Known Security Considerations
-
-### No Code Signing
-
-Kovix v1.0.x builds are **not code-signed**. This means:
-
-- **Windows**: SmartScreen will display a warning on first launch ("Windows protected your PC"). Users must click "More info" → "Run anyway" to proceed.
-- **macOS**: Gatekeeper will block the application on first launch. Users must right-click → "Open" or bypass via System Preferences → Security & Privacy.
-- We strongly recommend verifying SHA256 checksums (published with each release) before running unsigned binaries.
-
-### Prompt Injection Mitigations
-
-Kovix's AI agent system processes user input and file contents as LLM prompts. We implement the following mitigations against prompt injection:
-
-- **PromptSanitizer**: All memory context injected into conversations is sanitized to strip control patterns and injection attempts.
-- **Tool approval gates**: Agent tool calls (file write, terminal execution, security tools) require explicit user approval before execution.
-- **Path traversal protection**: All file operations validate paths remain within the workspace boundary.
-- **Terminal command blocklist**: Dangerous commands (`rm -rf /`, `sudo`, etc.) are blocked by the safety blocklist.
+| 1.0.x   | Yes       |
+| < 1.0   | No        |
 
 For technical details on the security architecture, see [SECURITY_AUDIT.md](./SECURITY_AUDIT.md).
 
-## Disclosure Policy
+Kovix implements the following security controls (SEC-1 through SEC-7):
+- SEC-1: API key encryption at rest (AES-256-GCM or Electron safeStorage)
+- SEC-2: Workspace guard prevents file operations outside workspace
+- SEC-3: Command allowlist for shell execution
+- SEC-4: Diff-based file application with user approval
+- SEC-5: Snapshot-based undo for all agent changes
+- SEC-6: Prompt injection mitigation (delimiter + sanitization)
+- SEC-7: Secret redaction in tool outputs
 
-- We follow **coordinated disclosure**: vulnerabilities are disclosed publicly only after a fix is available and users have had reasonable time to upgrade (typically 30 days after the patch release).
-- We credit researchers who report vulnerabilities responsibly (unless they request anonymity).
-- We do not disclose zero-day details before a patch is available under any circumstances.
-- CVE identifiers will be requested for all confirmed vulnerabilities through GitHub Security Advisories.
+See SECURITY_AUDIT.md for the full audit report.
+
+## Known Security Considerations
+
+- **No code signing**: Windows and macOS builds are not code-signed. Users will see SmartScreen/Gatekeeper warnings. See INSTALL.md for bypass instructions.
+- **Local LLM communication**: Ollama communication uses unencrypted HTTP on localhost (by design, local-only).
+- **Cloud API keys**: Stored encrypted locally but transmitted to cloud providers over HTTPS.

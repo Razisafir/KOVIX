@@ -10,15 +10,15 @@ import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { IMemoryOrchestrator } from '../../../../../../platform/construct/common/memory/memoryOrchestrator.js';
 import {
-        IMemoryQuery,
-        IMemorySearchResult,
-        IMemoryStats,
-        MemoryLayer,
-        IMemoryEntry,
-        IWorkingMemoryEntry,
-        IEpisodicMemoryEntry,
-        ISemanticMemoryEntry,
-        IProceduralMemoryEntry
+	IMemoryQuery,
+	IMemorySearchResult,
+	IMemoryStats,
+	MemoryLayer,
+	IMemoryEntry,
+	IWorkingMemoryEntry,
+	IEpisodicMemoryEntry,
+	ISemanticMemoryEntry,
+	IProceduralMemoryEntry
 } from '../../../../../../platform/construct/common/memory/memoryTypes';
 import { IWorkingMemoryService } from '../../../../../../platform/construct/common/memory/workingMemory.js';
 import { IEpisodicMemoryService } from '../../../../../../platform/construct/common/memory/episodicMemory.js';
@@ -31,387 +31,399 @@ const DEFAULT_MAX_TOKENS = 4000;
 const TOKEN_PER_CHAR = 0.25;
 
 export class MemoryOrchestratorService extends Disposable implements IMemoryOrchestrator {
-        readonly _serviceBrand: undefined;
+	readonly _serviceBrand: undefined;
 
-        private readonly _onDidConsolidate = this._register(new Emitter<{ projectId: string; stats: IMemoryStats }>());
-        readonly onDidConsolidate = this._onDidConsolidate.event;
+	private readonly _onDidConsolidate = this._register(new Emitter<{ projectId: string; stats: IMemoryStats }>());
+	readonly onDidConsolidate = this._onDidConsolidate.event;
 
-        private readonly _onDidForget = this._register(new Emitter<{ projectId: string }>());
-        readonly onDidForget = this._onDidForget.event;
+	private readonly _onDidForget = this._register(new Emitter<{ projectId: string }>());
+	readonly onDidForget = this._onDidForget.event;
 
-        // Rolling tracking for live stats
-        private _lastConsolidationTime: number = 0;
-        private _queryTimes: number[] = [];  // rolling window of last 10 query times
+	/** Timestamp of last successful consolidation, used by getMemoryStats(). */
+	private _lastConsolidationTime: number = 0;
 
-        constructor(
-                @ILogService private readonly logService: ILogService,
-                @IWorkingMemoryService private readonly workingMemory: IWorkingMemoryService,
-                @IEpisodicMemoryService private readonly episodicMemory: IEpisodicMemoryService,
-                @ISemanticMemoryService private readonly semanticMemory: ISemanticMemoryService,
-                @IProceduralMemoryService private readonly proceduralMemory: IProceduralMemoryService,
-                @IEmbeddingService _embeddingService: IEmbeddingService,
-                @IConstructMemoryService private readonly constructMemory: IConstructMemoryService
-        ) {
-                super();
-                this.logService.info('[MemoryOrchestrator] Initialized with Supermemory integration');
-        }
+	/** Rolling window of query durations (ms), kept to the last 10 queries. */
+	private _queryTimes: number[] = [];
 
-        async query(query: IMemoryQuery): Promise<IMemorySearchResult> {
-                const startTime = performance.now();
-                const results: IMemoryEntry[] = [];
-                const scores: number[] = [];
+	constructor(
+		@ILogService private readonly logService: ILogService,
+		@IWorkingMemoryService private readonly workingMemory: IWorkingMemoryService,
+		@IEpisodicMemoryService private readonly episodicMemory: IEpisodicMemoryService,
+		@ISemanticMemoryService private readonly semanticMemory: ISemanticMemoryService,
+		@IProceduralMemoryService private readonly proceduralMemory: IProceduralMemoryService,
+		@IEmbeddingService _embeddingService: IEmbeddingService,
+		@IConstructMemoryService private readonly constructMemory: IConstructMemoryService
+	) {
+		super();
+		this.logService.info('[MemoryOrchestrator] Initialized with Supermemory integration');
+	}
 
-                const layers = query.layer ? [query.layer] : [MemoryLayer.Working, MemoryLayer.Episodic, MemoryLayer.Semantic, MemoryLayer.Procedural];
+	async query(query: IMemoryQuery): Promise<IMemorySearchResult> {
+		const startTime = performance.now();
+		const results: IMemoryEntry[] = [];
+		const scores: number[] = [];
 
-                for (const layer of layers) {
-                        try {
-                                const layerResults = await this.queryLayer(layer, query);
-                                results.push(...layerResults.entries);
-                                scores.push(...layerResults.relevanceScores);
-                        } catch (error) {
-                                this.logService.warn(`[MemoryOrchestrator] Layer ${layer} query failed:`, error);
-                        }
-                }
+		const layers = query.layer ? [query.layer] : [MemoryLayer.Working, MemoryLayer.Episodic, MemoryLayer.Semantic, MemoryLayer.Procedural];
 
-                const combined = results.map((entry, i) => ({ entry, score: scores[i] ?? 0 }));
-                combined.sort((a, b) => b.score - a.score);
+		for (const layer of layers) {
+			try {
+				const layerResults = await this.queryLayer(layer, query);
+				results.push(...layerResults.entries);
+				scores.push(...layerResults.relevanceScores);
+			} catch (error) {
+				this.logService.warn(`[MemoryOrchestrator] Layer ${layer} query failed:`, error);
+			}
+		}
 
-                const topK = query.topK ?? 10;
-                const filtered = combined.slice(0, topK);
+		const combined = results.map((entry, i) => ({ entry, score: scores[i] ?? 0 }));
+		combined.sort((a, b) => b.score - a.score);
 
-                const elapsed = performance.now() - startTime;
-                this._queryTimes.push(elapsed);
-                if (this._queryTimes.length > 10) { this._queryTimes.shift(); }
+		const topK = query.topK ?? 10;
+		const filtered = combined.slice(0, topK);
 
-                return {
-                        entries: filtered.map(c => c.entry),
-                        total: filtered.length,
-                        relevanceScores: filtered.map(c => c.score),
-                        queryTimeMs: elapsed
-                };
-        }
+		const queryDuration = performance.now() - startTime;
 
-        private async queryLayer(layer: MemoryLayer, query: IMemoryQuery): Promise<IMemorySearchResult> {
-                const projectId = query.projectId;
-                if (!projectId) {
-                        return { entries: [], total: 0, relevanceScores: [], queryTimeMs: 0 };
-                }
+		// Track query time for rolling average
+		this._queryTimes.push(queryDuration);
+		if (this._queryTimes.length > 10) {
+			this._queryTimes.shift();
+		}
 
-                switch (layer) {
-                        case MemoryLayer.Working: {
-                                const ctx = this.workingMemory.getCurrentContext(projectId);
-                                if (!ctx) { return { entries: [], total: 0, relevanceScores: [], queryTimeMs: 0 }; }
-                                return {
-                                        entries: [{ ...ctx, relevanceScore: 1.0 }],
-                                        total: 1,
-                                        relevanceScores: [1.0],
-                                        queryTimeMs: 0
-                                };
-                        }
+		return {
+			entries: filtered.map(c => c.entry),
+			total: filtered.length,
+			relevanceScores: filtered.map(c => c.score),
+			queryTimeMs: queryDuration
+		};
+	}
 
-                        case MemoryLayer.Episodic: {
-                                if (query.semanticQuery) {
-                                        const events = this.episodicMemory.searchEvents(projectId, query.semanticQuery);
-                                        return {
-                                                entries: events,
-                                                total: events.length,
-                                                relevanceScores: events.map(() => 0.8),
-                                                queryTimeMs: 0
-                                        };
-                                }
+	private async queryLayer(layer: MemoryLayer, query: IMemoryQuery): Promise<IMemorySearchResult> {
+		const projectId = query.projectId;
+		if (!projectId) {
+			return { entries: [], total: 0, relevanceScores: [], queryTimeMs: 0 };
+		}
 
-                                if (query.timeRange) {
-                                        const events = this.episodicMemory.getEventsByTimeRange(
-                                                projectId,
-                                                query.timeRange.start,
-                                                query.timeRange.end
-                                        );
-                                        return {
-                                                entries: events,
-                                                total: events.length,
-                                                relevanceScores: events.map(() => 0.7),
-                                                queryTimeMs: 0
-                                        };
-                                }
+		switch (layer) {
+			case MemoryLayer.Working: {
+				const ctx = this.workingMemory.getCurrentContext(projectId);
+				if (!ctx) { return { entries: [], total: 0, relevanceScores: [], queryTimeMs: 0 }; }
+				return {
+					entries: [{ ...ctx, relevanceScore: 1.0 }],
+					total: 1,
+					relevanceScores: [1.0],
+					queryTimeMs: 0
+				};
+			}
 
-                                const events = this.episodicMemory.getRecentEvents(projectId, query.topK ?? 10);
-                                return {
-                                        entries: events,
-                                        total: events.length,
-                                        relevanceScores: events.map((_e: IEpisodicMemoryEntry, i: number) => 0.9 - i * 0.05),
-                                        queryTimeMs: 0
-                                };
-                        }
+			case MemoryLayer.Episodic: {
+				if (query.semanticQuery) {
+					const events = this.episodicMemory.searchEvents(projectId, query.semanticQuery);
+					return {
+						entries: events,
+						total: events.length,
+						relevanceScores: events.map(() => 0.8),
+						queryTimeMs: 0
+					};
+				}
 
-                        case MemoryLayer.Semantic: {
-                                if (query.semanticQuery) {
-                                        return await this.semanticMemory.searchKnowledge(projectId, query.semanticQuery, query.topK);
-                                }
+				if (query.timeRange) {
+					const events = this.episodicMemory.getEventsByTimeRange(
+						projectId,
+						query.timeRange.start,
+						query.timeRange.end
+					);
+					return {
+						entries: events,
+						total: events.length,
+						relevanceScores: events.map(() => 0.7),
+						queryTimeMs: 0
+					};
+				}
 
-                                if (query.embedding) {
-                                        return await this.semanticMemory.searchByEmbedding(projectId, query.embedding, query.topK);
-                                }
+				const events = this.episodicMemory.getRecentEvents(projectId, query.topK ?? 10);
+				return {
+					entries: events,
+					total: events.length,
+					relevanceScores: events.map((_e: IEpisodicMemoryEntry, i: number) => 0.9 - i * 0.05),
+					queryTimeMs: 0
+				};
+			}
 
-                                const all = this.semanticMemory.getAllKnowledge(projectId).slice(0, query.topK ?? 10);
-                                return {
-                                        entries: all,
-                                        total: all.length,
-                                        relevanceScores: all.map(() => 0.6),
-                                        queryTimeMs: 0
-                                };
-                        }
+			case MemoryLayer.Semantic: {
+				if (query.semanticQuery) {
+					return await this.semanticMemory.searchKnowledge(projectId, query.semanticQuery, query.topK);
+				}
 
-                        case MemoryLayer.Procedural: {
-                                const patterns = query.semanticQuery
-                                        ? this.proceduralMemory.getPatternsForContext(projectId, query.semanticQuery)
-                                        : this.proceduralMemory.getPatternLeaderboard(projectId);
+				if (query.embedding) {
+					return await this.semanticMemory.searchByEmbedding(projectId, query.embedding, query.topK);
+				}
 
-                                return {
-                                        entries: patterns.slice(0, query.topK ?? 10),
-                                        total: patterns.length,
-                                        relevanceScores: patterns.map((p: IProceduralMemoryEntry) => (p as IProceduralMemoryEntry).successCount / Math.max((p as IProceduralMemoryEntry).totalAttempts, 1)),
-                                        queryTimeMs: 0
-                                };
-                        }
+				const all = this.semanticMemory.getAllKnowledge(projectId).slice(0, query.topK ?? 10);
+				return {
+					entries: all,
+					total: all.length,
+					relevanceScores: all.map(() => 0.6),
+					queryTimeMs: 0
+				};
+			}
 
-                        default:
-                                return { entries: [], total: 0, relevanceScores: [], queryTimeMs: 0 };
-                }
-        }
+			case MemoryLayer.Procedural: {
+				const patterns = query.semanticQuery
+					? this.proceduralMemory.getPatternsForContext(projectId, query.semanticQuery)
+					: this.proceduralMemory.getPatternLeaderboard(projectId);
 
-        async consolidate(projectId: string): Promise<void> {
-                this.logService.info(`[MemoryOrchestrator] Consolidating memory for ${projectId}...`);
+				return {
+					entries: patterns.slice(0, query.topK ?? 10),
+					total: patterns.length,
+					relevanceScores: patterns.map((p: IProceduralMemoryEntry) => (p as IProceduralMemoryEntry).successCount / Math.max((p as IProceduralMemoryEntry).totalAttempts, 1)),
+					queryTimeMs: 0
+				};
+			}
 
-                const now = Date.now();
-                const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
-                const oldEvents = this.episodicMemory.getEventsByTimeRange(projectId, 0, oneWeekAgo);
+			default:
+				return { entries: [], total: 0, relevanceScores: [], queryTimeMs: 0 };
+		}
+	}
 
-                if (oldEvents.length > 0) {
-                        const summary = this.summarizeEvents(oldEvents);
-                        await this.semanticMemory.storeKnowledge({
-                                projectId,
-                                content: summary,
-                                tags: ['auto-consolidated', 'episodic-summary'],
-                                embedding: []
-                        });
+	async consolidate(projectId: string): Promise<void> {
+		this.logService.info(`[MemoryOrchestrator] Consolidating memory for ${projectId}...`);
 
-                        // Sync consolidation summary to Supermemory if enabled
-                        if (this.constructMemory.isInitialized && this.constructMemory.config.autoLearn) {
-                                await this.constructMemory.addMemory(summary, {
-                                        type: 'consolidation',
-                                        projectId,
-                                        tags: 'auto-consolidated,episodic-summary'
-                                });
-                        }
-                }
+		const now = Date.now();
+		const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+		const oldEvents = this.episodicMemory.getEventsByTimeRange(projectId, 0, oneWeekAgo);
 
-                const successfulEvents = oldEvents.filter((e: IEpisodicMemoryEntry) => e.success);
-                if (successfulEvents.length > 0) {
-                        await this.proceduralMemory.extractPatternsFromEpisodes(
-                                projectId,
-                                successfulEvents.map((e: IEpisodicMemoryEntry) => `${e.action}: ${e.outcome}`)
-                        );
-                }
+		if (oldEvents.length > 0) {
+			const summary = this.summarizeEvents(oldEvents);
+			await this.semanticMemory.storeKnowledge({
+				projectId,
+				content: summary,
+				tags: ['auto-consolidated', 'episodic-summary'],
+				embedding: []
+			});
 
-                const ctx = this.workingMemory.getCurrentContext(projectId);
-                if (ctx && ctx.tokensUsed > ctx.tokenBudget * 0.8) {
-                        this.workingMemory.pruneContext(projectId, ctx.tokenBudget * 0.6);
-                }
+			// Sync consolidation summary to Supermemory if enabled
+			if (this.constructMemory.isInitialized && this.constructMemory.config.autoLearn) {
+				await this.constructMemory.addMemory(summary, {
+					type: 'consolidation',
+					projectId,
+					tags: 'auto-consolidated,episodic-summary'
+				});
+			}
+		}
 
-                this._lastConsolidationTime = Date.now();
+		const successfulEvents = oldEvents.filter((e: IEpisodicMemoryEntry) => e.success);
+		if (successfulEvents.length > 0) {
+			await this.proceduralMemory.extractPatternsFromEpisodes(
+				projectId,
+				successfulEvents.map((e: IEpisodicMemoryEntry) => `${e.action}: ${e.outcome}`)
+			);
+		}
 
-                const stats = this.getMemoryStats(projectId);
-                this._onDidConsolidate.fire({ projectId, stats });
+		const ctx = this.workingMemory.getCurrentContext(projectId);
+		if (ctx && ctx.tokensUsed > ctx.tokenBudget * 0.8) {
+			this.workingMemory.pruneContext(projectId, ctx.tokenBudget * 0.6);
+		}
 
-                this.logService.info(`[MemoryOrchestrator] Consolidation complete for ${projectId}`);
-        }
+		this._lastConsolidationTime = Date.now();
 
-        async forget(projectId: string): Promise<void> {
-                this.logService.info(`[MemoryOrchestrator] Forgetting all memory for ${projectId}...`);
+		const stats = this.getMemoryStats(projectId);
+		this._lastConsolidationTime = Date.now();
+		this._onDidConsolidate.fire({ projectId, stats });
 
-                this.workingMemory.clearContext(projectId);
+		this.logService.info(`[MemoryOrchestrator] Consolidation complete for ${projectId}`);
+	}
 
-                const allKnowledge = this.semanticMemory.getAllKnowledge(projectId);
-                for (const k of allKnowledge) {
-                        this.semanticMemory.deleteKnowledge(projectId, k.id);
-                }
+	async forget(projectId: string): Promise<void> {
+		this.logService.info(`[MemoryOrchestrator] Forgetting all memory for ${projectId}...`);
 
-                this._onDidForget.fire({ projectId });
-                this.logService.info(`[MemoryOrchestrator] All memory forgotten for ${projectId}`);
-        }
+		this.workingMemory.clearContext(projectId);
 
-        getMemoryStats(projectId: string): IMemoryStats {
-                const workingCtx = this.workingMemory.getCurrentContext(projectId);
-                const working = workingCtx ? 1 : 0;
-                const episodicEvents = this.episodicMemory.getRecentEvents(projectId, 999999);
-                const episodic = episodicEvents.length;
-                const semanticEntries = this.semanticMemory.getAllKnowledge(projectId);
-                const semantic = semanticEntries.length;
-                const proceduralEntries = this.proceduralMemory.getPatternLeaderboard(projectId);
-                const procedural = proceduralEntries.length;
+		const allKnowledge = this.semanticMemory.getAllKnowledge(projectId);
+		for (const k of allKnowledge) {
+			this.semanticMemory.deleteKnowledge(projectId, k.id);
+		}
 
-                // Estimate storage: JSON.stringify each layer's data, multiply by 2 for UTF-16 encoding
-                let storageUsedBytes = 0;
-                try {
-                        if (workingCtx) { storageUsedBytes += JSON.stringify(workingCtx).length * 2; }
-                        storageUsedBytes += JSON.stringify(episodicEvents).length * 2;
-                        storageUsedBytes += JSON.stringify(semanticEntries).length * 2;
-                        storageUsedBytes += JSON.stringify(proceduralEntries).length * 2;
-                } catch { /* if serialization fails, leave as 0 */ }
+		this._onDidForget.fire({ projectId });
+		this.logService.info(`[MemoryOrchestrator] All memory forgotten for ${projectId}`);
+	}
 
-                const avgQueryTimeMs = this._queryTimes.length > 0
-                        ? this._queryTimes.reduce((sum, t) => sum + t, 0) / this._queryTimes.length
-                        : 0;
+	getMemoryStats(projectId: string): IMemoryStats {
+		const workingCtx = this.workingMemory.getCurrentContext(projectId);
+		const working = workingCtx ? 1 : 0;
+		const episodicEvents = this.episodicMemory.getRecentEvents(projectId, 999999);
+		const episodic = episodicEvents.length;
+		const semanticEntries = this.semanticMemory.getAllKnowledge(projectId);
+		const semantic = semanticEntries.length;
+		const proceduralEntries = this.proceduralMemory.getPatternLeaderboard(projectId);
+		const procedural = proceduralEntries.length;
 
-                return {
-                        totalEntries: working + episodic + semantic + procedural,
-                        entriesByLayer: {
-                                [MemoryLayer.Working]: working,
-                                [MemoryLayer.Episodic]: episodic,
-                                [MemoryLayer.Semantic]: semantic,
-                                [MemoryLayer.Procedural]: procedural
-                        },
-                        storageUsedBytes,
-                        lastConsolidation: this._lastConsolidationTime,
-                        avgQueryTimeMs
-                };
-        }
+		// Estimate storage used by serializing all memory data and checking byte length
+		let storageUsedBytes = 0;
+		try {
+			const data: Record<string, unknown> = {};
+			if (workingCtx) { data.working = workingCtx; }
+			data.episodic = episodicEvents;
+			data.semantic = semanticEntries;
+			data.procedural = proceduralEntries;
+			storageUsedBytes = new TextEncoder().encode(JSON.stringify(data)).length;
+		} catch {
+			// Fallback: if serialization fails, report 0
+		}
 
-        async injectContextIntoPrompt(prompt: string, projectId: string, maxTokens: number = DEFAULT_MAX_TOKENS): Promise<string> {
-                const parts: string[] = [];
+		// Rolling average of the last 10 query durations
+		const avgQueryTimeMs = this._queryTimes.length > 0
+			? this._queryTimes.reduce((sum, t) => sum + t, 0) / this._queryTimes.length
+			: 0;
 
-                // Not needed: embeddingService unused but kept for DI consistency
-                if (this.constructMemory.isInitialized && this.constructMemory.config.enabled) {
-                        try {
-                                const supermemoryContext = await this.constructMemory.getContextForTask(prompt);
-                                if (supermemoryContext) {
-                                        parts.push(supermemoryContext);
-                                }
-                        } catch (error) {
-                                this.logService.warn('[MemoryOrchestrator] Supermemory context retrieval failed, falling back to local:', error);
-                        }
-                }
+		return {
+			totalEntries: working + episodic + semantic + procedural,
+			entriesByLayer: {
+				[MemoryLayer.Working]: working,
+				[MemoryLayer.Episodic]: episodic,
+				[MemoryLayer.Semantic]: semantic,
+				[MemoryLayer.Procedural]: procedural
+			},
+			storageUsedBytes,
+			lastConsolidation: this._lastConsolidationTime,
+			avgQueryTimeMs
+		};
+	}
 
-                // Also get local four-layer context
-                const relevantContext = await this.getRelevantContext(projectId, prompt, 5);
-                const contextTokens = this.estimateTokens(relevantContext);
-                const promptTokens = this.estimateTokens(prompt);
-                const existingTokens = this.estimateTokens(parts.join('\n'));
-                const availableTokens = maxTokens - promptTokens - existingTokens;
+	async injectContextIntoPrompt(prompt: string, projectId: string, maxTokens: number = DEFAULT_MAX_TOKENS): Promise<string> {
+		const parts: string[] = [];
 
-                let injectedContext: string;
-                if (contextTokens <= availableTokens) {
-                        injectedContext = relevantContext;
-                } else if (availableTokens > 0) {
-                        const ratio = availableTokens / contextTokens;
-                        const charLimit = Math.floor(relevantContext.length * ratio);
-                        injectedContext = relevantContext.substring(0, charLimit);
-                } else {
-                        injectedContext = '';
-                }
+		// Not needed: embeddingService unused but kept for DI consistency
+		if (this.constructMemory.isInitialized && this.constructMemory.config.enabled) {
+			try {
+				const supermemoryContext = await this.constructMemory.getContextForTask(prompt);
+				if (supermemoryContext) {
+					parts.push(supermemoryContext);
+				}
+			} catch (error) {
+				this.logService.warn('[MemoryOrchestrator] Supermemory context retrieval failed, falling back to local:', error);
+			}
+		}
 
-                if (injectedContext) {
-                        parts.push('## Project Context');
-                        parts.push(injectedContext);
-                }
+		// Also get local four-layer context
+		const relevantContext = await this.getRelevantContext(projectId, prompt, 5);
+		const contextTokens = this.estimateTokens(relevantContext);
+		const promptTokens = this.estimateTokens(prompt);
+		const existingTokens = this.estimateTokens(parts.join('\n'));
+		const availableTokens = maxTokens - promptTokens - existingTokens;
 
-                parts.push('');
-                parts.push('## User Request');
-                parts.push(prompt);
+		let injectedContext: string;
+		if (contextTokens <= availableTokens) {
+			injectedContext = relevantContext;
+		} else if (availableTokens > 0) {
+			const ratio = availableTokens / contextTokens;
+			const charLimit = Math.floor(relevantContext.length * ratio);
+			injectedContext = relevantContext.substring(0, charLimit);
+		} else {
+			injectedContext = '';
+		}
 
-                return parts.join('\n');
-        }
+		if (injectedContext) {
+			parts.push('## Project Context');
+			parts.push(injectedContext);
+		}
 
-        async getRelevantContext(projectId: string, query: string, maxResults: number = 5): Promise<string> {
-                const queryResult = await this.query({
-                        projectId,
-                        semanticQuery: query,
-                        topK: maxResults,
-                        minRelevance: 0.5
-                });
+		parts.push('');
+		parts.push('## User Request');
+		parts.push(prompt);
 
-                const parts: string[] = [];
+		return parts.join('\n');
+	}
 
-                // Working memory (current session)
-                const working = queryResult.entries.find((e: IMemoryEntry) => e.layer === MemoryLayer.Working) as IWorkingMemoryEntry | undefined;
-                if (working) {
-                        parts.push('Current Context:');
-                        if (working.activeFiles.length > 0) {
-                                parts.push(`- Active files: ${working.activeFiles.join(', ')}`);
-                        }
-                        if (working.conversationHistory.length > 0) {
-                                parts.push(`- Recent conversation: ${working.conversationHistory.slice(-3).join('; ')}`);
-                        }
-                        parts.push('');
-                }
+	async getRelevantContext(projectId: string, query: string, maxResults: number = 5): Promise<string> {
+		const queryResult = await this.query({
+			projectId,
+			semanticQuery: query,
+			topK: maxResults,
+			minRelevance: 0.5
+		});
 
-                // Episodic (recent actions)
-                const episodic = queryResult.entries.filter((e: IMemoryEntry) => e.layer === MemoryLayer.Episodic) as IEpisodicMemoryEntry[];
-                if (episodic.length > 0) {
-                        parts.push('Recent Actions:');
-                        for (const e of episodic.slice(0, 3)) {
-                                parts.push(`- ${e.action}: ${e.outcome} (${e.success ? 'success' : 'failure'})`);
-                        }
-                        parts.push('');
-                }
+		const parts: string[] = [];
 
-                // Semantic (knowledge)
-                const semantic = queryResult.entries.filter((e: IMemoryEntry) => e.layer === MemoryLayer.Semantic) as ISemanticMemoryEntry[];
-                if (semantic.length > 0) {
-                        parts.push('Relevant Knowledge:');
-                        for (const s of semantic) {
-                                parts.push(`- ${s.content.substring(0, 200)}${s.content.length > 200 ? '...' : ''}`);
-                        }
-                        parts.push('');
-                }
+		// Working memory (current session)
+		const working = queryResult.entries.find((e: IMemoryEntry) => e.layer === MemoryLayer.Working) as IWorkingMemoryEntry | undefined;
+		if (working) {
+			parts.push('Current Context:');
+			if (working.activeFiles.length > 0) {
+				parts.push(`- Active files: ${working.activeFiles.join(', ')}`);
+			}
+			if (working.conversationHistory.length > 0) {
+				parts.push(`- Recent conversation: ${working.conversationHistory.slice(-3).join('; ')}`);
+			}
+			parts.push('');
+		}
 
-                // Procedural (patterns)
-                const procedural = queryResult.entries.filter((e: IMemoryEntry) => e.layer === MemoryLayer.Procedural) as IProceduralMemoryEntry[];
-                if (procedural.length > 0) {
-                        parts.push('Known Patterns:');
-                        for (const p of procedural.slice(0, 2)) {
-                                const successRate = p.totalAttempts > 0 ? (p.successCount / p.totalAttempts * 100).toFixed(0) : '0';
-                                parts.push(`- ${p.pattern} (success rate: ${successRate}%, ${p.totalAttempts} attempts)`);
-                        }
-                        parts.push('');
-                }
+		// Episodic (recent actions)
+		const episodic = queryResult.entries.filter((e: IMemoryEntry) => e.layer === MemoryLayer.Episodic) as IEpisodicMemoryEntry[];
+		if (episodic.length > 0) {
+			parts.push('Recent Actions:');
+			for (const e of episodic.slice(0, 3)) {
+				parts.push(`- ${e.action}: ${e.outcome} (${e.success ? 'success' : 'failure'})`);
+			}
+			parts.push('');
+		}
 
-                return parts.join('\n');
-        }
+		// Semantic (knowledge)
+		const semantic = queryResult.entries.filter((e: IMemoryEntry) => e.layer === MemoryLayer.Semantic) as ISemanticMemoryEntry[];
+		if (semantic.length > 0) {
+			parts.push('Relevant Knowledge:');
+			for (const s of semantic) {
+				parts.push(`- ${s.content.substring(0, 200)}${s.content.length > 200 ? '...' : ''}`);
+			}
+			parts.push('');
+		}
 
-        // --- Private Helpers -------------------------------------------------------
+		// Procedural (patterns)
+		const procedural = queryResult.entries.filter((e: IMemoryEntry) => e.layer === MemoryLayer.Procedural) as IProceduralMemoryEntry[];
+		if (procedural.length > 0) {
+			parts.push('Known Patterns:');
+			for (const p of procedural.slice(0, 2)) {
+				const successRate = p.totalAttempts > 0 ? (p.successCount / p.totalAttempts * 100).toFixed(0) : '0';
+				parts.push(`- ${p.pattern} (success rate: ${successRate}%, ${p.totalAttempts} attempts)`);
+			}
+			parts.push('');
+		}
 
-        private summarizeEvents(events: IEpisodicMemoryEntry[]): string {
-                const actionTypes = new Map<string, number>();
-                const filesTouched = new Set<string>();
-                let totalDuration = 0;
-                let successes = 0;
+		return parts.join('\n');
+	}
 
-                for (const e of events) {
-                        actionTypes.set(e.action, (actionTypes.get(e.action) ?? 0) + 1);
-                        for (const f of e.filesAffected) { filesTouched.add(f); }
-                        totalDuration += e.durationMs;
-                        if (e.success) { successes++; }
-                }
+	// --- Private Helpers -------------------------------------------------------
 
-                const parts: string[] = [];
-                parts.push(`Over the past period, ${events.length} actions were performed across ${filesTouched.size} files.`);
-                parts.push(`${successes} succeeded, ${events.length - successes} failed.`);
-                parts.push(`Total time: ${(totalDuration / 1000).toFixed(0)}s.`);
-                parts.push('Common actions: ' + Array.from(actionTypes.entries())
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 5)
-                        .map(([action, count]) => `${action}(${count})`)
-                        .join(', '));
+	private summarizeEvents(events: IEpisodicMemoryEntry[]): string {
+		const actionTypes = new Map<string, number>();
+		const filesTouched = new Set<string>();
+		let totalDuration = 0;
+		let successes = 0;
 
-                return parts.join(' ');
-        }
+		for (const e of events) {
+			actionTypes.set(e.action, (actionTypes.get(e.action) ?? 0) + 1);
+			for (const f of e.filesAffected) { filesTouched.add(f); }
+			totalDuration += e.durationMs;
+			if (e.success) { successes++; }
+		}
 
-        private estimateTokens(text: string): number {
-                return Math.ceil(text.length * TOKEN_PER_CHAR);
-        }
+		const parts: string[] = [];
+		parts.push(`Over the past period, ${events.length} actions were performed across ${filesTouched.size} files.`);
+		parts.push(`${successes} succeeded, ${events.length - successes} failed.`);
+		parts.push(`Total time: ${(totalDuration / 1000).toFixed(0)}s.`);
+		parts.push('Common actions: ' + Array.from(actionTypes.entries())
+			.sort((a, b) => b[1] - a[1])
+			.slice(0, 5)
+			.map(([action, count]) => `${action}(${count})`)
+			.join(', '));
 
-        override dispose(): void {
-                super.dispose();
-        }
+		return parts.join(' ');
+	}
+
+	private estimateTokens(text: string): number {
+		return Math.ceil(text.length * TOKEN_PER_CHAR);
+	}
+
+	override dispose(): void {
+		super.dispose();
+	}
 }

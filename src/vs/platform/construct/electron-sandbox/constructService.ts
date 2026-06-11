@@ -13,14 +13,13 @@ import { registerMainProcessRemoteService } from '../../ipc/electron-sandbox/ser
 
 class ConstructService implements IConstructService {
         declare readonly _serviceBrand: undefined;
-        private _port: number = 8000;
 
         async start(): Promise<void> {
-                // Agent backend start is handled by the main process or external launcher
-                // This service provides the renderer-side interface
+                // Python backend removed — all AI capabilities are now handled
+                // natively by the TypeScript agent loop + ConstructToolRegistryService.
         }
 
-        getPort(): number { return this._port; }
+        getPort(): number { return 0; }
 
         async stop(): Promise<void> {
                 // No-op in renderer process

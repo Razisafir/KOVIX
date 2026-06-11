@@ -304,10 +304,10 @@ We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for:
 
 ## Known Limitations
 
-- **No code signing** — Windows SmartScreen and macOS Gatekeeper warnings are expected on first launch. Verify SHA256 checksums (published with each release) before running unsigned binaries.
-- **16 GB RAM required for packaging builds** — The full build pipeline (gulp + Electron packaging) runs out of memory on systems with less than 16 GB RAM.
-- **Multi-turn context is session-scoped** — Conversation context is preserved within a single session but is not persisted across application restarts (until session persistence lands in a future release).
-- **Python agent backend removed** — The non-functional Python agent backend was removed in v1.0. TypeScript AI providers (Ollama, Xenova, Cloud) now handle all AI operations natively.
+- **No code signing**: Windows and macOS builds are not code-signed. Users may see SmartScreen (Windows) or Gatekeeper (macOS) warnings when installing. Right-click > Open on macOS, or More Info > Run Anyway on Windows to bypass.
+- **Build requires 16GB+ RAM**: Full packaging builds (`npm run gulp vscode-linux-x64`) require 16GB+ RAM. 8GB machines may OOM during compilation.
+- **Python agent backend removed**: The `agent-backend/` Python server has been removed. All AI processing is handled by the TypeScript providers (Ollama, Cloud, Xenova) directly.
+- **Dependabot vulnerabilities**: GitHub reports ~250 dependency vulnerabilities from the VS Code upstream. Most are in dev dependencies. See the Dependabot alerts for details.
 
 ## License
 

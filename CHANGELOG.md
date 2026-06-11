@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.0.0] - 2025-06-11
+
+### Fixed
+- **Multi-turn conversation context**: Agent now retains conversation history across turns within a session (50-message cap)
+- **Memory injection sanitization**: Added PromptSanitizer to prevent prompt injection via memory context
+- **AbortSignal propagation**: Stop button now cancels running tool execution immediately
+- **Provider switch abort**: Switching AI providers mid-stream cleanly aborts the active stream
+- **Keybinding conflict**: Changed Construct panel shortcut from Ctrl+Shift+K to Ctrl+Shift+L
+
+### Changed
+- **Tool registry integration**: Core tools now route through IConstructToolRegistry for extensibility
+- **FileWatcher**: Implemented real file system watching with recursive fs.watch and debouncing
+- **Memory stats**: MemoryOrchestrator now returns real metrics instead of hardcoded zeros
+- **Removed Python agent-backend**: Non-functional Python backend removed; all AI via TypeScript providers
+- **CI/CD**: Consolidated build and release workflows; npm audit now fails on critical CVEs
+
+### Added
+- **Obsidian-like Memory System**: Visual memory explorer with CRUD, search, import/export, and auto-extraction
+- **SECURITY.md**: Security policy with vulnerability reporting process
+- **Known Limitations section**: Documented in README.md
+
+### Security
+- SEC-6 enhanced: PromptSanitizer blocks injection patterns in memory context
+- npm audit now blocks release on critical CVEs
+
 ## [1.0.0] - 2026-06-10
 
 ### Renamed

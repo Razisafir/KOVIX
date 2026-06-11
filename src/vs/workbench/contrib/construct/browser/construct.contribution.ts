@@ -84,12 +84,17 @@ import { ConstructSessionServiceImpl } from './services/session/constructSession
 import { showProjectWizard } from './constructProjectWizard.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ConstructOnboardingWizard } from './constructOnboarding.js';
+import { IObsidianMemoryService } from '../../../../platform/construct/common/memory/obsidianMemoryService.js';
+import { ObsidianMemoryServiceImpl } from './services/memory/obsidianMemoryServiceImpl.js';
+import { ObsidianMemoryTreePanel } from './constructMemoryExplorer.js';
+import { MEMORY_CATEGORIES, MEMORY_CATEGORY_LABELS } from '../../../../platform/construct/common/memory/obsidianMemoryTypes.js';
 import './constructMemoryConfig';
 import './constructApiConfig';
 import './constructApiSettings';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Kovix Agent view.'));
 const constructMemoryIcon = registerIcon('construct-memory-icon', Codicon.symbolEvent, localize('constructMemoryIcon', 'View icon of the Kovix Memory view.'));
+const constructObsidianIcon = registerIcon('construct-obsidian-icon', Codicon.bookmark, localize('constructObsidianIcon', 'View icon of the Kovix Obsidian Memory Explorer view.'));
 
 // Register the Kovix view container in the sidebar
 const constructViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
@@ -117,6 +122,14 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews([{
                 canToggleVisibility: true,
                 canMoveView: true,
                 order: 2,
+}, {
+                id: 'construct.memoryExplorer',
+                name: localize2('memoryExplorer', "Memory Explorer"),
+                containerIcon: constructObsidianIcon,
+                ctorDescriptor: new SyncDescriptor(ObsidianMemoryTreePanel),
+                canToggleVisibility: true,
+                canMoveView: true,
+                order: 3,
 }], constructViewContainer);
 
 // Status Bar Integration
@@ -616,6 +629,9 @@ registerSingleton(IIdeaRefinementService, IdeaRefinementServiceImpl, Instantiati
 registerSingleton(IUniversalMemoryService, UniversalMemoryService, InstantiationType.Delayed);
 registerSingleton(IConstructSessionService, ConstructSessionServiceImpl, InstantiationType.Delayed);
 
+// --- Obsidian Memory Service Singleton ---------------------------------------------
+registerSingleton(IObsidianMemoryService, ObsidianMemoryServiceImpl, InstantiationType.Delayed);
+
 // --- Feature Build: Project Commands -----------------------------------------
 registerAction2(class NewProjectAction extends Action2 {
                 constructor() {
@@ -963,6 +979,224 @@ registerAction2(class ProviderStatusAction extends Action2 {
                 } catch (error) {
                         logService.error('[Construct] Failed to get provider status:', error);
                         notificationService.error('Failed to get provider status: ' + (error instanceof Error ? error.message : String(error)));
+                }
+        }
+});
+
+// --- Obsidian Memory Commands --------------------------------------------------
+
+registerAction2(class OpenMemoryExplorerAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.memory.openExplorer',
+                        title: localize2('openMemoryExplorer', "Open Memory Explorer"),
+                        f1: true,
+                        category: localize2('constructCategoryObsidian1', "Construct"),
+                });
+        }
+        run(accessor: ServicesAccessor): void {
+                accessor.get(IViewsService).openView('construct.memoryExplorer', true);
+        }
+});
+
+registerAction2(class AddObsidianMemoryAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.memory.add',
+                        title: localize2('addObsidianMemory', "Add Obsidian Memory"),
+                        f1: true,
+                        category: localize2('constructCategoryObsidian2', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const obsidianMemory = accessor.get(IObsidianMemoryService);
+                const quickInput = accessor.get(IQuickInputService);
+                const notificationService = accessor.get(INotificationService);
+
+                const title = await quickInput.input({
+                        prompt: 'Memory title',
+                        placeHolder: 'e.g., "John - Project Manager"',
+                });
+                if (!title) { return; }
+
+                const categoryPick = await quickInput.pick(
+                        MEMORY_CATEGORIES.map(cat => ({
+                                label: MEMORY_CATEGORY_LABELS[cat],
+                                description: cat,
+                        })),
+                        { placeHolder: 'Select category' },
+                );
+                if (!categoryPick) { return; }
+
+                const content = await quickInput.input({
+                        prompt: 'Memory content',
+                        placeHolder: 'Enter the memory content...',
+                });
+                if (!content) { return; }
+
+                try {
+                        await obsidianMemory.addMemory(
+                                title,
+                                content,
+                                categoryPick.description as any,
+                                [],
+                                'user-created',
+                        );
+                        notificationService.info(`Memory added: "${title}"`);
+                } catch (error) {
+                        notificationService.error(`Failed to add memory: ${error instanceof Error ? error.message : String(error)}`);
+                }
+        }
+});
+
+registerAction2(class SearchObsidianMemoryAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.memory.search',
+                        title: localize2('searchObsidianMemory', "Search Obsidian Memories"),
+                        f1: true,
+                        category: localize2('constructCategoryObsidian3', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const obsidianMemory = accessor.get(IObsidianMemoryService);
+                const quickInput = accessor.get(IQuickInputService);
+
+                const query = await quickInput.input({
+                        prompt: 'Search memories',
+                        placeHolder: 'Enter search terms...',
+                });
+                if (!query) { return; }
+
+                const results = obsidianMemory.searchMemories({ text: query, limit: 10 });
+                if (results.length === 0) {
+                        await quickInput.pick([{ label: 'No memories found', alwaysShow: true }]);
+                        return;
+                }
+
+                const picks = results.map(r => ({
+                        label: r.title,
+                        description: MEMORY_CATEGORY_LABELS[r.category],
+                        detail: r.content.length > 100 ? r.content.substring(0, 100) + '...' : r.content,
+                }));
+
+                await quickInput.pick(picks, { placeHolder: `${results.length} memories found` });
+        }
+});
+
+registerAction2(class ImportObsidianMemoryAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.memory.import',
+                        title: localize2('importObsidianMemory', "Import Memories"),
+                        f1: true,
+                        category: localize2('constructCategoryObsidian4', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const obsidianMemory = accessor.get(IObsidianMemoryService);
+                const quickInput = accessor.get(IQuickInputService);
+                const notificationService = accessor.get(INotificationService);
+
+                const formatPick = await quickInput.pick(
+                        [
+                                { label: 'JSON', description: 'Import from JSON format' },
+                                { label: 'Markdown', description: 'Import from Markdown with YAML frontmatter' },
+                        ],
+                        { placeHolder: 'Select import format' },
+                );
+                if (!formatPick) { return; }
+
+                const content = await quickInput.input({
+                        prompt: `Paste ${formatPick.label} content to import`,
+                        placeHolder: 'Paste your content here...',
+                });
+                if (!content) { return; }
+
+                try {
+                        let count: number;
+                        if (formatPick.label === 'JSON') {
+                                count = await obsidianMemory.importFromJson(content);
+                        } else {
+                                count = await obsidianMemory.importFromMarkdown(content);
+                        }
+                        notificationService.info(`Imported ${count} memories`);
+                } catch (error) {
+                        notificationService.error(`Import failed: ${error instanceof Error ? error.message : String(error)}`);
+                }
+        }
+});
+
+registerAction2(class ExportObsidianMemoryAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.memory.export',
+                        title: localize2('exportObsidianMemory', "Export Memories"),
+                        f1: true,
+                        category: localize2('constructCategoryObsidian5', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const obsidianMemory = accessor.get(IObsidianMemoryService);
+                const quickInput = accessor.get(IQuickInputService);
+                const notificationService = accessor.get(INotificationService);
+
+                const formatPick = await quickInput.pick(
+                        [
+                                { label: 'JSON', description: 'Export as JSON format' },
+                                { label: 'Markdown', description: 'Export as Markdown with YAML frontmatter' },
+                        ],
+                        { placeHolder: 'Select export format' },
+                );
+                if (!formatPick) { return; }
+
+                try {
+                        let output: string;
+                        if (formatPick.label === 'JSON') {
+                                output = await obsidianMemory.exportToJson();
+                        } else {
+                                output = await obsidianMemory.exportToMarkdown();
+                        }
+
+                        await navigator.clipboard.writeText(output);
+                        const stats = obsidianMemory.getStats();
+                        notificationService.info(`Exported ${stats.totalEntries} memories to clipboard (${formatPick.label})`);
+                } catch (error) {
+                        notificationService.error(`Export failed: ${error instanceof Error ? error.message : String(error)}`);
+                }
+        }
+});
+
+registerAction2(class EditObsidianMemoryAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.memory.edit',
+                        title: localize2('editObsidianMemory', "Edit Memory"),
+                        f1: true,
+                        category: localize2('constructCategoryObsidian6', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const obsidianMemory = accessor.get(IObsidianMemoryService);
+                const quickInput = accessor.get(IQuickInputService);
+
+                const allMemories = obsidianMemory.getAllMemories();
+                if (allMemories.length === 0) {
+                        await quickInput.pick([{ label: 'No memories to edit', alwaysShow: true }]);
+                        return;
+                }
+
+                const picks = allMemories.map(m => ({
+                        label: m.title,
+                        description: MEMORY_CATEGORY_LABELS[m.category],
+                        detail: m.content.length > 80 ? m.content.substring(0, 80) + '...' : m.content,
+                        memoryId: m.id,
+                }));
+
+                const pick = await quickInput.pick(picks, { placeHolder: 'Select a memory to edit' });
+                if (pick) {
+                        // Open the Memory Explorer and select the entry
+                        accessor.get(IViewsService).openView('construct.memoryExplorer', true);
                 }
         }
 });

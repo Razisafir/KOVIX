@@ -27,19 +27,18 @@ import { TerminalNodeService } from './constructTerminalService.js';
 import { registerSingleton, InstantiationType } from '../../instantiation/common/extensions';
 
 class ConstructService implements IConstructService {
-        declare readonly _serviceBrand: undefined;
-        private _port: number = 8000;
+	declare readonly _serviceBrand: undefined;
 
-        async start(): Promise<void> {
-                // Python agent-backend has been removed.
-                // The Construct service now runs entirely within the Node.js process.
-        }
+	async start(): Promise<void> {
+		// Python backend removed — all AI capabilities are now handled
+		// natively by the TypeScript agent loop + ConstructToolRegistryService.
+	}
 
-        getPort(): number { return this._port; }
+	getPort(): number { return 0; }
 
-        async stop(): Promise<void> {
-                // No external process to stop
-        }
+	async stop(): Promise<void> {
+		// No-op: no external process to stop
+	}
 }
 
 registerSingleton(IConstructService, ConstructService, InstantiationType.Eager);

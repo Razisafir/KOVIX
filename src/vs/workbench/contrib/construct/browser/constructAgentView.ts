@@ -463,6 +463,8 @@ export class ConstructAgentViewPane extends ViewPane {
                 this._register(this.commandService.onWillExecuteCommand(e => {
                         if (e.commandId === 'construct.newChat') {
                                 this.clearMessages();
+                                // H2: Clear conversation history on new chat
+                                this.agentLoop.clearConversationHistory();
                         }
                 }));
         }

@@ -3,6 +3,8 @@ name: Build Construct IDE
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       build_macos:
@@ -13,6 +15,9 @@ on:
         options:
           - 'false'
           - 'true'
+
+permissions:
+  contents: read
 
 env:
   NODE_VERSION: '20'
@@ -111,15 +116,6 @@ jobs:
           "$hash  $($exe.Name)" | Out-File -FilePath .build\win32-x64\checksums-sha256.txt -Encoding utf8
           Get-Content .build\win32-x64\checksums-sha256.txt
 
-      - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: construct-ide-windows-x64
-          path: |
-            .build/win32-x64/system-setup/*.exe
-            .build/win32-x64/checksums-sha256.txt
-          retention-days: 30
-
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   # LINUX BUILD — produces .deb package
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -171,15 +167,6 @@ jobs:
           cd .build/linux
           sha256sum deb/amd64/**/*.deb > checksums-sha256.txt 2>/dev/null || true
           cat checksums-sha256.txt
-
-      - name: Upload Linux packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: construct-ide-linux-x64
-          path: |
-            .build/linux/deb/amd64/**/*.deb
-            .build/linux/checksums-sha256.txt
-          retention-days: 30
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   # macOS BUILD — produces .dmg (opt-in, expensive)
@@ -247,12 +234,3 @@ jobs:
         run: |
           shasum -a 256 construct-ide-darwin-x64.zip > checksums-sha256.txt
           cat checksums-sha256.txt
-
-      - name: Upload macOS packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: construct-ide-macos-x64
-          path: |
-            construct-ide-darwin-x64.zip
-            checksums-sha256.txt
-          retention-days: 30

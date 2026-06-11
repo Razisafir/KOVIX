@@ -182,4 +182,10 @@ export interface IAgentLoop {
          * @returns Array of milestones with their associated steps.
          */
         extractMilestonesFromPlan(steps: IPlanStep[]): IMilestone[];
+
+        /**
+         * H2: Clear the multi-turn conversation history.
+         * Called when the user starts a new chat session to reset context.
+         */
+        clearConversationHistory(): void;
 }
