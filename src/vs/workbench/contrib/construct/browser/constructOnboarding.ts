@@ -35,6 +35,7 @@ type WebviewToHostMessage =
         | { type: 'selectModel'; modelId: string }
         | { type: 'selectXenova' }
         | { type: 'configureCloud' }
+        | { type: 'validateCloudApiKey'; cloudProvider: string; apiKey: string }
         | { type: 'checkKaliWSL' }
         | { type: 'enableKaliWSL' }
         | { type: 'skipKali' }
@@ -168,6 +169,11 @@ export class ConstructOnboardingWizard extends Disposable {
                                 break;
                         }
 
+                        case 'validateCloudApiKey': {
+                                await this.validateCloudApiKey(message.cloudProvider, message.apiKey);
+                                break;
+                        }
+
                         case 'checkKaliWSL': {
                                 if (!isWindows) {
                                         this.postMessage({ type: 'kaliStatus', available: false, notWindows: true });
@@ -203,6 +209,60 @@ export class ConstructOnboardingWizard extends Disposable {
         // Provider checks
         // -----------------------------------------------------------------------
 
+        // -----------------------------------------------------------------------
+        // API Key Validation (F-G-001)
+        // -----------------------------------------------------------------------
+
+        private async validateCloudApiKey(cloudProvider: string, apiKey: string): Promise<void> {
+                // Validate API key format based on provider type
+                let valid = false;
+                let errorMsg = '';
+
+                if (cloudProvider === 'openai') {
+                        if (!apiKey.startsWith('sk-') || apiKey.length < 20) {
+                                valid = false;
+                                errorMsg = 'OpenAI API key must start with "sk-" and be at least 20 characters.';
+                        } else {
+                                valid = true;
+                        }
+                } else if (cloudProvider === 'anthropic') {
+                        if (!apiKey.startsWith('sk-ant-') || apiKey.length < 20) {
+                                valid = false;
+                                errorMsg = 'Anthropic API key must start with "sk-ant-" and be at least 20 characters.';
+                                valid = false;
+                        } else {
+                                valid = true;
+                        }
+                } else {
+                        // Generic / other provider — minimum length check only
+                        if (apiKey.length < 10) {
+                                valid = false;
+                                errorMsg = 'API key must be at least 10 characters.';
+                        } else {
+                                valid = true;
+                        }
+                }
+
+                if (valid) {
+                        // Persist the API key to configuration
+                        try {
+                                if (cloudProvider === 'openai') {
+                                        await this.configurationService.updateValue('construct.cloud.apiKey', apiKey, ConfigurationTarget.USER);
+                                        await this.configurationService.updateValue('construct.cloud.baseUrl', 'https://api.openai.com/v1', ConfigurationTarget.USER);
+                                        await this.configurationService.updateValue('construct.cloud.model', 'gpt-4o-mini', ConfigurationTarget.USER);
+                                } else if (cloudProvider === 'anthropic') {
+                                        await this.configurationService.updateValue('construct.anthropic.apiKey', apiKey, ConfigurationTarget.USER);
+                                } else {
+                                        await this.configurationService.updateValue('construct.cloud.apiKey', apiKey, ConfigurationTarget.USER);
+                                }
+                        } catch (e) {
+                                this.logService.warn('[ConstructOnboarding] Could not persist API key:', e);
+                        }
+                }
+
+                this.postMessage({ type: 'apiKeyValidation', valid, errorMsg, cloudProvider });
+        }
+
         private async checkAndSendOllamaStatus(): Promise<void> {
                 try {
                         const statuses = await this.aiService.getAllProviderStatuses();
@@ -224,13 +284,18 @@ export class ConstructOnboardingWizard extends Disposable {
                                 }
                         }
 
+                        // F-G-002: If Ollama is available but no models installed, return NoModels status
+                        const effectiveOllamaStatus = (ollamaStatus === ProviderStatus.Available && models.length === 0)
+                                ? ProviderStatus.NoModels
+                                : ollamaStatus;
+
                         // Also check Xenova and Cloud statuses
                         const xenovaStatus = statuses.get('xenova') ?? ProviderStatus.Unknown;
                         const cloudStatus = statuses.get('cloud') ?? ProviderStatus.Unknown;
 
                         this.postMessage({
                                 type: 'ollamaStatus',
-                                ollamaStatus,
+                                ollamaStatus: effectiveOllamaStatus,
                                 models,
                                 xenovaStatus,
                                 cloudStatus,
@@ -738,6 +803,27 @@ export class ConstructOnboardingWizard extends Disposable {
                         font-size: 13px;
                 }
 
+                /* Cloud API key form */
+                .cloud-form { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+                .cloud-form-row { display: flex; flex-direction: column; gap: 4px; }
+                .cloud-form-row label { font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+                .cloud-select {
+                        width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+                        border-radius: 4px; padding: 6px 8px; color: var(--text-primary); font-size: 12px;
+                        outline: none; cursor: pointer;
+                }
+                .cloud-select:focus { border-color: var(--accent); }
+                .cloud-key-input-wrap { display: flex; gap: 6px; align-items: center; }
+                .cloud-input {
+                        flex: 1; background: var(--bg-input); border: 1px solid var(--border);
+                        border-radius: 4px; padding: 6px 8px; color: var(--text-primary); font-size: 12px;
+                        outline: none; font-family: 'Cascadia Code', 'Fira Code', monospace;
+                }
+                .cloud-input:focus { border-color: var(--accent); }
+                .cloud-validate-btn { padding: 6px 12px !important; font-size: 11px !important; white-space: nowrap; }
+                .cloud-key-valid { font-size: 11px; color: var(--success); margin-top: 2px; }
+                .cloud-key-invalid { font-size: 11px; color: var(--error); margin-top: 2px; }
+
                 /* Skip link */
                 .skip-link {
                         color: var(--text-muted);
@@ -836,9 +922,9 @@ export class ConstructOnboardingWizard extends Disposable {
                         </div>
 
                         <!-- Cloud Provider -->
-                        <div class="card">
+                        <div class="card" id="cloud-card">
                                 <div class="card-header">
-                                        <div class="card-icon info">&#x2601;&#xFE0F;</div>
+                                        <div class="card-icon info" id="cloud-icon">&#x2601;&#xFE0F;</div>
                                         <div>
                                                 <div class="card-title">Cloud Provider</div>
                                                 <div class="card-desc">Use an OpenAI-compatible cloud API. Requires internet and an API key.</div>
@@ -847,6 +933,26 @@ export class ConstructOnboardingWizard extends Disposable {
                                 <div class="check-option" id="cloud-option">
                                         <input type="radio" name="provider" id="cloud-radio" value="cloud">
                                         <label for="cloud-radio">Configure a cloud provider</label>
+                                </div>
+                                <div id="cloud-detail" style="display:none;">
+                                        <div class="cloud-form">
+                                                <div class="cloud-form-row">
+                                                        <label for="cloud-provider-select">Provider</label>
+                                                        <select id="cloud-provider-select" class="cloud-select">
+                                                                <option value="openai">OpenAI</option>
+                                                                <option value="anthropic">Anthropic</option>
+                                                                <option value="other">Other (OpenAI-compatible)</option>
+                                                        </select>
+                                                </div>
+                                                <div class="cloud-form-row" id="cloud-key-row">
+                                                        <label for="cloud-api-key">API Key</label>
+                                                        <div class="cloud-key-input-wrap">
+                                                                <input type="password" id="cloud-api-key" class="cloud-input" placeholder="Enter your API key..." autocomplete="off">
+                                                                <button class="btn btn-secondary cloud-validate-btn" id="cloud-validate-btn" onclick="validateCloudKey()">Validate</button>
+                                                        </div>
+                                                </div>
+                                                <div id="cloud-key-status"></div>
+                                        </div>
                                 </div>
                         </div>
 
@@ -1069,6 +1175,9 @@ export class ConstructOnboardingWizard extends Disposable {
                         document.querySelectorAll('.model-item').forEach(el => el.classList.remove('selected'));
                         if (element) element.classList.add('selected');
 
+                        // Hide cloud detail when Ollama model is selected
+                        document.getElementById('cloud-detail').style.display = 'none';
+
                         // Notify extension host
                         vscode.postMessage({ type: 'selectModel', modelId });
 
@@ -1096,6 +1205,7 @@ export class ConstructOnboardingWizard extends Disposable {
                         selectedModelId = null;
                         document.querySelectorAll('.model-item').forEach(el => el.classList.remove('selected'));
                         vscode.postMessage({ type: 'selectXenova' });
+                        document.getElementById('cloud-detail').style.display = 'none';
                         document.getElementById('step1-next').disabled = false;
                 });
 
@@ -1103,10 +1213,57 @@ export class ConstructOnboardingWizard extends Disposable {
                         document.getElementById('cloud-radio').checked = true;
                         selectedProvider = 'cloud';
                         selectedModelId = null;
+                        cloudApiKeyValid = false;
                         document.querySelectorAll('.model-item').forEach(el => el.classList.remove('selected'));
                         vscode.postMessage({ type: 'configureCloud' });
-                        document.getElementById('step1-next').disabled = false;
+                        // Show the cloud API key form
+                        document.getElementById('cloud-detail').style.display = '';
+                        // Disable next until key is validated
+                        document.getElementById('step1-next').disabled = true;
                 });
+
+                // ---- Cloud API Key Validation (F-G-001) ----
+                let cloudApiKeyValid = false;
+
+                function validateCloudKey() {
+                        const provider = document.getElementById('cloud-provider-select').value;
+                        const key = document.getElementById('cloud-api-key').value.trim();
+                        const statusDiv = document.getElementById('cloud-key-status');
+                        const validateBtn = document.getElementById('cloud-validate-btn');
+
+                        if (!key) {
+                                statusDiv.innerHTML = '<div class="cloud-key-invalid">Please enter an API key.</div>';
+                                return;
+                        }
+
+                        // Show validating state
+                        validateBtn.textContent = 'Validating...';
+                        validateBtn.disabled = true;
+                        statusDiv.innerHTML = '';
+
+                        vscode.postMessage({ type: 'validateCloudApiKey', cloudProvider: provider, apiKey: key });
+                }
+
+                function handleApiKeyValidation(msg) {
+                        const statusDiv = document.getElementById('cloud-key-status');
+                        const validateBtn = document.getElementById('cloud-validate-btn');
+                        const cloudIcon = document.getElementById('cloud-icon');
+
+                        validateBtn.textContent = 'Validate';
+                        validateBtn.disabled = false;
+
+                        if (msg.valid) {
+                                cloudApiKeyValid = true;
+                                statusDiv.innerHTML = '<div class="cloud-key-valid">&#x2713; API key validated and saved.</div>';
+                                cloudIcon.className = 'card-icon success';
+                                cloudIcon.textContent = '\\u2713';
+                                document.getElementById('step1-next').disabled = false;
+                        } else {
+                                cloudApiKeyValid = false;
+                                statusDiv.innerHTML = '<div class="cloud-key-invalid">&#x2717; ' + (msg.errorMsg || 'Invalid API key format.') + '</div>';
+                                document.getElementById('step1-next').disabled = true;
+                        }
+                }
 
                 // ---- Kali WSL ----
                 function renderKaliStatus(data) {
@@ -1222,6 +1379,9 @@ export class ConstructOnboardingWizard extends Disposable {
                                         if (msg.success) {
                                                 // Provider switched successfully
                                         }
+                                        break;
+                                case 'apiKeyValidation':
+                                        handleApiKeyValidation(msg);
                                         break;
                                 case 'kaliStatus':
                                         renderKaliStatus(msg);

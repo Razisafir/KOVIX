@@ -40,8 +40,12 @@ import { IObsidianMemoryService } from '../../../../../../platform/construct/com
 import { IConstructToolRegistry } from '../../../../../../platform/construct/common/tools/constructToolRegistry.js';
 // H3: Prompt sanitizer for memory injection prevention
 import { sanitizeMemoryContext } from '../../../../../../platform/construct/common/agent/promptSanitizer.js';
+// F-F-004: Configuration service for configurable max rounds
+import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 
-const MAX_ROUNDS = 15;
+// F-F-004: MAX_ROUNDS is now configurable via construct.agent.maxRounds setting.
+// The default is 15 and can be adjusted between 5-50.
+// See constructApiConfig.ts for the configuration registration.
 
 /**
  * Cached result of a tool execution, used to avoid double-execution
@@ -214,9 +218,15 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                 @IUniversalMemoryService private readonly universalMemory: IUniversalMemoryService,
                 @IObsidianMemoryService private readonly obsidianMemory: IObsidianMemoryService,
                 @IConstructToolRegistry private readonly toolRegistry: IConstructToolRegistry,
+                @IConfigurationService private readonly configurationService: IConfigurationService,
         ) {
                 super();
-                this.logService.info('[AgentLoop] Service created with error recovery, snapshots, file watcher, pending changes, universal memory, obsidian memory, and tool registry');
+                this.logService.info('[AgentLoop] Service created with error recovery, snapshots, file watcher, pending changes, universal memory, obsidian memory, tool registry, and config service');
+        }
+
+        // F-F-004: Read max rounds from configuration
+        private get maxRounds(): number {
+                return this.configurationService.getValue<number>('construct.agent.maxRounds') || 15;
         }
 
         get isRunning(): boolean {
@@ -263,7 +273,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                 try {
                         let roundCount = 0;
 
-                        while (roundCount < MAX_ROUNDS) {
+                        while (roundCount < this.maxRounds) {
                                 roundCount++;
 
                                 // Tool result cache: prevents double-execution during planning.
@@ -451,9 +461,9 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                         let roundCount = 0;
                         let finalSummary = '';
 
-                        while (roundCount < MAX_ROUNDS) {
+                        while (roundCount < this.maxRounds) {
                                 roundCount++;
-                                this.logService.info(`[AgentLoop] Round ${roundCount}/${MAX_ROUNDS}`);
+                                this.logService.info(`[AgentLoop] Round ${roundCount}/${this.maxRounds}`);
 
                                 const assistantToolCalls: IToolCall[] = [];
                                 const toolResults: { toolUseId: string; toolName: string; result: string; success: boolean; filePath?: string }[] = [];
@@ -655,8 +665,8 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                 }
                         }
 
-                        if (roundCount >= MAX_ROUNDS) {
-                                yield { type: 'error', text: `Maximum rounds (${MAX_ROUNDS}) reached — task may be incomplete. Consider increasing the limit in settings.`, recoverable: true } as AgentLoopEvent;
+                        if (roundCount >= this.maxRounds) {
+                                yield { type: 'error', text: `Maximum rounds (${this.maxRounds}) reached — task may be incomplete. Consider increasing the limit in settings.`, recoverable: true } as AgentLoopEvent;
                         }
 
                         // Store task summary in memory

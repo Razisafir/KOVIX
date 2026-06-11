@@ -164,3 +164,23 @@ const mcpConfiguration: IConfigurationNode = {
 };
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration(mcpConfiguration);
+
+// --- F-F-004: Agent Configuration ---
+
+const agentConfiguration: IConfigurationNode = {
+        id: 'construct.agent',
+        order: 105,
+        title: localize('construct.agent', "Construct -- Agent"),
+        type: 'object',
+        properties: {
+                'construct.agent.maxRounds': {
+                        type: 'number',
+                        default: 15,
+                        minimum: 5,
+                        maximum: 50,
+                        description: localize('construct.agent.maxRounds', "Maximum number of tool-call rounds the agent can execute per task."),
+                }
+        }
+};
+
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration(agentConfiguration);

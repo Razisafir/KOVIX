@@ -78,6 +78,10 @@ export class ConstructAgentViewPane extends ViewPane {
         private currentCancellationToken: CancellationTokenSource | null = null;
         private _abortController: AbortController | null = null;
 
+        // F-G-003: Store last task for crash recovery / retry
+        private _lastFailedTaskText: string | null = null;
+        private _errorRecoveryBar: HTMLElement | null = null;
+
         // Performance metrics tracking
         private taskStartTime = 0;
         private planningStartTime = 0;
@@ -579,8 +583,9 @@ export class ConstructAgentViewPane extends ViewPane {
                         this.updateMessageContent(planningMsg, `[FAIL] Planning failed: ${msg}`);
                         this.logService.error('[AgentView] Planning error:', msg);
 
-                        // Transition back to idle after showing error
-                        setTimeout(() => { this.setExecutionState('idle'); }, 2000);
+                        // F-G-003: Store failed task for retry and show persistent error recovery bar
+                        this._lastFailedTaskText = task;
+                        this.showErrorRecoveryBar(msg);
                 } finally {
                         // BUG 6 FIX: Clean up cancellation state to prevent stale references
                         this.currentCancellationToken?.dispose();
@@ -913,8 +918,9 @@ export class ConstructAgentViewPane extends ViewPane {
                         this.updateMessageContent(execMsg, `[FAIL] Error: ${msg}`);
                         this.logService.error('[AgentView] Execution error:', msg);
 
-                        // Transition back to idle after showing error
-                        setTimeout(() => { this.setExecutionState('idle'); }, 2000);
+                        // F-G-003: Store failed task for retry and show persistent error recovery bar
+                        this._lastFailedTaskText = task;
+                        this.showErrorRecoveryBar(msg);
                 } finally {
                         // BUG 6 FIX: Clean up cancellation state to prevent stale references
                         this.currentCancellationToken?.dispose();
@@ -978,12 +984,107 @@ export class ConstructAgentViewPane extends ViewPane {
                                 this.progressPanel.dispose();
                                 this.progressPanel = undefined as any;
                         }
+                        // F-G-003: Remove error recovery bar when transitioning to idle
+                        this.removeErrorRecoveryBar();
+                } else if (state === 'error') {
+                        // F-G-003: Error state is persistent — user must take action
+                        this.inputBox.placeholder = 'An error occurred. Use the buttons below to recover.';
+                        this.sendBtn.style.display = 'none';
+                        this.stopBtn.style.display = 'none';
                 } else if (state === 'planning') {
                         this.inputBox.placeholder = 'Planning...';
                 } else if (state === 'executing') {
                         this.inputBox.placeholder = 'Executing...';
                 } else if (state === 'awaiting_approval') {
                         this.inputBox.placeholder = 'Awaiting approval...';
+                }
+        }
+
+        // F-G-003: Persistent error recovery bar with Retry / Undo / Dismiss buttons
+        private showErrorRecoveryBar(errorMessage: string): void {
+                this.removeErrorRecoveryBar();
+
+                const bar = dom.$('.construct-error-recovery');
+                bar.style.cssText = `
+                        background: #FF444415; border: 1px solid #FF444440;
+                        border-radius: 6px; padding: 10px 12px; margin: 8px 0;
+                        display: flex; flex-direction: column; gap: 8px;
+                `;
+
+                const msgEl = dom.$('.construct-error-recovery-msg');
+                msgEl.style.cssText = `font-size: 12px; color: #FF6666; white-space: pre-wrap;`;
+                msgEl.textContent = `Task failed: ${errorMessage}`;
+                bar.appendChild(msgEl);
+
+                const btnRow = dom.$('.construct-error-recovery-btns');
+                btnRow.style.cssText = `display: flex; gap: 8px;`;
+
+                const retryBtn = dom.$('button') as HTMLButtonElement;
+                retryBtn.textContent = 'Retry';
+                retryBtn.style.cssText = `
+                        background: #00E5FF; color: #0A0E1A; border: none; border-radius: 4px;
+                        padding: 5px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+                `;
+                retryBtn.onclick = () => {
+                        this.removeErrorRecoveryBar();
+                        if (this._lastFailedTaskText) {
+                                const taskText = this._lastFailedTaskText;
+                                this._lastFailedTaskText = null;
+                                this.inputBox.value = taskText;
+                                // Re-trigger the send flow
+                                this.sendBtn.click();
+                        } else {
+                                this.setExecutionState('idle');
+                        }
+                };
+
+                const undoBtn = dom.$('button') as HTMLButtonElement;
+                undoBtn.textContent = 'Undo Changes';
+                undoBtn.style.cssText = `
+                        background: transparent; color: #FFB300; border: 1px solid #FFB30040;
+                        border-radius: 4px; padding: 5px 14px; font-size: 12px; cursor: pointer;
+                `;
+                undoBtn.onclick = async () => {
+                        this.removeErrorRecoveryBar();
+                        try {
+                                const result = await this.agentLoop.undoLastTask();
+                                if (result && result.success) {
+                                        this.addAgentMessage(`Undone: ${result.restoredCount} files restored, ${result.deletedCount} removed.`, 'info');
+                                } else {
+                                        this.addAgentMessage('No changes to undo or undo failed.', 'info');
+                                }
+                        } catch (e) {
+                                this.logService.warn('[AgentView] Undo failed:', e);
+                                this.addAgentMessage('Undo failed.', 'error');
+                        }
+                        this.setExecutionState('idle');
+                };
+
+                const dismissBtn = dom.$('button') as HTMLButtonElement;
+                dismissBtn.textContent = 'Dismiss';
+                dismissBtn.style.cssText = `
+                        background: transparent; color: #4A5568; border: 1px solid #1A1F2E;
+                        border-radius: 4px; padding: 5px 14px; font-size: 12px; cursor: pointer;
+                `;
+                dismissBtn.onclick = () => {
+                        this.removeErrorRecoveryBar();
+                        this.setExecutionState('idle');
+                };
+
+                btnRow.appendChild(retryBtn);
+                btnRow.appendChild(undoBtn);
+                btnRow.appendChild(dismissBtn);
+                bar.appendChild(btnRow);
+
+                this.messageContainer.appendChild(bar);
+                this._errorRecoveryBar = bar;
+                this.scrollToBottom();
+        }
+
+        private removeErrorRecoveryBar(): void {
+                if (this._errorRecoveryBar) {
+                        this._errorRecoveryBar.remove();
+                        this._errorRecoveryBar = null;
                 }
         }
 
