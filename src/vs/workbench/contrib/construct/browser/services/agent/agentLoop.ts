@@ -1172,6 +1172,7 @@ Guidelines:
                 this._currentModeConfig = modeConfig;
                 this._kovixExecutionState = { type: 'running', currentStepIndex: 0, currentMilestoneId: plan.milestones[0]?.id ?? '' };
 
+                try {
                 // Build task from approved plan steps
                 const stepDescriptions = plan.selectedSteps.map(s => `${s.action}: ${s.target} — ${s.description}`);
                 const task = `Execute the following approved plan steps:\n${stepDescriptions.join('\n')}`;
@@ -1222,6 +1223,17 @@ Guidelines:
                 if (!signal?.aborted) {
                         const completedMilestones = plan.milestones.filter(m => m.status === 'completed').length;
                         this._kovixExecutionState = { type: 'completed', totalSteps: plan.selectedSteps.length, milestonesCompleted: completedMilestones };
+                }
+                } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        this._kovixExecutionState = { type: 'error', message: msg, stepIndex: 0 };
+                        this._onError.fire({ text: msg, recoverable: false });
+                        yield { type: 'error', text: msg, recoverable: false };
+                } finally {
+                        if (this._kovixExecutionState.type === 'running') {
+                                this._kovixExecutionState = { type: 'idle' };
+                        }
+                        this._isRunning = false;
                 }
         }
 
