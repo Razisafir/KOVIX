@@ -136,6 +136,8 @@ export class ObsidianMemoryEditorPane extends Disposable {
          */
         render(container: HTMLElement): void {
                 this.container = container;
+                container.setAttribute('role', 'form');
+                container.setAttribute('aria-label', 'Memory editor');
                 container.style.display = 'flex';
                 container.style.flexDirection = 'column';
                 container.style.height = '100%';
@@ -191,6 +193,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 this.titleInput = dom.$('input') as HTMLInputElement;
                 this.titleInput.type = 'text';
                 this.titleInput.placeholder = 'Memory title...';
+                this.titleInput.setAttribute('aria-label', 'Memory title');
                 this.titleInput.style.cssText = `
                         flex: 1; background: transparent; border: none; outline: none;
                         color: var(--vscode-foreground); font-size: 14px; font-weight: 600;
@@ -213,6 +216,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 this.previewToggleBtn = dom.$('button') as HTMLButtonElement;
                 this.previewToggleBtn.textContent = 'Preview';
                 this.previewToggleBtn.title = 'Toggle markdown preview';
+                this.previewToggleBtn.setAttribute('aria-label', 'Toggle markdown preview');
                 this.previewToggleBtn.style.cssText = `
                         background: none; border: 1px solid var(--vscode-editorWidget-border);
                         color: var(--vscode-foreground); border-radius: 2px;
@@ -238,6 +242,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 catRow.appendChild(catLabel);
 
                 this.categorySelect = dom.$('select') as HTMLSelectElement;
+                this.categorySelect.setAttribute('aria-label', 'Memory category');
                 this.categorySelect.style.cssText = `
                         padding: 4px 8px; background: var(--vscode-input-background);
                         border: 1px solid var(--vscode-input-border); border-radius: 2px;
@@ -260,6 +265,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 this.tagsInput = dom.$('input') as HTMLInputElement;
                 this.tagsInput.type = 'text';
                 this.tagsInput.placeholder = 'Add tag, press Enter...';
+                this.tagsInput.setAttribute('aria-label', 'Add tags');
                 this.tagsInput.style.cssText = `
                         flex: 1; padding: 4px 8px; background: var(--vscode-input-background);
                         border: 1px solid var(--vscode-input-border); border-radius: 2px;
@@ -291,6 +297,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 // Textarea for editing
                 this.contentArea = dom.$('textarea') as HTMLTextAreaElement;
                 this.contentArea.placeholder = 'Write your memory content here... (Markdown supported)';
+                this.contentArea.setAttribute('aria-label', 'Memory content');
                 this.contentArea.style.cssText = `
                         flex: 1; width: 100%; box-sizing: border-box; padding: 12px;
                         background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border);
@@ -350,6 +357,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 // Save button
                 this.saveBtn = dom.$('button') as HTMLButtonElement;
                 this.saveBtn.textContent = 'Save';
+                this.saveBtn.setAttribute('aria-label', 'Save memory');
                 this.saveBtn.style.cssText = `
                         background: var(--vscode-button-background); border: none;
                         color: var(--vscode-button-foreground); border-radius: 2px;
@@ -365,6 +373,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 // Discard button
                 this.discardBtn = dom.$('button') as HTMLButtonElement;
                 this.discardBtn.textContent = 'Discard Changes';
+                this.discardBtn.setAttribute('aria-label', 'Discard changes');
                 this.discardBtn.style.cssText = `
                         background: none; border: 1px solid var(--vscode-editorWidget-border);
                         color: var(--vscode-foreground); border-radius: 2px;
@@ -382,6 +391,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
 
                 const deleteBtn = dom.$('button') as HTMLButtonElement;
                 deleteBtn.textContent = 'Delete Memory';
+                deleteBtn.setAttribute('aria-label', 'Delete memory');
                 deleteBtn.style.cssText = `
                         background: var(--vscode-errorBackground, #5a1d1d); border: none;
                         color: var(--vscode-errorForeground, #f48771); border-radius: 2px;

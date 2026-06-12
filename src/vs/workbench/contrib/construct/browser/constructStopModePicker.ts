@@ -92,6 +92,8 @@ export class ConstructStopModePicker extends Disposable {
 
         render(container: HTMLElement): void {
                 this.rootElement = dom.$('.construct-stop-mode-picker');
+                this.rootElement.setAttribute('role', 'listbox');
+                this.rootElement.setAttribute('aria-label', 'Select execution mode');
                 this.rootElement.style.cssText = `
                         background: #0D1117;
                         border: 1px solid #1A1F2E;
@@ -122,6 +124,7 @@ export class ConstructStopModePicker extends Disposable {
 
                 // ── Mode options ──
                 const optionsContainer = dom.$('.construct-stop-mode-options');
+                optionsContainer.setAttribute('role', 'presentation');
                 optionsContainer.style.cssText = `
                         display: flex; flex-direction: column; gap: 4px;
                 `;
@@ -197,6 +200,9 @@ export class ConstructStopModePicker extends Disposable {
 
         private createModeOption(parent: HTMLElement, option: IModeOption): void {
                 const row = dom.$('.construct-stop-mode-option');
+                row.setAttribute('role', 'option');
+                row.setAttribute('aria-selected', String(this.selectedMode === option.mode));
+                row.setAttribute('aria-label', option.label);
                 row.style.cssText = `
                         display: flex; flex-direction: column;
                         padding: 12px 14px; border-radius: 6px;

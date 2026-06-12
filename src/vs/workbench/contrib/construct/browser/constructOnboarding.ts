@@ -837,20 +837,20 @@ export class ConstructOnboardingWizard extends Disposable {
         </style>
 </head>
 <body>
-        <div class="wizard">
+        <div class="wizard" role="dialog" aria-modal="true" aria-label="Onboarding wizard">
                 <!-- Step Indicator -->
-                <div class="step-indicator">
-                        <div class="step-dot active" id="dot-0"></div>
+                <div class="step-indicator" role="navigation" aria-label="Wizard step indicator">
+                        <div class="step-dot active" id="dot-0" role="tab" aria-selected="true" aria-label="Step 1: Welcome"></div>
                         <div class="step-line" id="line-0"></div>
-                        <div class="step-dot" id="dot-1"></div>
+                        <div class="step-dot" id="dot-1" role="tab" aria-selected="false" aria-label="Step 2: AI Provider Setup"></div>
                         <div class="step-line" id="line-1"></div>
-                        <div class="step-dot" id="dot-2"></div>
+                        <div class="step-dot" id="dot-2" role="tab" aria-selected="false" aria-label="Step 3: Kali Linux"></div>
                         <div class="step-line" id="line-2"></div>
-                        <div class="step-dot" id="dot-3"></div>
+                        <div class="step-dot" id="dot-3" role="tab" aria-selected="false" aria-label="Step 4: Ready"></div>
                 </div>
 
                 <!-- Step 0: Welcome -->
-                <div class="step active" id="step-0">
+                <div class="step active" id="step-0" role="tabpanel" aria-label="Welcome to Kovix">
                         <div class="hex-logo">&#x2B21;</div>
                         <div class="step-title">Welcome to Kovix</div>
                         <div class="step-subtitle">
@@ -883,12 +883,12 @@ export class ConstructOnboardingWizard extends Disposable {
 
                         <div class="btn-row">
                                 <div></div>
-                                <button class="btn btn-primary" onclick="goToStep(1)">Get Started &rarr;</button>
+                                <button class="btn btn-primary" onclick="goToStep(1)" aria-label="Get Started: next step">Get Started &rarr;</button>
                         </div>
                 </div>
 
                 <!-- Step 1: AI Provider Setup -->
-                <div class="step" id="step-1">
+                <div class="step" id="step-1" role="tabpanel" aria-label="AI Provider Setup">
                         <div class="step-title">AI Provider Setup</div>
                         <div class="step-subtitle">
                                 Kovix needs an AI provider to power your coding assistant.<br>
@@ -958,13 +958,13 @@ export class ConstructOnboardingWizard extends Disposable {
                         </div>
 
                         <div class="btn-row">
-                                <button class="btn btn-secondary" onclick="goToStep(0)">&larr; Back</button>
-                                <button class="btn btn-primary" id="step1-next" onclick="goToStep(${isWin ? 2 : 3})" disabled>Next &rarr;</button>
+                                <button class="btn btn-secondary" onclick="goToStep(0)" aria-label="Go back to Welcome">&larr; Back</button>
+                                <button class="btn btn-primary" id="step1-next" onclick="goToStep(${isWin ? 2 : 3})" disabled aria-label="Next step">Next &rarr;</button>
                         </div>
                 </div>
 
                 <!-- Step 2: Kali Linux (Windows only) -->
-                <div class="step" id="step-2">
+                <div class="step" id="step-2" role="tabpanel" aria-label="Kali Linux Setup">
                         <div class="step-title">Kali Linux (Optional)</div>
                         <div class="step-subtitle">
                                 Kovix can integrate with Kali Linux via WSL2 on Windows<br>
@@ -983,16 +983,16 @@ export class ConstructOnboardingWizard extends Disposable {
                         </div>
 
                         <div class="btn-row">
-                                <button class="btn btn-secondary" onclick="goToStep(1)">&larr; Back</button>
+                                <button class="btn btn-secondary" onclick="goToStep(1)" aria-label="Go back to AI Provider Setup">&larr; Back</button>
                                 <div style="display:flex;gap:8px;">
-                                        <button class="btn btn-secondary" onclick="skipKali()">Skip</button>
-                                        <button class="btn btn-primary" id="step2-next" onclick="goToStep(3)" disabled>Next &rarr;</button>
+                                        <button class="btn btn-secondary" onclick="skipKali()" aria-label="Skip Kali Linux setup">Skip</button>
+                                        <button class="btn btn-primary" id="step2-next" onclick="goToStep(3)" disabled aria-label="Next step">Next &rarr;</button>
                                 </div>
                         </div>
                 </div>
 
                 <!-- Step 3: You're Ready! -->
-                <div class="step" id="step-3">
+                <div class="step" id="step-3" role="tabpanel" aria-label="Setup Complete">
                         <div class="completion-checkmark">&#x2713;</div>
                         <div class="step-title">You're Ready!</div>
                         <div class="step-subtitle">
@@ -1016,7 +1016,7 @@ export class ConstructOnboardingWizard extends Disposable {
                         </div>
 
                         <div class="btn-row" style="justify-content:center;">
-                                <button class="btn btn-success" onclick="finishSetup()">&#x2B21; Start Using Kovix</button>
+                                <button class="btn btn-success" onclick="finishSetup()" aria-label="Start using Kovix">&#x2B21; Start Using Kovix</button>
                         </div>
                 </div>
         </div>

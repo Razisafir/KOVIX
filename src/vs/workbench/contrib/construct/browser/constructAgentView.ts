@@ -176,6 +176,8 @@ export class ConstructAgentViewPane extends ViewPane {
         protected override renderBody(container: HTMLElement): void {
                 super.renderBody(container);
 
+                container.setAttribute('role', 'region');
+                container.setAttribute('aria-label', 'Construct Agent Chat');
                 container.style.display = 'flex';
                 container.style.flexDirection = 'column';
                 container.style.height = '100%';
@@ -206,6 +208,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 // --- Phase 4: Settings gear icon ---
                 const settingsBtn = dom.$('button.construct-settings-btn') as HTMLButtonElement;
                 settingsBtn.textContent = '\u2699'; // ⚙
+                settingsBtn.setAttribute('aria-label', 'API Settings');
                 settingsBtn.style.cssText = `
                         background: transparent; border: none; color: #4A5568;
                         cursor: pointer; font-size: 14px; padding: 2px 4px;
@@ -221,6 +224,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 // Session history button
                 const sessionHistoryBtn = dom.$('button.construct-session-history-btn') as HTMLButtonElement;
                 sessionHistoryBtn.textContent = '\uD83D\uDCDC'; // 📜
+                sessionHistoryBtn.setAttribute('aria-label', 'Session History');
                 sessionHistoryBtn.style.cssText = `
                         background: transparent; border: none; color: #4A5568;
                         cursor: pointer; font-size: 13px; padding: 2px 4px;
@@ -236,6 +240,9 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 // Messages area
                 this.messageContainer = dom.$('.construct-messages');
+                this.messageContainer.setAttribute('role', 'log');
+                this.messageContainer.setAttribute('aria-live', 'polite');
+                this.messageContainer.setAttribute('aria-label', 'Chat message stream');
                 this.messageContainer.style.cssText = `
                         flex: 1; overflow-y: auto; padding: 10px;
                 `;
@@ -258,6 +265,8 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 // Status indicator
                 this.statusIndicator = dom.$('.construct-status');
+                this.statusIndicator.setAttribute('role', 'status');
+                this.statusIndicator.setAttribute('aria-live', 'polite');
                 this.updateStatusIndicator();
 
                 // Memory status indicator
@@ -289,6 +298,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 this.inputBox.className = 'construct-chat-input';
                 this.inputBox.rows = 1;
                 this.inputBox.placeholder = 'Ask Kovix anything...';
+                this.inputBox.setAttribute('aria-label', 'Type your message');
                 this.inputBox.style.cssText = `
                         flex: 1; background: #0A0E1A; border: 1px solid #1A1F2E;
                         border-radius: 4px; padding: 8px 10px; color: #E0E7FF;
@@ -303,6 +313,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 this.sendBtn = dom.$('button.construct-send-btn') as HTMLButtonElement;
                 this.sendBtn.textContent = '\u2192'; // Right arrow
+                this.sendBtn.setAttribute('aria-label', 'Send message');
                 this.sendBtn.style.cssText = `
                         background: #00E5FF; color: #0A0E1A; border: none;
                         border-radius: 4px; padding: 6px 12px; cursor: pointer;
@@ -311,6 +322,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 this.stopBtn = dom.$('button.construct-stop-btn') as HTMLButtonElement;
                 this.stopBtn.textContent = '\u25A0'; // Stop square
+                this.stopBtn.setAttribute('aria-label', 'Stop execution');
                 this.stopBtn.style.cssText = `
                         background: #FF4444; color: white; border: none;
                         border-radius: 4px; padding: 6px 10px; cursor: pointer;
@@ -377,6 +389,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 // --- Phase 4: Clear button ---
                 this.clearBtn = dom.$('button.construct-clear-btn') as HTMLButtonElement;
+                this.clearBtn.setAttribute('aria-label', 'Clear chat messages');
                 this.clearBtn.textContent = '\uD83D\uDDB1'; // 🗑
                 this.clearBtn.style.cssText = `
                         background: transparent; color: #4A5568; border: none;
@@ -434,6 +447,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 for (const opt of scopeOptions) {
                         const btn = dom.$('button.construct-context-scope-btn') as HTMLButtonElement;
+                        btn.setAttribute('aria-label', `Context scope: ${opt.label}`);
                         btn.style.cssText = `
                                 background: ${this.contextScope === opt.scope ? '#1A2744' : '#0A0E1A'};
                                 border: 1px solid ${this.contextScope === opt.scope ? '#00E5FF' : '#1A1F2E'};
@@ -637,6 +651,8 @@ export class ConstructAgentViewPane extends ViewPane {
                 this.planContainer?.remove();
 
                 this.planContainer = dom.$('.construct-plan');
+                this.planContainer.setAttribute('role', 'region');
+                this.planContainer.setAttribute('aria-label', 'Execution plan');
                 this.planContainer.style.cssText = `
                         background: #141B2D; border: 1px solid #1A1F2E;
                         border-radius: 6px; padding: 12px; margin: 8px 0;
@@ -687,6 +703,7 @@ export class ConstructAgentViewPane extends ViewPane {
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
                         checkbox.checked = step.selected;
+                        checkbox.setAttribute('aria-label', `${step.action}: ${step.target}`);
                         checkbox.style.cssText = `accent-color: #00E5FF; cursor: pointer;`;
                         this.planCheckboxes.push(checkbox);
 
@@ -716,6 +733,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const selectAllBtn = dom.$('button') as HTMLButtonElement;
                 selectAllBtn.textContent = 'Select All';
+                selectAllBtn.setAttribute('aria-label', 'Select all plan steps');
                 selectAllBtn.style.cssText = `background: transparent; border: 1px solid #1A1F2E; color: #4A5568; border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 10px;`;
                 selectAllBtn.onclick = () => {
                         kovixSteps.forEach((s, i) => { s.selected = true; this.planCheckboxes[i].checked = true; });
@@ -724,6 +742,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const deselectAllBtn = dom.$('button') as HTMLButtonElement;
                 deselectAllBtn.textContent = 'Deselect All';
+                deselectAllBtn.setAttribute('aria-label', 'Deselect all plan steps');
                 deselectAllBtn.style.cssText = `background: transparent; border: 1px solid #1A1F2E; color: #4A5568; border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 10px;`;
                 deselectAllBtn.onclick = () => {
                         kovixSteps.forEach((s, i) => { s.selected = false; this.planCheckboxes[i].checked = false; });
@@ -746,6 +765,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const refineBtn = dom.$('button') as HTMLButtonElement;
                 refineBtn.textContent = '\u2190 Refine Idea';
+                refineBtn.setAttribute('aria-label', 'Refine idea');
                 refineBtn.style.cssText = `background: transparent; border: 1px solid #1A1F2E; color: #4A5568; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px;`;
                 refineBtn.onclick = () => {
                         this.planContainer?.remove();
@@ -757,6 +777,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const approveBtn = dom.$('button') as HTMLButtonElement;
                 approveBtn.textContent = 'Approve & Continue \u2192';
+                approveBtn.setAttribute('aria-label', 'Approve plan and continue');
                 approveBtn.style.cssText = `background: #00C853; color: white; border: none; border-radius: 4px; padding: 6px 14px; cursor: pointer; font-size: 12px; font-weight: 600;`;
                 approveBtn.onclick = () => {
                         // Build IApprovedPlan from selected steps
@@ -783,6 +804,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const cancelBtn = dom.$('button') as HTMLButtonElement;
                 cancelBtn.textContent = 'Cancel';
+                cancelBtn.setAttribute('aria-label', 'Cancel plan');
                 cancelBtn.style.cssText = `background: transparent; border: 1px solid #FF4444; color: #FF4444; border-radius: 4px; padding: 6px 14px; cursor: pointer; font-size: 12px;`;
                 cancelBtn.onclick = () => {
                         this.planContainer?.remove();
@@ -1113,6 +1135,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const retryBtn = dom.$('button') as HTMLButtonElement;
                 retryBtn.textContent = 'Retry';
+                retryBtn.setAttribute('aria-label', 'Retry failed task');
                 retryBtn.style.cssText = `
                         background: #00E5FF; color: #0A0E1A; border: none; border-radius: 4px;
                         padding: 5px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
@@ -1132,6 +1155,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const undoBtn = dom.$('button') as HTMLButtonElement;
                 undoBtn.textContent = 'Undo Changes';
+                undoBtn.setAttribute('aria-label', 'Undo changes');
                 undoBtn.style.cssText = `
                         background: transparent; color: #FFB300; border: 1px solid #FFB30040;
                         border-radius: 4px; padding: 5px 14px; font-size: 12px; cursor: pointer;
@@ -1154,6 +1178,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const dismissBtn = dom.$('button') as HTMLButtonElement;
                 dismissBtn.textContent = 'Dismiss';
+                dismissBtn.setAttribute('aria-label', 'Dismiss error');
                 dismissBtn.style.cssText = `
                         background: transparent; color: #4A5568; border: 1px solid #1A1F2E;
                         border-radius: 4px; padding: 5px 14px; font-size: 12px; cursor: pointer;
@@ -1481,6 +1506,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const acceptBtn = dom.$('button') as HTMLButtonElement;
                 acceptBtn.textContent = '\u2705 Accept';
+                acceptBtn.setAttribute('aria-label', 'Accept change');
                 acceptBtn.style.cssText = `
                         background: #00C853; color: white; border: none;
                         border-radius: 3px; padding: 4px 10px; cursor: pointer;
@@ -1489,6 +1515,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const rejectBtn = dom.$('button') as HTMLButtonElement;
                 rejectBtn.textContent = '\u274C Reject';
+                rejectBtn.setAttribute('aria-label', 'Reject change');
                 rejectBtn.style.cssText = `
                         background: #FF4444; color: white; border: none;
                         border-radius: 3px; padding: 4px 10px; cursor: pointer;
@@ -1636,6 +1663,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.placeholder = 'Your answer...';
+                input.setAttribute('aria-label', 'Refinement answer');
                 input.style.cssText = `
                         width: 100%; background: #0A0E1A; border: 1px solid #1A1F2E;
                         border-radius: 3px; padding: 6px 8px; color: #E0E7FF;
@@ -1652,6 +1680,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const submitBtn = dom.$('button') as HTMLButtonElement;
                 submitBtn.textContent = 'Submit Answer';
+                submitBtn.setAttribute('aria-label', 'Submit refinement answer');
                 submitBtn.style.cssText = `
                         background: #00E5FF; color: #0A0E1A; border: none;
                         border-radius: 4px; padding: 6px 14px; cursor: pointer;
@@ -1660,6 +1689,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const skipBtn = dom.$('button') as HTMLButtonElement;
                 skipBtn.textContent = 'Skip to Planning';
+                skipBtn.setAttribute('aria-label', 'Skip refinement and go to planning');
                 skipBtn.style.cssText = `
                         background: #1A2744; border: 1px solid #2D3A5C; color: #E0E7FF;
                         border-radius: 4px; padding: 6px 14px; cursor: pointer;
@@ -1765,6 +1795,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const continueBtn = dom.$('button') as HTMLButtonElement;
                 continueBtn.textContent = '\u25B6 Continue';
+                continueBtn.setAttribute('aria-label', 'Continue execution');
                 continueBtn.style.cssText = `
                         background: #00C853; color: white; border: none;
                         border-radius: 4px; padding: 6px 14px; cursor: pointer;
@@ -1778,6 +1809,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const skipBtn = dom.$('button') as HTMLButtonElement;
                 skipBtn.textContent = '\u23ED Skip';
+                skipBtn.setAttribute('aria-label', 'Skip milestone');
                 skipBtn.style.cssText = `
                         background: #FF9800; color: white; border: none;
                         border-radius: 4px; padding: 6px 14px; cursor: pointer;
@@ -1791,6 +1823,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const stopBtn = dom.$('button') as HTMLButtonElement;
                 stopBtn.textContent = '\u25A0 Stop';
+                stopBtn.setAttribute('aria-label', 'Stop execution');
                 stopBtn.style.cssText = `
                         background: #FF4444; color: white; border: none;
                         border-radius: 4px; padding: 6px 14px; cursor: pointer;
