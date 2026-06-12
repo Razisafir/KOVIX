@@ -1,0 +1,465 @@
+name: Build Verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      build_macos:
+        description: "Build macOS (expensive runner)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+  schedule:
+    # Nightly at 03:00 UTC — includes macOS build
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # COMPILE — fast gate, must pass before any build runs
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  compile:
+    name: Compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Clean node-gyp cache
+        run: rm -rf ~/.cache/node-gyp || true
+
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 30
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Compile
+        run: NODE_OPTIONS="--max-old-space-size=8192" npm run compile
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # TEST CONSTRUCT — construct unit tests (179+ tests)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  test-construct:
+    name: Test Construct
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Clean node-gyp cache
+        run: rm -rf ~/.cache/node-gyp || true
+
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 30
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Compile
+        run: NODE_OPTIONS="--max-old-space-size=8192" npm run compile
+
+      - name: Run Construct Unit Tests
+        run: npm run test-unit-construct
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: construct-test-results
+          path: test/unit/construct/out-test/
+          retention-days: 7
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # LINUX BUILD — produces .deb package
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  build-linux:
+    name: Linux x64 Build
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot dpkg-dev rpm libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-0 libsecret-1-dev libgtk-3-0 libgbm1
+
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 30
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Build Linux package
+        run: npx gulp vscode-linux-x64
+        timeout-minutes: 120
+        env:
+          NODE_OPTIONS: "--max-old-space-size=6144"
+
+      - name: Build Linux DEB
+        run: |
+          npx gulp vscode-linux-x64-prepare-deb
+          npx gulp vscode-linux-x64-build-deb
+        timeout-minutes: 30
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd .build/linux
+          sha256sum deb/amd64/**/*.deb > checksums-sha256.txt 2>/dev/null || true
+          # Also generate for tar.gz if present
+          sha256sum *.tar.gz >> checksums-sha256.txt 2>/dev/null || true
+          echo "=== Linux checksums ==="
+          cat checksums-sha256.txt
+
+      - name: Upload Linux DEB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kovix-linux-x64-deb
+          path: |
+            .build/linux/deb/amd64/**/*.deb
+            .build/linux/checksums-sha256.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # WINDOWS BUILD — produces .exe installer
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  build-windows:
+    name: Windows x64 Build
+    needs: compile
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 30
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Build Windows package
+        run: npx gulp vscode-win32-x64
+        timeout-minutes: 120
+        env:
+          NODE_OPTIONS: "--max-old-space-size=6144"
+
+      - name: Copy Inno Updater
+        run: npx gulp vscode-win32-x64-inno-updater
+        timeout-minutes: 5
+
+      - name: Build Windows system setup (.exe)
+        run: npx gulp vscode-win32-x64-system-setup
+        timeout-minutes: 15
+
+      - name: Generate SHA256 checksum
+        run: |
+          $exe = Get-ChildItem .build\win32-x64\system-setup\*.exe | Select-Object -First 1
+          if ($exe) {
+            $hash = (Get-FileHash -Path $exe.FullName -Algorithm SHA256).Hash
+            "$hash  $($exe.Name)" | Out-File -FilePath .build\win32-x64\checksums-sha256.txt -Encoding utf8
+            Write-Host "=== Windows checksum ==="
+            Get-Content .build\win32-x64\checksums-sha256.txt
+          } else {
+            Write-Host "WARNING: No .exe found in .build\win32-x64\system-setup\"
+            Get-ChildItem .build\win32-x64\ -Recurse -File | Select-Object FullName
+          }
+
+      - name: Upload Windows EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kovix-win32-x64-exe
+          path: |
+            .build/win32-x64/system-setup/*.exe
+            .build/win32-x64/checksums-sha256.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # macOS BUILD — produces .zip (expensive, opt-in/nightly)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  build-macos:
+    name: macOS x64 Build
+    needs: compile
+    if: github.event_name == 'schedule' || github.event.inputs.build_macos == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 30
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Build macOS package
+        run: npx gulp vscode-darwin-x64
+        timeout-minutes: 120
+        env:
+          NODE_OPTIONS: "--max-old-space-size=6144"
+
+      - name: Create macOS ZIP archive
+        run: |
+          if [ -d "VSCode-darwin-x64" ]; then
+            cd VSCode-darwin-x64
+            APP_NAME=$(ls -d *.app 2>/dev/null | head -1)
+            if [ -n "$APP_NAME" ]; then
+              zip -r "../kovix-darwin-x64.zip" "$APP_NAME"
+            else
+              cd ..
+              zip -r "kovix-darwin-x64.zip" "VSCode-darwin-x64/"
+            fi
+          elif [ -d ".build/darwin/x64" ]; then
+            cd .build/darwin/x64
+            APP_NAME=$(ls -d *.app 2>/dev/null | head -1)
+            if [ -n "$APP_NAME" ]; then
+              zip -r "../../../kovix-darwin-x64.zip" "$APP_NAME"
+            else
+              cd ../../..
+              zip -r "kovix-darwin-x64.zip" ".build/darwin/x64/"
+            fi
+          else
+            echo "ERROR: Cannot find macOS build output directory"
+            ls -la
+            find . -name "*.app" -maxdepth 3 2>/dev/null
+            exit 1
+          fi
+
+      - name: Generate SHA256 checksum
+        run: |
+          shasum -a 256 kovix-darwin-x64.zip > checksums-sha256.txt
+          echo "=== macOS checksum ==="
+          cat checksums-sha256.txt
+
+      - name: Upload macOS ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kovix-darwin-x64-zip
+          path: |
+            kovix-darwin-x64.zip
+            checksums-sha256.txt
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # VERIFY ARTIFACTS — download & validate all build outputs
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  verify-artifacts:
+    name: Verify Artifacts
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kovix-linux-x64-deb
+          path: artifacts/linux
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kovix-win32-x64-exe
+          path: artifacts/windows
+
+      - name: Verify artifacts exist and are non-empty
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  KOVIX Build Verification — Artifact Check"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+
+          ERRORS=0
+
+          # Check Linux DEB
+          echo "📦 Linux DEB:"
+          DEB_COUNT=$(find artifacts/linux -name "*.deb" -type f 2>/dev/null | wc -l)
+          if [ "$DEB_COUNT" -eq 0 ]; then
+            echo "  ❌ No .deb files found"
+            ERRORS=$((ERRORS + 1))
+          else
+            for f in $(find artifacts/linux -name "*.deb" -type f); do
+              SIZE=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null || echo "unknown")
+              echo "  ✅ $(basename $f) — ${SIZE} bytes"
+            done
+          fi
+
+          # Check Windows EXE
+          echo "📦 Windows EXE:"
+          EXE_COUNT=$(find artifacts/windows -name "*.exe" -type f 2>/dev/null | wc -l)
+          if [ "$EXE_COUNT" -eq 0 ]; then
+            echo "  ❌ No .exe files found"
+            ERRORS=$((ERRORS + 1))
+          else
+            for f in $(find artifacts/windows -name "*.exe" -type f); do
+              SIZE=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null || echo "unknown")
+              echo "  ✅ $(basename $f) — ${SIZE} bytes"
+            done
+          fi
+
+          echo ""
+
+          # Verify checksums
+          echo "🔐 SHA256 Checksums:"
+          for checksum_file in $(find artifacts -name "checksums-sha256.txt" -type f); do
+            echo "  📄 $checksum_file:"
+            cat "$checksum_file" | while read hash name; do
+              echo "    $hash  $name"
+            done
+          done
+
+          # Re-verify checksums if we have the actual files
+          echo ""
+          echo "✅ Re-verifying checksums against downloaded files..."
+          if [ -f "artifacts/linux/checksums-sha256.txt" ]; then
+            cd artifacts/linux
+            # Find the actual deb file
+            DEB_FILE=$(find . -name "*.deb" -type f | head -1)
+            if [ -n "$DEB_FILE" ]; then
+              ACTUAL=$(sha256sum "$DEB_FILE" | awk '{print $1}')
+              EXPECTED=$(grep -v '^$' checksums-sha256.txt | head -1 | awk '{print $1}')
+              if [ "$ACTUAL" = "$EXPECTED" ]; then
+                echo "  ✅ Linux DEB checksum verified"
+              else
+                echo "  ❌ Linux DEB checksum MISMATCH"
+                echo "     Expected: $EXPECTED"
+                echo "     Actual:   $ACTUAL"
+                ERRORS=$((ERRORS + 1))
+              fi
+            fi
+            cd ../..
+          fi
+
+          if [ -f "artifacts/windows/checksums-sha256.txt" ]; then
+            cd artifacts/windows
+            EXE_FILE=$(find . -name "*.exe" -type f | head -1)
+            if [ -n "$EXE_FILE" ]; then
+              ACTUAL=$(sha256sum "$EXE_FILE" | awk '{print $1}')
+              EXPECTED=$(grep -v '^$' checksums-sha256.txt | head -1 | awk '{print $1}')
+              if [ "$ACTUAL" = "$EXPECTED" ]; then
+                echo "  ✅ Windows EXE checksum verified"
+              else
+                echo "  ❌ Windows EXE checksum MISMATCH"
+                echo "     Expected: $EXPECTED"
+                echo "     Actual:   $ACTUAL"
+                ERRORS=$((ERRORS + 1))
+              fi
+            fi
+            cd ../..
+          fi
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "❌ VERIFICATION FAILED — $ERRORS error(s) found"
+            exit 1
+          else
+            echo "✅ ALL ARTIFACTS VERIFIED SUCCESSFULLY"
+          fi
+
+      - name: Print artifact summary
+        if: always()
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "  KOVIX Build Artifact Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          find artifacts -type f \( -name "*.deb" -o -name "*.exe" -o -name "*.zip" -o -name "checksums-sha256.txt" \) | while read f; do
+            SIZE=$(stat -f%z "$f" 2>/dev/null || stat -c%s "$f" 2>/dev/null || echo "?")
+            HASH=$(sha256sum "$f" 2>/dev/null | awk '{print $1}' || echo "n/a")
+            printf "  %-50s %10s bytes  %s\n" "$(basename $f)" "$SIZE" "$HASH"
+          done
+          echo ""
