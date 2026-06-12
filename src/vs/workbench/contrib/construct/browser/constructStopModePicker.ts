@@ -145,6 +145,7 @@ export class ConstructStopModePicker extends Disposable {
 
                 const backButton = dom.$('button.construct-stop-mode-back');
                 backButton.textContent = '← Back to Plan';
+                backButton.setAttribute('aria-label', 'Back to plan review');
                 backButton.style.cssText = `
                         background: transparent;
                         border: 1px solid #1A1F2E;
@@ -168,6 +169,7 @@ export class ConstructStopModePicker extends Disposable {
 
                 this.executeButton = dom.$('button.construct-stop-mode-execute');
                 this.executeButton.textContent = 'Execute →';
+                this.executeButton.setAttribute('aria-label', 'Execute with selected mode');
                 this.executeButton.style.cssText = `
                         background: #00E5FF;
                         border: none;
@@ -440,6 +442,9 @@ export class ConstructStopModePicker extends Disposable {
                         const isSelected = mode === this.selectedMode;
                         const radio = row.querySelector<HTMLElement>('.construct-stop-mode-radio');
                         const radioInner = row.querySelector<HTMLElement>('.construct-stop-mode-radio-inner');
+
+                        // Update ARIA selected state
+                        row.setAttribute('aria-selected', String(isSelected));
 
                         if (isSelected) {
                                 row.style.background = '#0F1520';

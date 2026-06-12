@@ -405,6 +405,9 @@ export class ConstructAgentViewPane extends ViewPane {
                                 e.preventDefault();
                                 sendMessage();
                         }
+                        if (e.key === 'Escape') {
+                                this.inputBox.blur();
+                        }
                 };
 
                 this.stopBtn.onclick = () => {
@@ -425,6 +428,12 @@ export class ConstructAgentViewPane extends ViewPane {
                 inputArea.appendChild(this.stopBtn);
                 inputArea.appendChild(this.sendBtn);
                 container.appendChild(inputArea);
+
+                // Tab order: input > send > stop > clear (logical chat flow)
+                this.inputBox.tabIndex = 0;
+                this.sendBtn.tabIndex = 0;
+                this.stopBtn.tabIndex = 0;
+                this.clearBtn.tabIndex = 0;
 
                 // --- Phase 2: Context Selector Bar ---
                 const contextBar = dom.$('.construct-context-bar');

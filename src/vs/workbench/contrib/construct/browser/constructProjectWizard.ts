@@ -116,6 +116,9 @@ export class ConstructProjectWizard extends Disposable {
 
                 // Create the full-size overlay inside the agent panel
                 const overlay = dom.$('div.construct-project-wizard-overlay');
+                overlay.setAttribute('role', 'dialog');
+                overlay.setAttribute('aria-modal', 'true');
+                overlay.setAttribute('aria-label', 'Project creation wizard');
                 overlay.style.cssText = [
                         'position: absolute',
                         'top: 0; left: 0; right: 0; bottom: 0',
@@ -360,6 +363,7 @@ export class ConstructProjectWizard extends Disposable {
                 input.maxLength = 80;
                 input.value = this.projectName;
                 input.placeholder = 'e.g. My Awesome App';
+                input.setAttribute('aria-label', 'Project Name');
                 input.style.cssText = [
                         'width: 100%',
                         'box-sizing: border-box',
@@ -426,6 +430,7 @@ export class ConstructProjectWizard extends Disposable {
                 textarea.value = this.projectDescription;
                 textarea.placeholder = 'Describe what you want to build, who it\'s for, and what problems it solves...';
                 textarea.rows = 8;
+                textarea.setAttribute('aria-label', 'Project Description');
                 textarea.style.cssText = [
                         'width: 100%',
                         'box-sizing: border-box',
@@ -502,6 +507,7 @@ export class ConstructProjectWizard extends Disposable {
                 const customInput = dom.$('input') as HTMLInputElement;
                 customInput.type = 'text';
                 customInput.placeholder = 'e.g. React, Docker, GraphQL...';
+                customInput.setAttribute('aria-label', 'Add custom technology');
                 customInput.style.cssText = [
                         'flex: 1',
                         `background: ${COLORS.inputBg}`,
@@ -523,6 +529,7 @@ export class ConstructProjectWizard extends Disposable {
 
                 const addBtn = dom.$('button') as HTMLButtonElement;
                 addBtn.textContent = 'Add';
+                addBtn.setAttribute('aria-label', 'Add technology');
                 addBtn.style.cssText = [
                         `background: ${COLORS.accent}`,
                         `color: ${COLORS.bg}`,
@@ -714,6 +721,7 @@ export class ConstructProjectWizard extends Disposable {
                 const goalInput = dom.$('input') as HTMLInputElement;
                 goalInput.type = 'text';
                 goalInput.placeholder = 'Type a goal and press Enter...';
+                goalInput.setAttribute('aria-label', 'Add a goal');
                 goalInput.style.cssText = [
                         'flex: 1',
                         `background: ${COLORS.inputBg}`,
@@ -735,6 +743,7 @@ export class ConstructProjectWizard extends Disposable {
 
                 const addGoalBtn = dom.$('button') as HTMLButtonElement;
                 addGoalBtn.textContent = 'Add';
+                addGoalBtn.setAttribute('aria-label', 'Add goal');
                 addGoalBtn.style.cssText = [
                         `background: ${COLORS.accent}`,
                         `color: ${COLORS.bg}`,
@@ -888,6 +897,7 @@ export class ConstructProjectWizard extends Disposable {
                         'transition: all 0.15s ease',
                 ].join('; ');
                 prevBtn.textContent = '\u2190 Previous';
+                prevBtn.setAttribute('aria-label', 'Previous step');
                 this.stepDisposables.add(dom.addDisposableListener(prevBtn, dom.EventType.CLICK, () => {
                         this.goToStep(this.currentStep - 1);
                 }));
@@ -914,6 +924,7 @@ export class ConstructProjectWizard extends Disposable {
                         'transition: all 0.15s ease',
                 ].join('; ');
                 nextBtn.textContent = 'Next \u2192';
+                nextBtn.setAttribute('aria-label', 'Next step');
                 this.stepDisposables.add(dom.addDisposableListener(nextBtn, dom.EventType.CLICK, () => {
                         if (this.currentStep < STEP_COUNT) {
                                 this.goToStep(this.currentStep + 1);
@@ -937,6 +948,7 @@ export class ConstructProjectWizard extends Disposable {
                         'transition: all 0.15s ease',
                 ].join('; ');
                 createBtn.textContent = '\u2713 Create Project';
+                createBtn.setAttribute('aria-label', 'Create project');
                 this.stepDisposables.add(dom.addDisposableListener(createBtn, dom.EventType.CLICK, () => {
                         this.createProject();
                 }));
