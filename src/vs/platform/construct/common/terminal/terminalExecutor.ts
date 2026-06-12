@@ -60,6 +60,26 @@ export const TERMINAL_RATE_LIMIT = {
 };
 
 /**
+ * SEC-4.2: Maximum output length returned to the agent (in characters).
+ * Output exceeding this limit is truncated with a marker.
+ */
+export const MAX_OUTPUT_LENGTH = 10_000;
+
+/**
+ * SEC-4.2: Commands that perform file-system mutations or read sensitive files.
+ * When these commands are used, the target path must be validated against
+ * the workspace boundary.
+ */
+export const FILE_OPERATION_COMMANDS: readonly string[] = [
+        'cat', 'head', 'tail', 'less', 'more',
+        'ls', 'dir', 'find', 'stat', 'file',
+        'rm', 'rmdir', 'cp', 'mv', 'touch', 'mkdir',
+        'chmod', 'chown', 'chgrp',
+        'ln', 'symlink',
+        'tee', 'dd',
+];
+
+/**
  * SEC-3: Secret patterns that must NEVER appear in audit logs.
  */
 const SECRET_LOG_PATTERNS = [
@@ -111,6 +131,43 @@ export async function isPathWithinWorkspace(filePath: string, workspaceRoot: str
         const resolved = path.resolve(filePath);
         const root = path.resolve(workspaceRoot);
         return resolved.startsWith(root + path.sep) || resolved === root;
+}
+
+/**
+ * SEC-4.2: Strip ANSI escape sequences from terminal output.
+ * Handles CSI sequences, OSC sequences, SGR sequences, and carriage returns.
+ * Shared between browser and Node layers for consistent output cleaning.
+ */
+export function stripAnsiEscapeSequences(text: string): string {
+        return text
+                .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')      // CSI sequences (colors, cursor)
+                .replace(/\x1b\][^\x07]*\x07/g, '')           // OSC sequences (title, etc.)
+                .replace(/\x1b\[[\?]?[0-9;]*[a-zA-Z]/g, '')  // Private CSI sequences
+                .replace(/\x1b\[[0-9;]*m/g, '')               // SGR sequences (colors)
+                .replace(/\x1b\[(?:A|B|C|D|E|F|G|H|J|K|S|T|f|i|l|m|n|s|u)/g, '') // Cursor/erase sequences
+                .replace(/\r\n/g, '\n')                        // Normalize line endings
+                .replace(/\r/g, '\n');                         // Standalone CR to LF
+}
+
+/**
+ * SEC-4.2: Sanitise command output before returning to the agent.
+ * 1. Strips ANSI escape sequences
+ * 2. Redacts secrets (API keys, tokens, passwords)
+ * 3. Truncates output longer than MAX_OUTPUT_LENGTH
+ */
+export function sanitiseOutput(text: string): string {
+        // 1. Strip ANSI escape sequences
+        let result = stripAnsiEscapeSequences(text);
+
+        // 2. Redact secrets
+        result = sanitiseForAuditLog(result);
+
+        // 3. Truncate if too long
+        if (result.length > MAX_OUTPUT_LENGTH) {
+                result = result.substring(0, MAX_OUTPUT_LENGTH) + '\n[OUTPUT TRUNCATED — exceeded 10,000 characters]';
+        }
+
+        return result;
 }
 
 /**
