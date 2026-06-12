@@ -1,0 +1,97 @@
+name: Ollama Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Ollama model to test with'
+        required: false
+        default: 'tinyllama'
+        type: string
+  schedule:
+    # Daily at 06:00 UTC (after nightly build at 03:00)
+    - cron: "0 6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ollama-test
+  cancel-in-progress: true
+
+jobs:
+  ollama-test:
+    name: Ollama AI Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      OLLAMA_HOST: "http://localhost:11434"
+      OLLAMA_TEST_MODEL: ${{ github.event.inputs.model || 'tinyllama' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-dev libvips-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Clean node-gyp cache
+        run: rm -rf ~/.cache/node-gyp || true
+
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 30
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Compile
+        run: NODE_OPTIONS="--max-old-space-size=8192" npm run compile
+
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama server
+        run: |
+          ollama serve &
+          sleep 5
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+              echo "Ollama is ready"
+              break
+            fi
+            echo "Waiting for Ollama... ($i/30)"
+            sleep 2
+          done
+
+      - name: Pull test model
+        run: ollama pull ${{ github.event.inputs.model || 'tinyllama' }}
+
+      - name: Verify model available
+        run: ollama list
+
+      - name: Compile test files
+        run: npx tsc -p test/unit/construct/tsconfig.json
+
+      - name: Run Ollama Integration Tests
+        run: npx mocha --ui tdd --timeout 30000 test/unit/construct/out-test/services/ollamaIntegration.test.js
+
+      - name: Run Agent Loop E2E Tests
+        run: npx mocha --ui tdd --timeout 60000 test/unit/construct/out-test/services/agentLoopE2E.test.js
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ollama-test-logs
+          path: test/unit/construct/out-test/
+          retention-days: 7

@@ -2,7 +2,7 @@
   "name": "kovix",
   "version": "1.0.0",
   "productName": "KOVIX",
-  "description": "AI-native integrated development environment — Kovix",
+  "description": "AI-native integrated development environment \u2014 Kovix",
   "distro": "c883c91dadf5f063b26c86ffe01851acee3747c6",
   "author": {
     "name": "Razisafir"
@@ -70,7 +70,9 @@
     "extensions-ci-pr": "node ./node_modules/gulp/bin/gulp.js extensions-ci-pr",
     "perf": "node scripts/code-perf.js",
     "update-build-ts-version": "npm install typescript@next && tsc -p ./build/tsconfig.build.json",
-    "lint": "node build/eslint"
+    "lint": "node build/eslint",
+    "test-ollama-integration": "tsc -p test/unit/construct/tsconfig.json && OLLAMA_HOST=http://localhost:11434 OLLAMA_TEST_MODEL=tinyllama mocha --ui tdd --timeout 30000 test/unit/construct/out-test/services/ollamaIntegration.test.js",
+    "test-agent-e2e": "tsc -p test/unit/construct/tsconfig.json && OLLAMA_HOST=http://localhost:11434 OLLAMA_TEST_MODEL=tinyllama mocha --ui tdd --timeout 60000 test/unit/construct/out-test/services/agentLoopE2E.test.js"
   },
   "dependencies": {
     "@microsoft/1ds-core-js": "^3.2.13",

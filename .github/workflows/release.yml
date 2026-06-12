@@ -65,6 +65,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install libvips (macOS)
+        run: brew install libvips
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -108,7 +111,7 @@ jobs:
       - name: Setup Build Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxkbfile-dev pkg-config libsecret-1-dev libkrb5-dev libxss1 dbus xvfb libgtk-3-0 libgbm1
+          sudo apt-get install -y libxkbfile-dev pkg-config libsecret-1-dev libkrb5-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libvips-dev
 
       - uses: actions/setup-python@v5
         with:

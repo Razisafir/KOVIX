@@ -49,7 +49,7 @@ jobs:
         if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
         run: |
           sudo apt update
-          sudo apt install -y libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-dev
+          sudo apt install -y libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-dev libvips-dev
       - name: Execute npm
         if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
         env:
