@@ -9,6 +9,7 @@ import * as dom from '../../../../base/browser/dom.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ExecutionMode, IExecutionModeConfig } from '../../../../platform/construct/common/agent/executionMode.js';
 import { IMilestone } from '../../../../platform/construct/common/agent/milestoneStateMachine.js';
+import * as Nls from './constructNls.js';
 
 /**
  * KOVIX — Stop Mode Picker
@@ -30,31 +31,31 @@ interface IModeOption {
 const MODE_OPTIONS: IModeOption[] = [
         {
                 mode: ExecutionMode.EVERY_MILESTONE,
-                label: 'Every milestone',
-                badge: 'Safest',
+                label: Nls.MODE_EVERY_MILESTONE,
+                badge: Nls.MODE_EVERY_MILESTONE_BADGE,
                 badgeColor: '#4ADE80',
-                description: 'Pause after each checkpoint. You review every stage before continuing.',
+                description: Nls.MODE_EVERY_MILESTONE_DESC,
         },
         {
                 mode: ExecutionMode.MAJOR_MILESTONE,
-                label: 'Major milestones',
-                badge: 'Recommended',
+                label: Nls.MODE_MAJOR_MILESTONE,
+                badge: Nls.MODE_MAJOR_MILESTONE_BADGE,
                 badgeColor: '#00E5FF',
-                description: 'Pause at key completion points.',
+                description: Nls.MODE_MAJOR_MILESTONE_DESC,
         },
         {
                 mode: ExecutionMode.SELECTIVE,
-                label: 'Selective milestones',
-                badge: 'Advanced',
+                label: Nls.MODE_SELECTIVE,
+                badge: Nls.MODE_SELECTIVE_BADGE,
                 badgeColor: '#FACC15',
-                description: 'Choose which checkpoints to pause at.',
+                description: Nls.MODE_SELECTIVE_DESC,
         },
         {
                 mode: ExecutionMode.FULL_AUTO,
-                label: 'Full auto',
-                badge: 'Power users',
+                label: Nls.MODE_FULL_AUTO,
+                badge: Nls.MODE_FULL_AUTO_BADGE,
                 badgeColor: '#F87171',
-                description: 'Run everything. You can stop anytime.',
+                description: Nls.MODE_FULL_AUTO_DESC,
         },
 ];
 
@@ -93,7 +94,7 @@ export class ConstructStopModePicker extends Disposable {
         render(container: HTMLElement): void {
                 this.rootElement = dom.$('.construct-stop-mode-picker');
                 this.rootElement.setAttribute('role', 'listbox');
-                this.rootElement.setAttribute('aria-label', 'Select execution mode');
+                this.rootElement.setAttribute('aria-label', Nls.SELECT_EXECUTION_MODE);
                 this.rootElement.style.cssText = `
                         background: #0D1117;
                         border: 1px solid #1A1F2E;
@@ -117,7 +118,7 @@ export class ConstructStopModePicker extends Disposable {
                 titleIcon.textContent = '⚡';
                 titleIcon.style.cssText = `font-size: 18px;`;
                 const titleText = dom.$('.construct-stop-mode-title-text');
-                titleText.textContent = 'How autonomous should KOVIX be?';
+                titleText.textContent = Nls.HOW_AUTONOMOUS;
                 titleRow.appendChild(titleIcon);
                 titleRow.appendChild(titleText);
                 this.rootElement.appendChild(titleRow);
@@ -144,7 +145,7 @@ export class ConstructStopModePicker extends Disposable {
                 `;
 
                 const backButton = dom.$('button.construct-stop-mode-back');
-                backButton.textContent = '← Back to Plan';
+                backButton.textContent = Nls.BACK_TO_PLAN;
                 backButton.setAttribute('aria-label', 'Back to plan review');
                 backButton.style.cssText = `
                         background: transparent;
@@ -168,7 +169,7 @@ export class ConstructStopModePicker extends Disposable {
                 backButton.addEventListener('click', () => this.onBack());
 
                 this.executeButton = dom.$('button.construct-stop-mode-execute');
-                this.executeButton.textContent = 'Execute →';
+                this.executeButton.textContent = Nls.EXECUTE;
                 this.executeButton.setAttribute('aria-label', 'Execute with selected mode');
                 this.executeButton.style.cssText = `
                         background: #00E5FF;
@@ -321,7 +322,7 @@ export class ConstructStopModePicker extends Disposable {
                         warningIcon.textContent = '⚠';
                         warningIcon.style.cssText = `color: #FF4444; font-size: 14px; flex-shrink: 0;`;
                         const warningText = dom.$('.construct-stop-mode-warning-text');
-                        warningText.textContent = 'Changes will be applied without review';
+                        warningText.textContent = Nls.CHANGES_WITHOUT_REVIEW;
                         warningText.style.cssText = `color: #FF6666;`;
                         warningBanner.appendChild(warningIcon);
                         warningBanner.appendChild(warningText);
@@ -392,7 +393,7 @@ export class ConstructStopModePicker extends Disposable {
                         // Major indicator
                         if (milestone.isMajor) {
                                 const majorTag = dom.$('.construct-stop-mode-major-tag');
-                                majorTag.textContent = 'major';
+                                majorTag.textContent = Nls.MAJOR_TAG;
                                 majorTag.style.cssText = `
                                         margin-left: auto; font-size: 10px; color: #4A5568;
                                         padding: 1px 6px; border-radius: 3px;
@@ -509,7 +510,7 @@ export class ConstructStopModePicker extends Disposable {
                 const majorMilestones = this.milestones.filter(m => m.isMajor);
                 if (majorMilestones.length === 0) {
                         const noMajors = dom.$('.construct-stop-mode-option-detail-line');
-                        noMajors.textContent = '• (No major milestones detected)';
+                        noMajors.textContent = `• ${Nls.NO_MAJOR_MILESTONES}`;
                         noMajors.style.cssText = `
                                 color: #6B7894; font-size: 11px; padding-left: 8px;
                                 font-style: italic;

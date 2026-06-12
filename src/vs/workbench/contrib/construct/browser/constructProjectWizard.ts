@@ -12,6 +12,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import * as Nls from './constructNls.js';
 
 // ─── Theme constants (consistent with agent view) ────────────────────────────
 
@@ -35,17 +36,17 @@ const COLORS = {
 const STEP_COUNT = 4;
 
 const STEP_TITLES: string[] = [
-        'Name Your Project',
-        'Describe Your Idea',
-        'Tech Stack',
-        'Success Criteria',
+        Nls.STEP_NAME_PROJECT,
+        Nls.STEP_DESCRIBE_IDEA,
+        Nls.STEP_TECH_STACK,
+        Nls.STEP_SUCCESS_CRITERIA,
 ];
 
 const STEP_SUBTITLES: string[] = [
-        'Give your project a clear, memorable name.',
-        'What are you building? Share your vision.',
-        'Which technologies will you use?',
-        'What does success look like? Add at least one goal.',
+        Nls.STEP_SUBTITLE_NAME,
+        Nls.STEP_SUBTITLE_DESCRIBE,
+        Nls.STEP_SUBTITLE_TECH,
+        Nls.STEP_SUBTITLE_GOALS,
 ];
 
 // ─── Wizard ──────────────────────────────────────────────────────────────────
@@ -355,14 +356,14 @@ export class ConstructProjectWizard extends Disposable {
         private renderStep1(parent: HTMLElement): void {
                 const label = dom.$('label');
                 label.style.cssText = `color: ${COLORS.text}; font-size: 13px; font-weight: 500; margin-bottom: 8px; display: block;`;
-                label.textContent = 'Project Name';
+                label.textContent = Nls.PROJECT_NAME;
                 parent.appendChild(label);
 
                 const input = dom.$('input') as HTMLInputElement;
                 input.type = 'text';
                 input.maxLength = 80;
                 input.value = this.projectName;
-                input.placeholder = 'e.g. My Awesome App';
+                input.placeholder = Nls.PROJECT_NAME_PLACEHOLDER;
                 input.setAttribute('aria-label', 'Project Name');
                 input.style.cssText = [
                         'width: 100%',
@@ -404,7 +405,7 @@ export class ConstructProjectWizard extends Disposable {
 
                 const hint = dom.$('span');
                 hint.style.cssText = `color: ${COLORS.dimText}; font-size: 11px;`;
-                hint.textContent = 'Required — max 80 characters';
+                hint.textContent = Nls.PROJECT_NAME_HINT;
                 counterRow.appendChild(hint);
 
                 const charCounter = dom.$('span');
@@ -423,12 +424,12 @@ export class ConstructProjectWizard extends Disposable {
         private renderStep2(parent: HTMLElement): void {
                 const label = dom.$('label');
                 label.style.cssText = `color: ${COLORS.text}; font-size: 13px; font-weight: 500; margin-bottom: 8px; display: block;`;
-                label.textContent = 'Project Description';
+                label.textContent = Nls.PROJECT_DESCRIPTION;
                 parent.appendChild(label);
 
                 const textarea = dom.$('textarea') as HTMLTextAreaElement;
                 textarea.value = this.projectDescription;
-                textarea.placeholder = 'Describe what you want to build, who it\'s for, and what problems it solves...';
+                textarea.placeholder = Nls.PROJECT_DESCRIPTION_PLACEHOLDER;
                 textarea.rows = 8;
                 textarea.setAttribute('aria-label', 'Project Description');
                 textarea.style.cssText = [
@@ -462,7 +463,7 @@ export class ConstructProjectWizard extends Disposable {
 
                 const hint = dom.$('span');
                 hint.style.cssText = `color: ${COLORS.dimText}; font-size: 11px; margin-top: 6px; display: block;`;
-                hint.textContent = 'Optional — but a good description helps the AI build exactly what you want.';
+                hint.textContent = Nls.PROJECT_DESCRIPTION_HINT;
                 parent.appendChild(hint);
 
                 // Auto-focus
@@ -475,7 +476,7 @@ export class ConstructProjectWizard extends Disposable {
                 // ── Selected technologies section ──
                 const selectedLabel = dom.$('div');
                 selectedLabel.style.cssText = `color: ${COLORS.text}; font-size: 13px; font-weight: 500; margin-bottom: 8px;`;
-                selectedLabel.textContent = 'Selected Technologies';
+                selectedLabel.textContent = Nls.SELECTED_TECHNOLOGIES;
                 parent.appendChild(selectedLabel);
 
                 const selectedContainer = dom.$('div');
@@ -486,7 +487,7 @@ export class ConstructProjectWizard extends Disposable {
                 // ── Workspace suggestions section ──
                 const suggestionsLabel = dom.$('div');
                 suggestionsLabel.style.cssText = `color: ${COLORS.dimText}; font-size: 12px; font-weight: 500; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;`;
-                suggestionsLabel.textContent = 'SUGGESTED FROM WORKSPACE';
+                suggestionsLabel.textContent = Nls.SUGGESTED_FROM_WORKSPACE;
                 parent.appendChild(suggestionsLabel);
 
                 const suggestionsContainer = dom.$('div');
@@ -498,7 +499,7 @@ export class ConstructProjectWizard extends Disposable {
                 // ── Custom input ──
                 const customLabel = dom.$('div');
                 customLabel.style.cssText = `color: ${COLORS.dimText}; font-size: 12px; font-weight: 500; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;`;
-                customLabel.textContent = 'ADD CUSTOM TECHNOLOGY';
+                customLabel.textContent = Nls.ADD_CUSTOM_TECHNOLOGY;
                 parent.appendChild(customLabel);
 
                 const inputRow = dom.$('div');
@@ -506,7 +507,7 @@ export class ConstructProjectWizard extends Disposable {
 
                 const customInput = dom.$('input') as HTMLInputElement;
                 customInput.type = 'text';
-                customInput.placeholder = 'e.g. React, Docker, GraphQL...';
+                customInput.placeholder = Nls.CUSTOM_TECH_PLACEHOLDER;
                 customInput.setAttribute('aria-label', 'Add custom technology');
                 customInput.style.cssText = [
                         'flex: 1',
@@ -528,7 +529,7 @@ export class ConstructProjectWizard extends Disposable {
                 }));
 
                 const addBtn = dom.$('button') as HTMLButtonElement;
-                addBtn.textContent = 'Add';
+                addBtn.textContent = Nls.ADD;
                 addBtn.setAttribute('aria-label', 'Add technology');
                 addBtn.style.cssText = [
                         `background: ${COLORS.accent}`,
@@ -569,7 +570,7 @@ export class ConstructProjectWizard extends Disposable {
                 // Hint
                 const hint = dom.$('span');
                 hint.style.cssText = `color: ${COLORS.dimText}; font-size: 11px; margin-top: 8px; display: block;`;
-                hint.textContent = 'Press Enter or click Add to include a technology.';
+                hint.textContent = Nls.ADD_TECH_HINT;
                 parent.appendChild(hint);
 
                 // Auto-focus
@@ -582,7 +583,7 @@ export class ConstructProjectWizard extends Disposable {
                 if (this.techStack.length === 0) {
                         const empty = dom.$('span');
                         empty.style.cssText = `color: ${COLORS.dimText}; font-size: 12px; font-style: italic; line-height: 38px;`;
-                        empty.textContent = 'No technologies selected yet';
+                        empty.textContent = Nls.NO_TECH_SELECTED;
                         container.appendChild(empty);
                         return;
                 }
@@ -635,7 +636,7 @@ export class ConstructProjectWizard extends Disposable {
                 if (this.suggestedTech.length === 0) {
                         const detecting = dom.$('span');
                         detecting.style.cssText = `color: ${COLORS.dimText}; font-size: 12px; font-style: italic;`;
-                        detecting.textContent = 'Detecting workspace technologies...';
+                        detecting.textContent = Nls.DETECTING_TECH;
                         container.appendChild(detecting);
                         return;
                 }
@@ -645,7 +646,7 @@ export class ConstructProjectWizard extends Disposable {
                 if (unselected.length === 0) {
                         const allAdded = dom.$('span');
                         allAdded.style.cssText = `color: ${COLORS.dimText}; font-size: 12px; font-style: italic;`;
-                        allAdded.textContent = 'All detected technologies added';
+                        allAdded.textContent = Nls.ALL_TECH_ADDED;
                         container.appendChild(allAdded);
                         return;
                 }
@@ -705,7 +706,7 @@ export class ConstructProjectWizard extends Disposable {
         private renderStep4(parent: HTMLElement): void {
                 const label = dom.$('div');
                 label.style.cssText = `color: ${COLORS.text}; font-size: 13px; font-weight: 500; margin-bottom: 10px;`;
-                label.textContent = 'Goals';
+                label.textContent = Nls.GOALS;
                 parent.appendChild(label);
 
                 // Existing goals list
@@ -720,7 +721,7 @@ export class ConstructProjectWizard extends Disposable {
 
                 const goalInput = dom.$('input') as HTMLInputElement;
                 goalInput.type = 'text';
-                goalInput.placeholder = 'Type a goal and press Enter...';
+                goalInput.placeholder = Nls.GOAL_PLACEHOLDER;
                 goalInput.setAttribute('aria-label', 'Add a goal');
                 goalInput.style.cssText = [
                         'flex: 1',
@@ -742,7 +743,7 @@ export class ConstructProjectWizard extends Disposable {
                 }));
 
                 const addGoalBtn = dom.$('button') as HTMLButtonElement;
-                addGoalBtn.textContent = 'Add';
+                addGoalBtn.textContent = Nls.ADD;
                 addGoalBtn.setAttribute('aria-label', 'Add goal');
                 addGoalBtn.style.cssText = [
                         `background: ${COLORS.accent}`,
@@ -804,7 +805,7 @@ export class ConstructProjectWizard extends Disposable {
                                 `color: ${COLORS.dimText}`,
                                 'font-size: 12px',
                         ].join('; ');
-                        empty.textContent = 'No goals yet. Type one below and press Enter.';
+                        empty.textContent = Nls.NO_GOALS_YET;
                         container.appendChild(empty);
                         return;
                 }
@@ -896,7 +897,7 @@ export class ConstructProjectWizard extends Disposable {
                         'cursor: pointer',
                         'transition: all 0.15s ease',
                 ].join('; ');
-                prevBtn.textContent = '\u2190 Previous';
+                prevBtn.textContent = Nls.PREVIOUS;
                 prevBtn.setAttribute('aria-label', 'Previous step');
                 this.stepDisposables.add(dom.addDisposableListener(prevBtn, dom.EventType.CLICK, () => {
                         this.goToStep(this.currentStep - 1);
@@ -923,7 +924,7 @@ export class ConstructProjectWizard extends Disposable {
                         'cursor: pointer',
                         'transition: all 0.15s ease',
                 ].join('; ');
-                nextBtn.textContent = 'Next \u2192';
+                nextBtn.textContent = Nls.NEXT;
                 nextBtn.setAttribute('aria-label', 'Next step');
                 this.stepDisposables.add(dom.addDisposableListener(nextBtn, dom.EventType.CLICK, () => {
                         if (this.currentStep < STEP_COUNT) {
@@ -947,7 +948,7 @@ export class ConstructProjectWizard extends Disposable {
                         'display: none',
                         'transition: all 0.15s ease',
                 ].join('; ');
-                createBtn.textContent = '\u2713 Create Project';
+                createBtn.textContent = Nls.CREATE_PROJECT;
                 createBtn.setAttribute('aria-label', 'Create project');
                 this.stepDisposables.add(dom.addDisposableListener(createBtn, dom.EventType.CLICK, () => {
                         this.createProject();
@@ -1024,7 +1025,7 @@ export class ConstructProjectWizard extends Disposable {
                 // Disable button to prevent double-clicks
                 if (this.createButton) {
                         this.createButton.disabled = true;
-                        this.createButton.textContent = 'Creating...';
+                        this.createButton.textContent = Nls.CREATING;
                         this.createButton.style.opacity = '0.6';
                         this.createButton.style.cursor = 'wait';
                 }
@@ -1054,7 +1055,7 @@ export class ConstructProjectWizard extends Disposable {
                         // Re-enable button on failure
                         if (this.createButton) {
                                 this.createButton.disabled = false;
-                                this.createButton.textContent = '\u2713 Create Project';
+                                this.createButton.textContent = Nls.CREATE_PROJECT;
                                 this.createButton.style.opacity = '1';
                                 this.createButton.style.cursor = 'pointer';
                         }

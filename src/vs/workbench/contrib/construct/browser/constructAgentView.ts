@@ -43,6 +43,7 @@ import { IExecutionModeConfig } from '../../../../platform/construct/common/agen
 import { ConstructStopModePicker } from './constructStopModePicker.js';
 import { IUniversalMemoryService } from '../../../../platform/construct/common/memory/universalMemoryService.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import * as Nls from './constructNls.js';
 
 type ExecutionState = 'idle' | 'planning' | 'refining' | 'awaiting_approval' | 'executing' | 'paused_at_milestone' | 'complete' | 'error' | 'stopped';
 
@@ -224,13 +225,13 @@ export class ConstructAgentViewPane extends ViewPane {
                 // Session history button
                 const sessionHistoryBtn = dom.$('button.construct-session-history-btn') as HTMLButtonElement;
                 sessionHistoryBtn.textContent = '\uD83D\uDCDC'; // 📜
-                sessionHistoryBtn.setAttribute('aria-label', 'Session History');
+                sessionHistoryBtn.setAttribute('aria-label', Nls.SESSION_HISTORY);
                 sessionHistoryBtn.style.cssText = `
                         background: transparent; border: none; color: #4A5568;
                         cursor: pointer; font-size: 13px; padding: 2px 4px;
                         border-radius: 3px;
                 `;
-                sessionHistoryBtn.title = 'Session History';
+                sessionHistoryBtn.title = Nls.SESSION_HISTORY;
                 sessionHistoryBtn.onclick = () => { this.showSessionHistory(); };
                 modelPickerBar.appendChild(sessionHistoryBtn);
 
@@ -257,11 +258,11 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const title = dom.$('.construct-title');
                 title.style.cssText = `font-size: 14px; font-weight: 600; color: #E0E7FF; margin-bottom: 4px;`;
-                title.textContent = 'Kovix Agent';
+                title.textContent = Nls.AGENT_TITLE;
 
                 const subtitle = dom.$('.construct-subtitle');
                 subtitle.style.cssText = `font-size: 12px; color: #4A5568; margin-bottom: 12px;`;
-                subtitle.textContent = 'AI-powered coding assistant';
+                subtitle.textContent = Nls.AGENT_SUBTITLE;
 
                 // Status indicator
                 this.statusIndicator = dom.$('.construct-status');
@@ -278,7 +279,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const hint = dom.$('.construct-hint');
                 hint.style.cssText = `font-size: 11px; color: #4A5568; font-family: monospace; background: #0A0E1A; border-radius: 4px; padding: 6px 10px; display: inline-block;`;
-                hint.textContent = 'Ctrl+Shift+I  Inline edit  |  Ctrl+Shift+C  Focus panel';
+                hint.textContent = Nls.AGENT_HINT;
 
                 welcome.appendChild(logo);
                 welcome.appendChild(title);
@@ -297,7 +298,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 this.inputBox = document.createElement('textarea');
                 this.inputBox.className = 'construct-chat-input';
                 this.inputBox.rows = 1;
-                this.inputBox.placeholder = 'Ask Kovix anything...';
+                this.inputBox.placeholder = Nls.PLACEHOLDER_ASK;
                 this.inputBox.setAttribute('aria-label', 'Type your message');
                 this.inputBox.style.cssText = `
                         flex: 1; background: #0A0E1A; border: 1px solid #1A1F2E;
@@ -396,7 +397,7 @@ export class ConstructAgentViewPane extends ViewPane {
                         cursor: pointer; font-size: 14px; padding: 4px 6px;
                         display: none; border-radius: 3px;
                 `;
-                this.clearBtn.title = 'Clear chat';
+                this.clearBtn.title = Nls.CLEAR_CHAT;
                 this.clearBtn.onclick = () => { this.clearMessages(); };
 
                 this.sendBtn.onclick = sendMessage;
@@ -444,12 +445,12 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const contextLabel = dom.$('.construct-context-label');
                 contextLabel.style.cssText = `font-size: 10px; color: #4A5568; margin-right: 2px;`;
-                contextLabel.textContent = 'Context:';
+                contextLabel.textContent = Nls.CONTEXT_LABEL;
 
                 const scopeOptions: Array<{ scope: ContextScope; label: string; icon: string }> = [
-                        { scope: 'currentFile', label: 'File', icon: '\uD83D\uDCC4' },
-                        { scope: 'workspace', label: 'Workspace', icon: '\uD83D\uDCC2' },
-                        { scope: 'selectedText', label: 'Selection', icon: '\u270F\uFE0F' },
+                        { scope: 'currentFile', label: Nls.CONTEXT_FILE, icon: '\uD83D\uDCC4' },
+                        { scope: 'workspace', label: Nls.CONTEXT_WORKSPACE, icon: '\uD83D\uDCC2' },
+                        { scope: 'selectedText', label: Nls.CONTEXT_SELECTION, icon: '\u270F\uFE0F' },
                 ];
 
                 contextBar.appendChild(contextLabel);
@@ -697,7 +698,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const subHeader = dom.$('.construct-plan-subheader');
                 subHeader.style.cssText = `font-size: 11px; color: #4A5568; margin-bottom: 8px;`;
-                subHeader.textContent = 'Uncheck any steps you want to skip';
+                subHeader.textContent = Nls.UNCHECK_STEPS;
                 this.planContainer.appendChild(subHeader);
 
                 // Plan steps with checkboxes
@@ -741,7 +742,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 selectBtns.style.cssText = `display: flex; gap: 8px; margin-top: 6px; margin-bottom: 6px;`;
 
                 const selectAllBtn = dom.$('button') as HTMLButtonElement;
-                selectAllBtn.textContent = 'Select All';
+                selectAllBtn.textContent = Nls.SELECT_ALL;
                 selectAllBtn.setAttribute('aria-label', 'Select all plan steps');
                 selectAllBtn.style.cssText = `background: transparent; border: 1px solid #1A1F2E; color: #4A5568; border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 10px;`;
                 selectAllBtn.onclick = () => {
@@ -750,7 +751,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 };
 
                 const deselectAllBtn = dom.$('button') as HTMLButtonElement;
-                deselectAllBtn.textContent = 'Deselect All';
+                deselectAllBtn.textContent = Nls.DESELECT_ALL;
                 deselectAllBtn.setAttribute('aria-label', 'Deselect all plan steps');
                 deselectAllBtn.style.cssText = `background: transparent; border: 1px solid #1A1F2E; color: #4A5568; border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 10px;`;
                 deselectAllBtn.onclick = () => {
@@ -773,7 +774,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 btnContainer.style.cssText = `display: flex; gap: 8px; margin-top: 6px; justify-content: flex-end;`;
 
                 const refineBtn = dom.$('button') as HTMLButtonElement;
-                refineBtn.textContent = '\u2190 Refine Idea';
+                refineBtn.textContent = Nls.REFINE_IDEA;
                 refineBtn.setAttribute('aria-label', 'Refine idea');
                 refineBtn.style.cssText = `background: transparent; border: 1px solid #1A1F2E; color: #4A5568; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px;`;
                 refineBtn.onclick = () => {
@@ -785,7 +786,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 };
 
                 const approveBtn = dom.$('button') as HTMLButtonElement;
-                approveBtn.textContent = 'Approve & Continue \u2192';
+                approveBtn.textContent = Nls.APPROVE_AND_CONTINUE;
                 approveBtn.setAttribute('aria-label', 'Approve plan and continue');
                 approveBtn.style.cssText = `background: #00C853; color: white; border: none; border-radius: 4px; padding: 6px 14px; cursor: pointer; font-size: 12px; font-weight: 600;`;
                 approveBtn.onclick = () => {
@@ -812,7 +813,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 };
 
                 const cancelBtn = dom.$('button') as HTMLButtonElement;
-                cancelBtn.textContent = 'Cancel';
+                cancelBtn.textContent = Nls.CANCEL;
                 cancelBtn.setAttribute('aria-label', 'Cancel plan');
                 cancelBtn.style.cssText = `background: transparent; border: 1px solid #FF4444; color: #FF4444; border-radius: 4px; padding: 6px 14px; cursor: pointer; font-size: 12px;`;
                 cancelBtn.onclick = () => {
@@ -1101,7 +1102,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 this.inputBox.disabled = isRunning;
 
                 if (state === 'idle') {
-                        this.inputBox.placeholder = 'Ask Kovix anything...';
+                        this.inputBox.placeholder = Nls.PLACEHOLDER_ASK;
                         // Clean up progress panel
                         if (this.progressPanel) {
                                 this.progressPanel.dispose();
@@ -1111,15 +1112,15 @@ export class ConstructAgentViewPane extends ViewPane {
                         this.removeErrorRecoveryBar();
                 } else if (state === 'error') {
                         // F-G-003: Error state is persistent — user must take action
-                        this.inputBox.placeholder = 'An error occurred. Use the buttons below to recover.';
+                        this.inputBox.placeholder = Nls.PLACEHOLDER_ERROR_RECOVERY;
                         this.sendBtn.style.display = 'none';
                         this.stopBtn.style.display = 'none';
                 } else if (state === 'planning') {
-                        this.inputBox.placeholder = 'Planning...';
+                        this.inputBox.placeholder = Nls.PLACEHOLDER_PLANNING;
                 } else if (state === 'executing') {
-                        this.inputBox.placeholder = 'Executing...';
+                        this.inputBox.placeholder = Nls.PLACEHOLDER_EXECUTING;
                 } else if (state === 'awaiting_approval') {
-                        this.inputBox.placeholder = 'Awaiting approval...';
+                        this.inputBox.placeholder = Nls.PLACEHOLDER_AWAITING_APPROVAL;
                 }
         }
 
@@ -1143,7 +1144,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 btnRow.style.cssText = `display: flex; gap: 8px;`;
 
                 const retryBtn = dom.$('button') as HTMLButtonElement;
-                retryBtn.textContent = 'Retry';
+                retryBtn.textContent = Nls.RETRY;
                 retryBtn.setAttribute('aria-label', 'Retry failed task');
                 retryBtn.style.cssText = `
                         background: #00E5FF; color: #0A0E1A; border: none; border-radius: 4px;
@@ -1163,7 +1164,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 };
 
                 const undoBtn = dom.$('button') as HTMLButtonElement;
-                undoBtn.textContent = 'Undo Changes';
+                undoBtn.textContent = Nls.UNDO_CHANGES;
                 undoBtn.setAttribute('aria-label', 'Undo changes');
                 undoBtn.style.cssText = `
                         background: transparent; color: #FFB300; border: 1px solid #FFB30040;
@@ -1176,17 +1177,17 @@ export class ConstructAgentViewPane extends ViewPane {
                                 if (result && result.success) {
                                         this.addAgentMessage(`Undone: ${result.restoredCount} files restored, ${result.deletedCount} removed.`, 'info');
                                 } else {
-                                        this.addAgentMessage('No changes to undo or undo failed.', 'info');
+                                        this.addAgentMessage(Nls.NO_CHANGES_TO_UNDO, 'info');
                                 }
                         } catch (e) {
                                 this.logService.warn('[AgentView] Undo failed:', e);
-                                this.addAgentMessage('Undo failed.', 'error');
+                                this.addAgentMessage(Nls.UNDO_FAILED, 'error');
                         }
                         this.setExecutionState('idle');
                 };
 
                 const dismissBtn = dom.$('button') as HTMLButtonElement;
-                dismissBtn.textContent = 'Dismiss';
+                dismissBtn.textContent = Nls.DISMISS;
                 dismissBtn.setAttribute('aria-label', 'Dismiss error');
                 dismissBtn.style.cssText = `
                         background: transparent; color: #4A5568; border: 1px solid #1A1F2E;
@@ -1270,11 +1271,11 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const title = dom.$('.construct-title');
                 title.style.cssText = `font-size: 14px; font-weight: 600; color: #E0E7FF; margin-bottom: 4px;`;
-                title.textContent = 'Kovix Agent';
+                title.textContent = Nls.AGENT_TITLE;
 
                 const subtitle = dom.$('.construct-subtitle');
                 subtitle.style.cssText = `font-size: 12px; color: #4A5568; margin-bottom: 12px;`;
-                subtitle.textContent = 'AI-powered coding assistant';
+                subtitle.textContent = Nls.AGENT_SUBTITLE;
 
                 const statusEl = dom.$('.construct-status');
                 const stateConfig: Record<ExecutionState, { text: string; color: string }> = {
@@ -1300,7 +1301,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const hint = dom.$('.construct-hint');
                 hint.style.cssText = `font-size: 11px; color: #4A5568; font-family: monospace; background: #0A0E1A; border-radius: 4px; padding: 6px 10px; display: inline-block;`;
-                hint.textContent = 'Ctrl+Shift+I  Inline edit  |  Ctrl+Shift+C  Focus panel';
+                hint.textContent = Nls.AGENT_HINT;
 
                 welcome.appendChild(logo);
                 welcome.appendChild(title);
@@ -1491,7 +1492,7 @@ export class ConstructAgentViewPane extends ViewPane {
                         font-family: monospace; font-size: 11px; color: #C0C0C0;
                         white-space: pre-wrap; background: #0A0E1A;
                 `;
-                contentArea.textContent = 'Loading file content...';
+                contentArea.textContent = Nls.LOADING_FILE_CONTENT;
 
                 // Load file content via diffApplier
                 this.diffApplier.readFile(filePath).then(content => {
@@ -1503,7 +1504,7 @@ export class ConstructAgentViewPane extends ViewPane {
                         const entry = this.pendingDiffs.find(d => d.id === diffId);
                         if (entry) { entry.content = content; }
                 }).catch(() => {
-                        contentArea.textContent = '(Unable to read file content)';
+                        contentArea.textContent = Nls.UNABLE_TO_READ_FILE;
                 });
 
                 // Buttons
@@ -1514,7 +1515,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 `;
 
                 const acceptBtn = dom.$('button') as HTMLButtonElement;
-                acceptBtn.textContent = '\u2705 Accept';
+                acceptBtn.textContent = Nls.ACCEPT;
                 acceptBtn.setAttribute('aria-label', 'Accept change');
                 acceptBtn.style.cssText = `
                         background: #00C853; color: white; border: none;
@@ -1523,7 +1524,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 `;
 
                 const rejectBtn = dom.$('button') as HTMLButtonElement;
-                rejectBtn.textContent = '\u274C Reject';
+                rejectBtn.textContent = Nls.REJECT;
                 rejectBtn.setAttribute('aria-label', 'Reject change');
                 rejectBtn.style.cssText = `
                         background: #FF4444; color: white; border: none;
@@ -1656,7 +1657,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const header = dom.$('.construct-refinement-header');
                 header.style.cssText = `font-weight: 600; color: #E0E7FF; margin-bottom: 10px; font-size: 13px;`;
-                header.textContent = `\uD83D\uDCA1 Idea Refinement`;
+                header.textContent = Nls.IDEA_REFINEMENT;
                 container.appendChild(header);
 
                 const qCard = dom.$('.construct-refinement-question');
@@ -1671,7 +1672,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.placeholder = 'Your answer...';
+                input.placeholder = Nls.YOUR_ANSWER;
                 input.setAttribute('aria-label', 'Refinement answer');
                 input.style.cssText = `
                         width: 100%; background: #0A0E1A; border: 1px solid #1A1F2E;
@@ -1688,7 +1689,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 btnContainer.style.cssText = `display: flex; gap: 8px; margin-top: 8px;`;
 
                 const submitBtn = dom.$('button') as HTMLButtonElement;
-                submitBtn.textContent = 'Submit Answer';
+                submitBtn.textContent = Nls.SUBMIT_ANSWER;
                 submitBtn.setAttribute('aria-label', 'Submit refinement answer');
                 submitBtn.style.cssText = `
                         background: #00E5FF; color: #0A0E1A; border: none;
@@ -1697,7 +1698,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 `;
 
                 const skipBtn = dom.$('button') as HTMLButtonElement;
-                skipBtn.textContent = 'Skip to Planning';
+                skipBtn.textContent = Nls.SKIP_TO_PLANNING;
                 skipBtn.setAttribute('aria-label', 'Skip refinement and go to planning');
                 skipBtn.style.cssText = `
                         background: #1A2744; border: 1px solid #2D3A5C; color: #E0E7FF;
@@ -1734,7 +1735,7 @@ export class ConstructAgentViewPane extends ViewPane {
         }
 
         private async handleRefinementAnswer(answer: string, idea: string, projectId: string): Promise<void> {
-                this.addAgentMessage('\u23F3 Processing your answer...', 'info');
+                this.addAgentMessage(Nls.PROCESSING_ANSWER, 'info');
                 try {
                         const result = await this.ideaRefinementService.submitAnswer(projectId, answer);
                         if (result.readyForPlanning && result.refinedIdea) {
@@ -1791,7 +1792,7 @@ export class ConstructAgentViewPane extends ViewPane {
 
                 const header = dom.$('.construct-milestone-header');
                 header.style.cssText = `font-weight: 600; color: #00E5FF; margin-bottom: 6px; font-size: 13px;`;
-                header.textContent = `\u23F8 Paused at: ${milestone.label}`;
+                header.textContent = `${Nls.PAUSED_AT} ${milestone.label}`;
                 container.appendChild(header);
 
                 const desc = dom.$('.construct-milestone-desc');
@@ -1803,7 +1804,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 btnContainer.style.cssText = `display: flex; gap: 8px;`;
 
                 const continueBtn = dom.$('button') as HTMLButtonElement;
-                continueBtn.textContent = '\u25B6 Continue';
+                continueBtn.textContent = Nls.CONTINUE;
                 continueBtn.setAttribute('aria-label', 'Continue execution');
                 continueBtn.style.cssText = `
                         background: #00C853; color: white; border: none;
@@ -1817,7 +1818,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 };
 
                 const skipBtn = dom.$('button') as HTMLButtonElement;
-                skipBtn.textContent = '\u23ED Skip';
+                skipBtn.textContent = Nls.SKIP;
                 skipBtn.setAttribute('aria-label', 'Skip milestone');
                 skipBtn.style.cssText = `
                         background: #FF9800; color: white; border: none;
@@ -1831,7 +1832,7 @@ export class ConstructAgentViewPane extends ViewPane {
                 };
 
                 const stopBtn = dom.$('button') as HTMLButtonElement;
-                stopBtn.textContent = '\u25A0 Stop';
+                stopBtn.textContent = Nls.STOP;
                 stopBtn.setAttribute('aria-label', 'Stop execution');
                 stopBtn.style.cssText = `
                         background: #FF4444; color: white; border: none;
@@ -1861,7 +1862,7 @@ export class ConstructAgentViewPane extends ViewPane {
         private async showSessionHistory(): Promise<void> {
                 const sessions = this.sessionService.sessions;
                 if (sessions.length === 0) {
-                        this.notificationService.info('No previous sessions found.');
+                        this.notificationService.info(Nls.NO_PREVIOUS_SESSIONS);
                         return;
                 }
 
@@ -1873,8 +1874,8 @@ export class ConstructAgentViewPane extends ViewPane {
                 }));
 
                 const pick = await this.quickInputService.pick(picks, {
-                        placeHolder: 'Select a session to restore...',
-                        title: 'Session History',
+                        placeHolder: Nls.SELECT_SESSION,
+                        title: Nls.SESSION_HISTORY,
                 });
 
                 if (pick) {

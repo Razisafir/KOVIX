@@ -14,6 +14,7 @@ import { EditorInput } from '../../../../workbench/common/editor/editorInput.js'
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import * as dom from '../../../../base/browser/dom.js';
+import * as Nls from './constructNls.js';
 
 /**
  * Editor input for a single Obsidian memory entry.
@@ -192,7 +193,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 // Title (editable inline)
                 this.titleInput = dom.$('input') as HTMLInputElement;
                 this.titleInput.type = 'text';
-                this.titleInput.placeholder = 'Memory title...';
+                this.titleInput.placeholder = Nls.MEMORY_TITLE_PLACEHOLDER;
                 this.titleInput.setAttribute('aria-label', 'Memory title');
                 this.titleInput.style.cssText = `
                         flex: 1; background: transparent; border: none; outline: none;
@@ -214,7 +215,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
 
                 // Preview toggle
                 this.previewToggleBtn = dom.$('button') as HTMLButtonElement;
-                this.previewToggleBtn.textContent = 'Preview';
+                this.previewToggleBtn.textContent = Nls.PREVIEW;
                 this.previewToggleBtn.title = 'Toggle markdown preview';
                 this.previewToggleBtn.setAttribute('aria-label', 'Toggle markdown preview');
                 this.previewToggleBtn.style.cssText = `
@@ -238,7 +239,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 const catRow = dom.$('.obsidian-editor-cat-row');
                 catRow.style.cssText = `display: flex; gap: 12px; align-items: center; margin-bottom: 12px;`;
 
-                const catLabel = this.createFieldLabel('Category');
+                const catLabel = this.createFieldLabel(Nls.CATEGORY);
                 catRow.appendChild(catLabel);
 
                 this.categorySelect = dom.$('select') as HTMLSelectElement;
@@ -259,12 +260,12 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 catRow.appendChild(this.categorySelect);
 
                 // Tags section
-                const tagsLabel = this.createFieldLabel('Tags');
+                const tagsLabel = this.createFieldLabel(Nls.TAGS);
                 catRow.appendChild(tagsLabel);
 
                 this.tagsInput = dom.$('input') as HTMLInputElement;
                 this.tagsInput.type = 'text';
-                this.tagsInput.placeholder = 'Add tag, press Enter...';
+                this.tagsInput.placeholder = Nls.ADD_TAG_PLACEHOLDER;
                 this.tagsInput.setAttribute('aria-label', 'Add tags');
                 this.tagsInput.style.cssText = `
                         flex: 1; padding: 4px 8px; background: var(--vscode-input-background);
@@ -296,7 +297,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
 
                 // Textarea for editing
                 this.contentArea = dom.$('textarea') as HTMLTextAreaElement;
-                this.contentArea.placeholder = 'Write your memory content here... (Markdown supported)';
+                this.contentArea.placeholder = Nls.MEMORY_CONTENT_PLACEHOLDER;
                 this.contentArea.setAttribute('aria-label', 'Memory content');
                 this.contentArea.style.cssText = `
                         flex: 1; width: 100%; box-sizing: border-box; padding: 12px;
@@ -356,7 +357,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
 
                 // Save button
                 this.saveBtn = dom.$('button') as HTMLButtonElement;
-                this.saveBtn.textContent = 'Save';
+                this.saveBtn.textContent = Nls.SAVE;
                 this.saveBtn.setAttribute('aria-label', 'Save memory');
                 this.saveBtn.style.cssText = `
                         background: var(--vscode-button-background); border: none;
@@ -372,7 +373,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
 
                 // Discard button
                 this.discardBtn = dom.$('button') as HTMLButtonElement;
-                this.discardBtn.textContent = 'Discard Changes';
+                this.discardBtn.textContent = Nls.DISCARD_CHANGES;
                 this.discardBtn.setAttribute('aria-label', 'Discard changes');
                 this.discardBtn.style.cssText = `
                         background: none; border: 1px solid var(--vscode-editorWidget-border);
@@ -390,7 +391,7 @@ export class ObsidianMemoryEditorPane extends Disposable {
                 footer.appendChild(spacer);
 
                 const deleteBtn = dom.$('button') as HTMLButtonElement;
-                deleteBtn.textContent = 'Delete Memory';
+                deleteBtn.textContent = Nls.DELETE_MEMORY;
                 deleteBtn.setAttribute('aria-label', 'Delete memory');
                 deleteBtn.style.cssText = `
                         background: var(--vscode-errorBackground, #5a1d1d); border: none;
@@ -545,13 +546,13 @@ export class ObsidianMemoryEditorPane extends Disposable {
                         this.previewArea.innerHTML = this.renderMarkdown(this.contentArea.value);
                         this.contentArea.style.display = 'none';
                         this.previewArea.style.display = 'block';
-                        this.previewToggleBtn.textContent = 'Edit';
+                        this.previewToggleBtn.textContent = Nls.EDIT;
                         this.previewToggleBtn.style.background = 'var(--vscode-button-background)';
                         this.previewToggleBtn.style.color = 'var(--vscode-button-foreground)';
                 } else {
                         this.contentArea.style.display = 'block';
                         this.previewArea.style.display = 'none';
-                        this.previewToggleBtn.textContent = 'Preview';
+                        this.previewToggleBtn.textContent = Nls.PREVIEW;
                         this.previewToggleBtn.style.background = 'none';
                         this.previewToggleBtn.style.color = 'var(--vscode-foreground)';
                 }
