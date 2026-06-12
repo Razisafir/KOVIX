@@ -12,6 +12,7 @@ import { VSBuffer } from '../../../../../../base/common/buffer.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import { ISecureKeyManager } from '../../../../../../platform/construct/common/security/secureKeyManager.js';
 import { IFileService } from '../../../../../../platform/files/common/files.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IConstructVectorStore } from '../../../../../../platform/construct/common/memory/vectorStore.js';
@@ -75,6 +76,7 @@ export class ConstructToolRegistryService extends Disposable implements IConstru
                 @ILogService private readonly logService: ILogService,
                 @INotificationService _notificationService: INotificationService,
                 @IConfigurationService private readonly _configurationService: IConfigurationService,
+                @ISecureKeyManager private readonly _secureKeyManager: ISecureKeyManager,
                 @IFileService private readonly fileService: IFileService,
                 @IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
                 @IConstructVectorStore private readonly vectorStore: IConstructVectorStore,
@@ -613,7 +615,7 @@ export class ConstructToolRegistryService extends Disposable implements IConstru
                         // The z-ai-web-dev-sdk is available in the desktop app but may not
                         // be in the compilation environment. Web search will work at runtime.
                         const searchUrl = this._configurationService.getValue<string>('construct.cloud.baseUrl') || 'https://api.openai.com/v1';
-                        const apiKey = this._configurationService.getValue<string>('construct.cloud.apiKey');
+                        const apiKey = await this._secureKeyManager.getKey('openai');
 
                         if (!apiKey) {
                                 return {

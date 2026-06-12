@@ -158,24 +158,47 @@ export class MCPProcessNodeService extends Disposable implements IMCPProcessNode
                 return this.initialized;
         }
 
+        /**
+         * Build a minimal, safe environment for MCP child processes.
+         * Only passes essential system variables — NEVER spreads the full process.env
+         * to prevent leaking host secrets (API keys, DB URLs, tokens) to child processes.
+         */
+        private static readonly SAFE_ENV_KEYS = [
+                'PATH', 'HOME', 'USER', 'TEMP', 'TMPDIR',
+                'SYSTEMROOT', 'COMSPEC', 'PROGRAMFILES', 'APPDATA',
+                'NODE_PATH', 'NPM_CONFIG_PREFIX',
+        ];
+
+        private buildSafeEnv(): Record<string, string> {
+                const env: Record<string, string> = {};
+                for (const key of MCPProcessNodeService.SAFE_ENV_KEYS) {
+                        const value = process.env[key];
+                        if (value !== undefined) {
+                                env[key] = value;
+                        }
+                }
+                return env;
+        }
+
         private async spawnServer(): Promise<void> {
                 // Resolve npx relative to the current Node.js executable
                 const nodeDir = process.execPath.substring(0, process.execPath.lastIndexOf('/'));
                 const npxPath = `${nodeDir}/npx`;
+                const safeEnv = this.buildSafeEnv();
 
                 this.logService.info(`[MCPProcessNode] Spawning MCP filesystem server: ${npxPath} -y @modelcontextprotocol/server-filesystem ${this.rootPath}`);
 
                 try {
                         this.process = spawn(npxPath, ['-y', '@modelcontextprotocol/server-filesystem', this.rootPath], {
                                 stdio: ['pipe', 'pipe', 'pipe'],
-                                env: { ...process.env as Record<string, string> },
+                                env: safeEnv,
                         });
                 } catch {
                         // Fallback: try bare npx
                         this.logService.warn('[MCPProcessNode] npx not found at resolved path, falling back to bare npx');
                         this.process = spawn('npx', ['-y', '@modelcontextprotocol/server-filesystem', this.rootPath], {
                                 stdio: ['pipe', 'pipe', 'pipe'],
-                                env: { ...process.env as Record<string, string> },
+                                env: safeEnv,
                         });
                 }
 

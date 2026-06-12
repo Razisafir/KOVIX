@@ -18,6 +18,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWebviewWorkbenchService } from '../../webviewPanel/browser/webviewWorkbenchService.js';
 import { IOverlayWebview } from '../../webview/browser/webview.js';
+import { ISecureKeyManager, LLMProvider } from '../../../../platform/construct/common/security/secureKeyManager.js';
 
 /** Storage key for the onboarding completion flag. */
 const ONBOARDING_COMPLETE_KEY = 'construct.onboarding.complete';
@@ -72,6 +73,7 @@ export class ConstructOnboardingWizard extends Disposable {
                 @IStorageService private readonly storageService: IStorageService,
                 @IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
                 @IWebviewWorkbenchService private readonly webviewWorkbenchService: IWebviewWorkbenchService,
+                @ISecureKeyManager private readonly secureKeyManager: ISecureKeyManager,
         ) {
                 super();
         }
@@ -244,16 +246,15 @@ export class ConstructOnboardingWizard extends Disposable {
                 }
 
                 if (valid) {
-                        // Persist the API key to configuration
+                        // Store API key securely in OS keychain — NEVER write to settings.json
                         try {
+                                const provider: LLMProvider = cloudProvider === 'anthropic' ? 'anthropic' : 'openai';
+                                await this.secureKeyManager.setKey(provider, apiKey);
+
+                                // Only persist non-sensitive config to settings.json
                                 if (cloudProvider === 'openai') {
-                                        await this.configurationService.updateValue('construct.cloud.apiKey', apiKey, ConfigurationTarget.USER);
                                         await this.configurationService.updateValue('construct.cloud.baseUrl', 'https://api.openai.com/v1', ConfigurationTarget.USER);
                                         await this.configurationService.updateValue('construct.cloud.model', 'gpt-4o-mini', ConfigurationTarget.USER);
-                                } else if (cloudProvider === 'anthropic') {
-                                        await this.configurationService.updateValue('construct.anthropic.apiKey', apiKey, ConfigurationTarget.USER);
-                                } else {
-                                        await this.configurationService.updateValue('construct.cloud.apiKey', apiKey, ConfigurationTarget.USER);
                                 }
                         } catch (e) {
                                 this.logService.warn('[ConstructOnboarding] Could not persist API key:', e);

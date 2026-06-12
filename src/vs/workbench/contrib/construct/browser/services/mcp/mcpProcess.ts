@@ -16,6 +16,7 @@ import { IInstantiationService } from '../../../../../../platform/instantiation/
 import { URI } from '../../../../../../base/common/uri.js';
 import { VSBuffer } from '../../../../../../base/common/buffer.js';
 import { joinPath } from '../../../../../../base/common/resources';
+import { assertWithinWorkspace } from '../../../../../../platform/construct/common/security/workspaceGuard.js';
 
 /**
  * Browser-layer MCP process service.
@@ -134,6 +135,21 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
                 }
         }
 
+        /**
+         * Validate that a path is within the workspace boundary.
+         * Defense-in-depth: even though the agent loop also validates,
+         * this service itself must enforce boundaries to prevent abuse
+         * from other call sites.
+         */
+        private assertWorkspaceBoundary(path: string): void {
+                try {
+                        assertWithinWorkspace(path);
+                } catch (error) {
+                        const msg = error instanceof Error ? error.message : String(error);
+                        throw new Error(`Security: MCP operation rejected — ${msg}`);
+                }
+        }
+
         private resolveUri(path: string): URI {
                 // If already a URI string, parse it
                 if (path.startsWith('file://') || path.startsWith('construct://')) {
@@ -152,6 +168,7 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
         async readFile(path: string): Promise<string> {
                 this.ensureConnected();
+                this.assertWorkspaceBoundary(path);
 
                 // Try node layer first
                 if (this._useNodeLayer && this._nodeService) {
@@ -180,6 +197,7 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
         async writeFile(path: string, content: string): Promise<void> {
                 this.ensureConnected();
+                this.assertWorkspaceBoundary(path);
 
                 // Try node layer first
                 if (this._useNodeLayer && this._nodeService) {
@@ -208,6 +226,7 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
         async listDirectory(path: string): Promise<string[]> {
                 this.ensureConnected();
+                this.assertWorkspaceBoundary(path);
 
                 // Try node layer first
                 if (this._useNodeLayer && this._nodeService) {
@@ -242,6 +261,7 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
         async createDirectory(path: string): Promise<void> {
                 this.ensureConnected();
+                this.assertWorkspaceBoundary(path);
 
                 // Try node layer first
                 if (this._useNodeLayer && this._nodeService) {
@@ -268,6 +288,7 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
         async deleteFile(path: string): Promise<void> {
                 this.ensureConnected();
+                this.assertWorkspaceBoundary(path);
 
                 // Try node layer first
                 if (this._useNodeLayer && this._nodeService) {
@@ -294,6 +315,7 @@ export class MCPProcessService extends Disposable implements IMCPProcess {
 
         async exists(path: string): Promise<boolean> {
                 this.ensureConnected();
+                this.assertWorkspaceBoundary(path);
 
                 // Try node layer first
                 if (this._useNodeLayer && this._nodeService) {

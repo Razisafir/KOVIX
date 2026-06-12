@@ -9,11 +9,12 @@ import { Emitter } from '../../../../../../base/common/event.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../../platform/storage/common/storage.js';
+import { ISecureKeyManager } from '../../../../../../platform/construct/common/security/secureKeyManager.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { IConstructMemoryService, IConstructMemoryProfile, IConstructMemoryItem, IConstructMemoryConfig, IConstructMemoryAddEvent, ConstructSearchMode } from '../../../../../../platform/construct/common/memory/constructMemory.js';
 
-const SUPERMEMORY_API_KEY_STORAGE_KEY = 'construct.supermemory.apiKey';
+// SUPERMEMORY_API_KEY_STORAGE_KEY removed — API keys now stored via ISecureKeyManager (OS keychain)
 const SUPERMEMORY_ENABLED_STORAGE_KEY = 'construct.supermemory.enabled';
 const SUPERMEMORY_AUTOLEARN_STORAGE_KEY = 'construct.supermemory.autoLearn';
 
@@ -59,6 +60,7 @@ export class ConstructMemoryService extends Disposable implements IConstructMemo
                                 @IStorageService private readonly storageService: IStorageService,
                                 @IWorkspaceContextService private readonly workspaceContext: IWorkspaceContextService,
                                 @IConfigurationService private readonly configurationService: IConfigurationService,
+                                @ISecureKeyManager private readonly secureKeyManager: ISecureKeyManager,
                 ) {
                                 super();
 
@@ -109,7 +111,7 @@ export class ConstructMemoryService extends Disposable implements IConstructMemo
                 }
 
                 private async tryAutoInitialize(): Promise<void> {
-                                const storedKey = this.storageService.get(SUPERMEMORY_API_KEY_STORAGE_KEY, StorageScope.WORKSPACE);
+                                const storedKey = await this.secureKeyManager.getKey('supermemory');
                                 if (storedKey && this._config.enabled) {
                                                 try {
                                                                 await this.initialize(storedKey);
@@ -133,8 +135,8 @@ export class ConstructMemoryService extends Disposable implements IConstructMemo
                                                                 containerTag: this.containerTag,
                                                 });
 
-                                                // Store the key in SecretStorage-equivalent (using IStorageService)
-                                                this.storageService.store(SUPERMEMORY_API_KEY_STORAGE_KEY, apiKey, StorageScope.WORKSPACE, StorageTarget.USER);
+                                                // Store the key securely in the OS keychain (NOT plaintext IStorageService)
+                                                await this.secureKeyManager.setKey('supermemory', apiKey);
 
                                                 this._isInitialized = true;
                                                 this._onDidChangeInitialization.fire(true);
@@ -305,7 +307,7 @@ export class ConstructMemoryService extends Disposable implements IConstructMemo
                                 }
                 }
 
-                updateConfig(config: Partial<IConstructMemoryConfig>): void {
+                async updateConfig(config: Partial<IConstructMemoryConfig>): Promise<void> {
                                 if (config.enabled !== undefined) {
                                                 this._config = { ...this._config, enabled: config.enabled };
                                                 this.storageService.store(SUPERMEMORY_ENABLED_STORAGE_KEY, config.enabled, StorageScope.WORKSPACE, StorageTarget.USER);
@@ -317,7 +319,7 @@ export class ConstructMemoryService extends Disposable implements IConstructMemo
 
                                 // If enabling and we have a key but no client, try to initialize
                                 if (config.enabled && !this._isInitialized) {
-                                                const storedKey = this.storageService.get(SUPERMEMORY_API_KEY_STORAGE_KEY, StorageScope.WORKSPACE);
+                                                const storedKey = await this.secureKeyManager.getKey('supermemory');
                                                 if (storedKey) {
                                                                 this.initialize(storedKey).catch(err => {
                                                                                 this.logService.warn('[ConstructMemory] Failed to initialize on config change:', err);

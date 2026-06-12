@@ -36,6 +36,7 @@ const DEFAULT_ENDPOINTS: Record<LLMProvider, string> = {
         ollama: 'http://localhost:11434',
         litellm: '',
         custom: '',
+        supermemory: 'https://api.supermemory.ai',
 };
 
 /**
@@ -47,6 +48,7 @@ const PROVIDER_LABELS: Record<LLMProvider, string> = {
         ollama: 'Ollama',
         litellm: 'LiteLLM',
         custom: 'Custom',
+        supermemory: 'Supermemory',
 };
 
 /**

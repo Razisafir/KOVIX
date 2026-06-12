@@ -31,7 +31,7 @@ export const SHELL_METACHAR_BLOCKLIST = [
 /**
  * SEC-3: Regex patterns for detecting shell metacharacters in arguments.
  */
-const SHELL_METACHAR_REGEX = /(;|&&|\|\||\|`|\$\(|\{|}|\d*>|<)/;
+const SHELL_METACHAR_REGEX = /(;|&&|\|\||`|\$\(|\{|}|\d*>|<)/;
 
 /**
  * SEC-3: Default allowlist for restricted mode.
@@ -42,7 +42,7 @@ export const DEFAULT_COMMAND_ALLOWLIST: string[] = [
         'npm', 'yarn', 'pnpm', 'npx', 'node', 'python', 'python3', 'pip', 'pip3',
         'git', 'cargo', 'rustc', 'go', 'dotnet', 'java', 'javac', 'mvn', 'gradle',
         'make', 'cmake', 'gcc', 'g++', 'clang', 'cargo',
-        'echo', 'pwd', 'whoami', 'which', 'where', 'env', 'printenv',
+        'echo', 'pwd', 'whoami', 'which', 'where',
         'curl', 'wget',
         'docker', 'podman', 'kubectl',
         'tsc', 'eslint', 'prettier', 'jest', 'vitest', 'mocha',

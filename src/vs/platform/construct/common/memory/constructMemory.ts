@@ -127,7 +127,7 @@ export interface IConstructMemoryService extends IDisposable {
         /**
          * Update configuration (enabled, autoLearn).
          */
-        updateConfig(config: Partial<IConstructMemoryConfig>): void;
+        updateConfig(config: Partial<IConstructMemoryConfig>): Promise<void>;
 
         /**
          * Test the connection to Supermemory by making a profile call.

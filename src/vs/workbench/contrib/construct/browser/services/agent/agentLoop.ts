@@ -39,7 +39,7 @@ import { IUniversalMemoryService } from '../../../../../../platform/construct/co
 import { IObsidianMemoryService } from '../../../../../../platform/construct/common/memory/obsidianMemoryService.js';
 import { IConstructToolRegistry } from '../../../../../../platform/construct/common/tools/constructToolRegistry.js';
 // H3: Prompt sanitizer for memory injection prevention
-import { sanitizeMemoryContext } from '../../../../../../platform/construct/common/agent/promptSanitizer.js';
+import { PromptSanitizer } from '../../../../../../platform/construct/common/agent/promptSanitizer.js';
 // F-F-004: Configuration service for configurable max rounds
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 
@@ -986,7 +986,7 @@ Guidelines:
                                 const projectId = this.workspaceContextService.getWorkspace().folders[0]?.name ?? 'default';
                                 prompt = await this.memoryOrchestrator.injectContextIntoPrompt(prompt, projectId);
                                 // H3: Sanitize memory-injected prompt to prevent injection attacks
-                                prompt = sanitizeMemoryContext(prompt);
+                                prompt = PromptSanitizer.wrapMemoryBlock(prompt);
                         } catch (error) {
                                 this.logService.warn('[AgentLoop] Memory context injection failed, using base prompt:', error instanceof Error ? error.message : String(error));
                         }
@@ -998,7 +998,7 @@ Guidelines:
                                 const universalContext = await this.universalMemory.getContextForTask(task, this._currentPlanContext ?? 'default');
                                 if (universalContext) {
                                         // H3: Sanitize universal memory context before appending
-                                        const sanitizedContext = sanitizeMemoryContext(universalContext);
+                                        const sanitizedContext = PromptSanitizer.sanitize(universalContext);
                                         prompt += `\n\n[Universal Knowledge]\n${sanitizedContext}`;
                                 }
                         } catch (error) {
@@ -1012,7 +1012,7 @@ Guidelines:
                                 const obsidianContext = this.obsidianMemory.getRelevantContext(task, 5);
                                 if (obsidianContext) {
                                         // H3: Sanitize Obsidian memory context before appending
-                                        const sanitizedContext = sanitizeMemoryContext(obsidianContext);
+                                        const sanitizedContext = PromptSanitizer.sanitize(obsidianContext);
                                         prompt += `\n\n${sanitizedContext}`;
                                 }
                         } catch (error) {
