@@ -7,7 +7,7 @@
 		"strict": true,
 		"skipLibCheck": true,
 		"outDir": "./out-test",
-		"rootDir": "../..",
+		"rootDir": ".",
 		"types": ["mocha", "node"],
 		"resolveJsonModule": true,
 		"declaration": false,
@@ -16,7 +16,9 @@
 		"noEmit": false
 	},
 	"include": [
-		"unit/construct/**/*.ts",
-		"../../src/vs/platform/construct/common/agent/promptSanitizer.ts"
+		"./*.ts",
+		"./agent/**/*.ts",
+		"./services/**/*.ts",
+		"./_stubs/**/*.ts"
 	]
 }

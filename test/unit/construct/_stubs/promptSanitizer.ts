@@ -1,5 +1,3 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_LICENSE.txt.
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Kovix. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -9,11 +7,8 @@
  * PromptSanitizer — sanitizes user-provided memory/context before injection
  * into the LLM system prompt to prevent prompt injection attacks.
  *
- * Security measures:
- * 1. Strips control characters and null bytes
- * 2. Removes lines that look like system prompt overrides
- * 3. Truncates individual memory entries to MAX_ENTRY_LENGTH
- * 4. Wraps the entire memory block in XML tags with a protective preamble
+ * This is a standalone copy for unit testing. The canonical source is at
+ * src/vs/platform/construct/common/agent/promptSanitizer.ts
  */
 export class PromptSanitizer {
         private static readonly MAX_ENTRY_LENGTH = 500;
