@@ -1,0 +1,20 @@
+CONSTRUCT IDE — Proprietary License
+
+Copyright (c) 2025 Razisafir. All rights reserved.
+
+The CONSTRUCT IDE additions, modifications, and original code located in:
+  src/vs/platform/construct/
+  src/vs/workbench/contrib/construct/
+  product.json (CONSTRUCT-specific values)
+
+...are the proprietary intellectual property of Razisafir and are NOT
+covered by the MIT license that governs the underlying VS Code open-source engine.
+
+This software may not be copied, modified, distributed, sublicensed, or sold
+without explicit written permission from Razisafir.
+
+For licensing inquiries: security@kovix.dev
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+The underlying VS Code engine is MIT licensed. See LICENSE for details.

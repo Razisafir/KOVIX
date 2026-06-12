@@ -78,32 +78,26 @@ jobs:
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
-        continue-on-error: true
         run: DISPLAY=:10 ./scripts/test.sh --no-sandbox
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
-        continue-on-error: true
         run: npm run test-node
 
       - name: Run Unit Tests (Browser, Chromium)
         id: browser-unit-tests
-        continue-on-error: true
         run: DISPLAY=:10 npm run test-browser-no-install -- --browser chromium
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
-        continue-on-error: true
         run: DISPLAY=:10 ./scripts/test-integration.sh --no-sandbox
 
       - name: Run Integration Tests (Browser, Chromium)
         id: browser-integration-tests
-        continue-on-error: true
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
       - name: Run Integration Tests (Remote)
         id: electron-remote-integration-tests
-        continue-on-error: true
         timeout-minutes: 15
         run: DISPLAY=:10 ./scripts/test-remote-integration.sh --no-sandbox
 

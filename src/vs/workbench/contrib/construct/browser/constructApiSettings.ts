@@ -80,6 +80,14 @@ const apiSettingsConfiguration: IConfigurationNode = {
                         description: localize('construct.api.custom.key', "Custom provider API key placeholder. The actual key is stored securely in the OS keychain. Use the 'Construct: Manage API Keys' command to set or update your key."),
                         scope: 1 /* ConfigurationScope.APPLICATION */,
                 },
+                'construct.agent.maxRounds': {
+                        type: 'number',
+                        default: 15,
+                        minimum: 5,
+                        maximum: 50,
+                        description: localize('construct.agent.maxRounds', "Maximum number of agent loop rounds before stopping. Higher values allow more complex tasks but take longer. Range: 5-50."),
+                        scope: 1 /* ConfigurationScope.APPLICATION */,
+                },
         },
 };
 
