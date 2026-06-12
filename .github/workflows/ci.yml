@@ -177,3 +177,81 @@ jobs:
 
       - name: Compile construct code
         run: NODE_OPTIONS="--max-old-space-size=8192" npm run compile
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # COMPILE — fast gate for downstream jobs
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  compile:
+    name: Compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Clean node-gyp cache
+        run: rm -rf ~/.cache/node-gyp || true
+
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 30
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Compile
+        run: NODE_OPTIONS="--max-old-space-size=8192" npm run compile
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # TEST CONSTRUCT — construct unit tests
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  test-construct:
+    name: Test Construct
+    needs: compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libkrb5-dev libx11-dev libxkbfile-dev libsecret-1-dev
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Clean node-gyp cache
+        run: rm -rf ~/.cache/node-gyp || true
+
+      - name: Install dependencies
+        run: npm ci
+        timeout-minutes: 30
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+
+      - name: Compile
+        run: NODE_OPTIONS="--max-old-space-size=8192" npm run compile
+
+      - name: Run Construct Unit Tests
+        run: npm run test-unit-construct
