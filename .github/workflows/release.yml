@@ -26,6 +26,9 @@ jobs:
           node-version-file: .nvmrc
           cache: 'npm'
 
+      - name: Setup Windows build tools
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Install dependencies
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
