@@ -535,3 +535,35 @@ export class ConstructStopModePicker extends Disposable {
                 super.dispose();
         }
 }
+
+/**
+ * Promise-based convenience wrapper around {@link ConstructStopModePicker}.
+ *
+ * Renders the stop mode picker inside `container` and returns a promise that
+ * resolves with the chosen {@link IExecutionModeConfig} (which includes both
+ * the {@link ExecutionMode} and, for `SELECTIVE` mode, the selected milestone IDs),
+ * or `undefined` if the user clicks "Back to Plan".
+ *
+ * @param container - DOM element to render the picker into
+ * @param milestones - The milestones extracted from the approved plan
+ * @returns The selected execution mode configuration, or undefined if dismissed
+ */
+export function showStopModePicker(
+        container: HTMLElement,
+        milestones: IMilestone[],
+): Promise<IExecutionModeConfig | undefined> {
+        return new Promise<IExecutionModeConfig | undefined>((resolve) => {
+                const picker = new ConstructStopModePicker(
+                        milestones,
+                        (modeConfig: IExecutionModeConfig) => {
+                                picker.dispose();
+                                resolve(modeConfig);
+                        },
+                        () => {
+                                picker.dispose();
+                                resolve(undefined);
+                        },
+                );
+                picker.render(container);
+        });
+}

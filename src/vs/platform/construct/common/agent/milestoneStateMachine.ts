@@ -15,8 +15,16 @@ import { IExecutionModeConfig } from './executionMode.js';
  * state machine that can stop at milestones and resume later.
  */
 
+/**
+ * Represents a milestone checkpoint in the execution plan.
+ *
+ * Milestones group consecutive plan steps into logical segments.
+ * The agent pauses at milestone boundaries according to the active
+ * {@link ExecutionMode}, allowing the user to review progress before
+ * the next segment begins.
+ */
 export interface IMilestone {
-        /** Unique identifier */
+        /** Unique identifier (uuid v4) */
         id: string;
         /** Human-readable milestone name (e.g. "Database schema complete") */
         label: string;
@@ -32,6 +40,19 @@ export interface IMilestone {
         summary?: string;
 }
 
+/**
+ * Discriminated union representing the current state of the milestone
+ * execution state machine.
+ *
+ * | Type               | Meaning                                                |
+ * |--------------------|--------------------------------------------------------|
+ * | `idle`             | No execution is in progress                            |
+ * | `running`          | Agent is actively executing a step within a milestone  |
+ * | `paused_at_milestone` | Agent has completed a milestone and is awaiting user review |
+ * | `completed`        | All selected steps have been executed successfully     |
+ * | `aborted`          | User cancelled execution                               |
+ * | `error`            | An unrecoverable error occurred                        |
+ */
 export type ExecutionState =
         | { type: 'idle' }
         | { type: 'running'; currentStepIndex: number; currentMilestoneId: string }
@@ -40,13 +61,25 @@ export type ExecutionState =
         | { type: 'aborted'; reason: string }
         | { type: 'error'; message: string; stepIndex: number };
 
+/**
+ * Runtime context carried through the milestone execution loop.
+ * Contains the plan, mode configuration, conversation history, and
+ * progress tracking state needed by the agent to execute and resume.
+ */
 export interface IExecutionContext {
+        /** The project this execution belongs to */
         projectId: string;
+        /** The user-approved plan with milestone and step selection */
         approvedPlan: IApprovedPlan;
+        /** The chosen execution mode and optional selected milestone IDs */
         modeConfig: IExecutionModeConfig;
+        /** Accumulated LLM conversation history for the current execution */
         conversationHistory: import('../llm/constructAIProvider.js').IChatMessage[];
+        /** Indices of steps already completed in this execution run */
         completedStepIndices: number[];
+        /** The milestone currently being executed */
         currentMilestoneId: string;
+        /** Optional snapshot ID for rollback support */
         snapshotId?: string;
 }
 
