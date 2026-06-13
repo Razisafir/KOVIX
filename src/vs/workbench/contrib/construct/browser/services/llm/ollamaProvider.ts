@@ -43,7 +43,13 @@ export class OllamaProvider extends Disposable implements IConstructAIProvider {
         private readonly _onDidChangeStatus = this._register(new Emitter<ProviderStatus>());
         readonly onDidChangeStatus = this._onDidChangeStatus.event;
 
+        // P5: Connection reuse — store base URL and reuse HTTP client
         private _baseUrl: string;
+        // P5: Track whether the active model supports tool calling (used for logging and fallback decisions)
+        private _activeModelSupportsTools = true;
+        // P5: Resource monitoring — last status check timestamp
+        private _lastStatusCheck = 0;
+        private _cachedModels: IModelInfo[] = [];
 
         constructor(
                 @ILogService private readonly logService: ILogService,
@@ -52,6 +58,16 @@ export class OllamaProvider extends Disposable implements IConstructAIProvider {
                 super();
                 this._baseUrl = _configurationService.getValue<string>('construct.ollama.baseUrl') || OLLAMA_BASE_URL;
                 this.logService.info('[OllamaProvider] Initialized (baseUrl: ' + this._baseUrl + ')');
+        }
+
+        // P5: Check if the active model supports tool calling
+        get activeModelSupportsTools(): boolean {
+                return this._activeModelSupportsTools;
+        }
+
+        // P5: Get time of last status check
+        get lastStatusCheck(): number {
+                return this._lastStatusCheck;
         }
 
         isOffline(): boolean {
@@ -79,6 +95,7 @@ export class OllamaProvider extends Disposable implements IConstructAIProvider {
                         }
 
                         this._setStatus(ProviderStatus.Available);
+                        this._lastStatusCheck = Date.now();
 
                         // Auto-select model: prefer configured model, fall back to first available
                         if (!this._activeModel) {
@@ -117,8 +134,10 @@ export class OllamaProvider extends Disposable implements IConstructAIProvider {
                         return false;
                 }
                 this._activeModel = model;
+                // P5: Model compatibility check — track tool support
+                this._activeModelSupportsTools = model.supportsTools;
                 this._onDidChangeActiveModel.fire(model);
-                this.logService.info('[OllamaProvider] Active model set to: ' + modelId);
+                this.logService.info('[OllamaProvider] Active model set to: ' + modelId + ' (supportsTools: ' + model.supportsTools + ')');
                 return true;
         }
 
@@ -161,10 +180,39 @@ export class OllamaProvider extends Disposable implements IConstructAIProvider {
                 }
         }
 
+        // P5: Cache models for fallback
+        async listModelsCached(): Promise<IModelInfo[]> {
+                const models = await this.listModels();
+                if (models.length > 0) {
+                        this._cachedModels = models;
+                }
+                return models;
+        }
+
         async *chat(messages: IChatMessage[], tools: IToolDefinition[], options?: IChatOptions): AsyncIterable<AIStreamEvent> {
                 if (!this._activeModel) {
                         yield { type: 'error', text: 'No model selected. Please select a model in the CONSTRUCT model picker.' };
                         return;
+                }
+
+                // P5: Resource monitoring — check Ollama status before sending large requests
+                const totalChars = messages.reduce((sum, m) => sum + m.content.length, 0);
+                if (totalChars > 10000) {
+                        try {
+                                const controller = new AbortController();
+                                const timeout = setTimeout(() => controller.abort(), 3000);
+                                const response = await fetch(this._baseUrl + '/api/tags', {
+                                        signal: controller.signal,
+                                });
+                                clearTimeout(timeout);
+                                if (!response.ok) {
+                                        yield { type: 'error', text: 'Ollama appears to be unavailable. Please check that Ollama is running.' };
+                                        return;
+                                }
+                        } catch {
+                                yield { type: 'error', text: 'Ollama appears to be unavailable. Please check that Ollama is running.' };
+                                return;
+                        }
                 }
 
                 // Convert unified messages to Ollama format
@@ -184,9 +232,11 @@ export class OllamaProvider extends Disposable implements IConstructAIProvider {
                         body.system = options.systemPrompt;
                 }
 
-                // Add tools if the model supports them
+                // P5: Model compatibility check — only include tools if model supports them
                 if (tools.length > 0 && this._activeModel.supportsTools) {
                         body.tools = this.convertTools(tools);
+                } else if (tools.length > 0 && !this._activeModel.supportsTools) {
+                        this.logService.info('[OllamaProvider] Model does not support tool calling. Falling back to text-only mode.');
                 }
 
                 let retryCount = 0;
@@ -213,6 +263,15 @@ export class OllamaProvider extends Disposable implements IConstructAIProvider {
                                         if (response.status >= 500 && retryCount < MAX_RETRIES) {
                                                 retryCount++;
                                                 this.logService.warn('[OllamaProvider] Server error (' + response.status + '). Retrying (' + retryCount + '/' + MAX_RETRIES + ')');
+                                                // P5: Retry with different model — if primary model fails, try next available
+                                                if (retryCount >= MAX_RETRIES - 1 && this._cachedModels.length > 1) {
+                                                        const currentModelId = this._activeModel?.id;
+                                                        const nextModel = this._cachedModels.find(m => m.id !== currentModelId);
+                                                        if (nextModel) {
+                                                                this.logService.info('[OllamaProvider] Trying fallback model: ' + nextModel.id);
+                                                                body.model = nextModel.id;
+                                                        }
+                                                }
                                                 await this.sleep(Math.pow(2, retryCount) * 1000, options?.signal);
                                                 continue;
                                         }

@@ -65,16 +65,61 @@ export class SemanticMemoryService extends Disposable implements ISemanticMemory
 
         async searchKnowledge(projectId: string, query: string, topK: number = 5): Promise<IMemorySearchResult> {
                 const startTime = Date.now();
-                const queryEmbedding = await this.embeddingService.embed(query);
 
+                // P5: Fallback to text-based search when embedding service is unavailable
+                try {
+                        const queryEmbedding = await this.embeddingService.embed(query);
+
+                        const projectEntries = this.entries.get(projectId) ?? [];
+                        const scored = projectEntries.map(entry => ({
+                                entry,
+                                score: this.cosineSimilarity(queryEmbedding, entry.embedding)
+                        }));
+
+                        scored.sort((a, b) => b.score - a.score);
+                        const top = scored.slice(0, topK);
+
+                        return {
+                                entries: top.map(s => ({ ...s.entry, relevanceScore: s.score })),
+                                total: top.length,
+                                relevanceScores: top.map(s => s.score),
+                                queryTimeMs: Date.now() - startTime
+                        };
+                } catch (embeddingError) {
+                        this.logService.warn('[SemanticMemory] Embedding search unavailable, falling back to text search:', embeddingError instanceof Error ? embeddingError.message : String(embeddingError));
+                        return this.fallbackTextSearch(projectId, query, topK, startTime);
+                }
+        }
+
+        // P5: Full-text fallback search when embedding service is unavailable
+        private fallbackTextSearch(projectId: string, query: string, topK: number, startTime: number): IMemorySearchResult {
+                const lowerQuery = query.toLowerCase();
                 const projectEntries = this.entries.get(projectId) ?? [];
-                const scored = projectEntries.map(entry => ({
-                        entry,
-                        score: this.cosineSimilarity(queryEmbedding, entry.embedding)
-                }));
+
+                const scored = projectEntries.map(entry => {
+                        const contentLower = entry.content.toLowerCase();
+                        // Simple scoring: count substring occurrences + word boundary bonus
+                        let score = 0;
+                        const queryWords = lowerQuery.split(/\s+/);
+                        for (const word of queryWords) {
+                                const regex = new RegExp('\\b' + word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
+                                const matches = contentLower.match(regex);
+                                score += matches ? matches.length * 0.3 : 0;
+                                if (contentLower.includes(word)) {
+                                        score += 0.1;
+                                }
+                        }
+                        // Also check tags
+                        for (const tag of entry.tags) {
+                                if (tag.toLowerCase().includes(lowerQuery) || lowerQuery.includes(tag.toLowerCase())) {
+                                        score += 0.2;
+                                }
+                        }
+                        return { entry, score };
+                });
 
                 scored.sort((a, b) => b.score - a.score);
-                const top = scored.slice(0, topK);
+                const top = scored.filter(s => s.score > 0).slice(0, topK);
 
                 return {
                         entries: top.map(s => ({ ...s.entry, relevanceScore: s.score })),
@@ -141,17 +186,20 @@ export class SemanticMemoryService extends Disposable implements ISemanticMemory
         // --- Disk Persistence -------------------------------------------------------
         // TODO(v1.1): Replace with Qdrant vector store for proper semantic search
 
+        // P5: Debounce interval reduced to 300ms for faster persistence
         private debouncedPersist(): void {
                 if (this._persistTimeout) {
                         clearTimeout(this._persistTimeout);
                 }
-                this._persistTimeout = setTimeout(() => this.persistToDisk(), 500);
+                this._persistTimeout = setTimeout(() => this.persistToDisk(), 300);
         }
 
         private async persistToDisk(): Promise<void> {
                 try {
                         const data = JSON.stringify(Array.from(this.entries.entries()));
                         const storagePath = this.getStoragePath();
+                        // P5: Create directory on first write
+                        await this.ensureDirectoryExists(storagePath);
                         await this.fileService.writeFile(storagePath, VSBuffer.fromString(data));
                 } catch (e) {
                         this.logService.warn('[SemanticMemory] Failed to persist:', e);
@@ -162,17 +210,56 @@ export class SemanticMemoryService extends Disposable implements ISemanticMemory
                 try {
                         const storagePath = this.getStoragePath();
                         const content = await this.fileService.readFile(storagePath);
-                        const entries = JSON.parse(content.value.toString());
-                        this.entries = new Map(entries);
+                        // P5: Safe JSON parse
+                        try {
+                                const entries = JSON.parse(content.value.toString());
+                                this.entries = new Map(entries);
+                        } catch (parseError) {
+                                this.logService.warn('[SemanticMemory] Corrupted storage file, starting fresh:', parseError);
+                                this.entries = new Map();
+                        }
                 } catch (e) {
                         /* first run, no file yet */
                 }
         }
 
+        // P5: Store at ~/.kovix/memory/semantic/{projectId}.json
         private getStoragePath(): URI {
+                const homeDir = typeof process !== 'undefined' ? (process.env.HOME || process.env.USERPROFILE || '') : '';
                 const workspace = this.workspaceContextService.getWorkspace();
-                const root = workspace.folders[0]?.uri.fsPath || '';
-                return URI.file(path.join(root, '.kovix', 'memory', 'semantic', 'store.json'));
+                const projectId = workspace.folders[0]?.name ?? 'default';
+                return URI.file(path.join(homeDir, '.kovix', 'memory', 'semantic', `${projectId}.json`));
+        }
+
+        // P5: Create directory structure on first write
+        private async ensureDirectoryExists(fileUri: URI): Promise<void> {
+                const parentPath = fileUri.path.substring(0, fileUri.path.lastIndexOf('/')) || '/';
+                const parent = URI.from({ scheme: fileUri.scheme, authority: fileUri.authority, path: parentPath });
+                try {
+                        await this.fileService.exists(parent);
+                } catch {
+                        // Need to create directories recursively
+                        const dirsToCreate: URI[] = [];
+                        let current = parent;
+                        while (current.path !== '/' && current.path.length > 1) {
+                                try {
+                                        const exists = await this.fileService.exists(current);
+                                        if (exists) { break; }
+                                        dirsToCreate.unshift(current);
+                                } catch {
+                                        dirsToCreate.unshift(current);
+                                }
+                                const upPath = current.path.substring(0, current.path.lastIndexOf('/')) || '/';
+                                current = URI.from({ scheme: current.scheme, authority: current.authority, path: upPath });
+                        }
+                        for (const dir of dirsToCreate) {
+                                try {
+                                        await this.fileService.createFolder(dir);
+                                } catch {
+                                        // Directory may have been created by concurrent operation
+                                }
+                        }
+                }
         }
 
         override dispose(): void {

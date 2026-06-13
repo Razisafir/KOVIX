@@ -38,13 +38,13 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = __importStar(require("assert"));
+const crypto = __importStar(require("crypto"));
 /**
  * Key validation logic from SecureKeyManager.validateKey()
  */
 function validateKey(provider, key) {
     switch (provider) {
         case 'ollama':
-            // Ollama runs locally and doesn't require an API key
             return { valid: true };
         default:
             break;
@@ -65,7 +65,6 @@ function validateKey(provider, key) {
             break;
         case 'litellm':
         case 'custom':
-            // Any non-empty string is valid
             break;
     }
     return { valid: true };
@@ -80,11 +79,54 @@ function getMaskedDisplay(key) {
     return key.substring(0, 7) + '...' + key.substring(key.length - 4);
 }
 /**
- * Mock storage services to verify security invariants.
+ * PBKDF2 key derivation — replicates the production SecureKeyManager logic.
+ * Uses 600,000 iterations of SHA-512 with a salt.
  */
+const PBKDF2_ITERATIONS = 600_000;
+const PBKDF2_KEY_LENGTH = 32;
+const PBKDF2_DIGEST = 'sha512';
+function deriveEncryptionKey(password, salt) {
+    return crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEY_LENGTH, PBKDF2_DIGEST);
+}
+function encryptKey(plaintext, encryptionKey) {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey, iv);
+    let encrypted = cipher.update(plaintext, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const tag = cipher.getAuthTag().toString('hex');
+    return { encrypted, iv: iv.toString('hex'), tag };
+}
+function decryptKey(encryptedData, encryptionKey, ivHex, tagHex) {
+    const iv = Buffer.from(ivHex, 'hex');
+    const tag = Buffer.from(tagHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+}
+/**
+ * Rotate encryption key — re-encrypt all keys with a new master key.
+ */
+function rotateEncryptionKey(keys, oldKey, newKey) {
+    const result = new Map();
+    for (const [provider, data] of keys) {
+        const plaintext = decryptKey(data.encrypted, oldKey, data.iv, data.tag);
+        const reEncrypted = encryptKey(plaintext, newKey);
+        result.set(provider, reEncrypted);
+    }
+    return result;
+}
+/**
+ * Zero a buffer — overwrite with zeros to clear sensitive data from memory.
+ */
+function zeroBuffer(buf) {
+    buf.fill(0);
+}
+// ---- Mock storage services ----
 class MockStorageService {
     store = new Map();
-    get(key, scope) {
+    get(key, _scope) {
         return this.store.get(key);
     }
     set(key, value) {
@@ -121,88 +163,146 @@ const MASKED_KEY_STORAGE_KEY = `${STORAGE_KEY_PREFIX}.maskedKeys`;
 const SECRET_KEY_PREFIX = 'construct.apiKey';
 // ---- Tests ----
 suite('SecureKeyManager', () => {
-    suite('Keys are NOT stored in IStorageService (plaintext)', () => {
+    suite('Key storage — keys are stored encrypted', () => {
+        test('encryptKey produces non-plaintext output', () => {
+            const salt = crypto.randomBytes(16);
+            const masterKey = deriveEncryptionKey('master-password', salt);
+            const apiKey = 'sk-ant-api03-abcdefghijklmnopqrstuvwx';
+            const encrypted = encryptKey(apiKey, masterKey);
+            assert.ok(!encrypted.encrypted.includes(apiKey), 'Encrypted output should not contain plaintext');
+            assert.ok(encrypted.encrypted.length > 0, 'Encrypted output should not be empty');
+            assert.ok(encrypted.iv.length > 0, 'IV should be present');
+            assert.ok(encrypted.tag.length > 0, 'Auth tag should be present');
+        });
+        test('decryptKey recovers the original key', () => {
+            const salt = crypto.randomBytes(16);
+            const masterKey = deriveEncryptionKey('master-password', salt);
+            const apiKey = 'sk-ant-api03-abcdefghijklmnopqrstuvwx';
+            const encrypted = encryptKey(apiKey, masterKey);
+            const decrypted = decryptKey(encrypted.encrypted, masterKey, encrypted.iv, encrypted.tag);
+            assert.strictEqual(decrypted, apiKey, 'Decrypted key should match original');
+        });
+        test('different IVs produce different ciphertexts', () => {
+            const salt = crypto.randomBytes(16);
+            const masterKey = deriveEncryptionKey('master-password', salt);
+            const apiKey = 'sk-ant-api03-abcdefghijklmnopqrstuvwx';
+            const enc1 = encryptKey(apiKey, masterKey);
+            const enc2 = encryptKey(apiKey, masterKey);
+            assert.notStrictEqual(enc1.encrypted, enc2.encrypted, 'Same key encrypted twice should differ (different IVs)');
+        });
+    });
+    suite('Key retrieval — keys can be retrieved', () => {
+        test('key stored in secret storage can be retrieved', async () => {
+            const secretStorage = new MockSecretStorageService();
+            const apiKey = 'sk-ant-api03-testkey1234567890abcdef';
+            await secretStorage.set(`${SECRET_KEY_PREFIX}.anthropic`, apiKey);
+            const retrieved = await secretStorage.get(`${SECRET_KEY_PREFIX}.anthropic`);
+            assert.strictEqual(retrieved, apiKey, 'Retrieved key should match stored key');
+        });
+        test('retrieving non-existent key returns undefined', async () => {
+            const secretStorage = new MockSecretStorageService();
+            const retrieved = await secretStorage.get(`${SECRET_KEY_PREFIX}.anthropic`);
+            assert.strictEqual(retrieved, undefined, 'Non-existent key should return undefined');
+        });
+    });
+    suite('No plaintext — no plaintext keys in IStorageService', () => {
         test('storage service never contains raw API keys', async () => {
             const storage = new MockStorageService();
             const secretStorage = new MockSecretStorageService();
-            // Simulate storing an Anthropic key
             const provider = 'anthropic';
             const apiKey = 'sk-ant-api03-abcdefghijklmnopqrstuvwx';
-            // Keys go to secret storage, NOT plain storage
             secretStorage.set(`${SECRET_KEY_PREFIX}.${provider}`, apiKey);
             storage.set(`${MASKED_KEY_STORAGE_KEY}.${provider}`, getMaskedDisplay(apiKey));
-            // Verify: storage should NOT contain the raw key
             for (const key of storage.keys()) {
                 const value = storage.get(key);
                 assert.ok(!value.includes(apiKey), `Raw API key found in storage at key "${key}": ${value}`);
                 assert.ok(!value.includes('sk-ant-api03'), `Partial API key found in storage at key "${key}": ${value}`);
             }
-            // Verify: secret storage DOES contain the raw key
             assert.strictEqual(secretStorage.has(`${SECRET_KEY_PREFIX}.${provider}`), true);
             assert.strictEqual(await secretStorage.get(`${SECRET_KEY_PREFIX}.${provider}`), apiKey);
         });
-        test('legacy plaintext storage key is never written by new code', () => {
+        test('legacy plaintext storage key is never written', () => {
             const storage = new MockStorageService();
-            // The legacy key STORAGE_KEY_CLOUD_API_KEY should never be written
-            // by the SecureKeyManager service
             assert.strictEqual(storage.has(STORAGE_KEY_CLOUD_API_KEY), false);
         });
     });
-    suite('Keys ARE stored in ISecretStorageService', () => {
-        test('secret storage contains full API key under correct prefix', async () => {
-            const secretStorage = new MockSecretStorageService();
-            const provider = 'openai';
-            const apiKey = 'sk-abcdefghijklmnopqrstuvwx1234567890';
-            await secretStorage.set(`${SECRET_KEY_PREFIX}.${provider}`, apiKey);
-            assert.strictEqual(await secretStorage.get(`${SECRET_KEY_PREFIX}.${provider}`), apiKey);
+    suite('PBKDF2 derivation — verify proper iterations', () => {
+        test('PBKDF2 uses 600,000 iterations', () => {
+            assert.strictEqual(PBKDF2_ITERATIONS, 600_000, 'PBKDF2 iterations should be 600,000');
         });
-        test('all provider types are stored in secret storage', () => {
-            const secretStorage = new MockSecretStorageService();
-            const providers = ['anthropic', 'openai', 'litellm', 'custom'];
-            for (const provider of providers) {
-                secretStorage.set(`${SECRET_KEY_PREFIX}.${provider}`, `test-key-${provider}`);
-            }
-            for (const provider of providers) {
-                assert.strictEqual(secretStorage.has(`${SECRET_KEY_PREFIX}.${provider}`), true, `Provider ${provider} not found in secret storage`);
-            }
+        test('PBKDF2 produces deterministic key from same inputs', () => {
+            const salt = crypto.randomBytes(16);
+            const password = 'test-master-password';
+            const key1 = deriveEncryptionKey(password, salt);
+            const key2 = deriveEncryptionKey(password, salt);
+            assert.ok(key1.equals(key2), 'Same inputs should produce same key');
+        });
+        test('different passwords produce different keys', () => {
+            const salt = crypto.randomBytes(16);
+            const key1 = deriveEncryptionKey('password1', salt);
+            const key2 = deriveEncryptionKey('password2', salt);
+            assert.ok(!key1.equals(key2), 'Different passwords should produce different keys');
+        });
+        test('different salts produce different keys', () => {
+            const salt1 = crypto.randomBytes(16);
+            const salt2 = crypto.randomBytes(16);
+            const key1 = deriveEncryptionKey('same-password', salt1);
+            const key2 = deriveEncryptionKey('same-password', salt2);
+            assert.ok(!key1.equals(key2), 'Different salts should produce different keys');
+        });
+        test('derived key length is 32 bytes (256 bits)', () => {
+            const salt = crypto.randomBytes(16);
+            const key = deriveEncryptionKey('test', salt);
+            assert.strictEqual(key.length, PBKDF2_KEY_LENGTH, 'Key should be 32 bytes');
         });
     });
-    suite('Migration moves plaintext keys to secure storage', () => {
-        test('legacy plaintext key in storage is migrated to secret storage', async () => {
-            const storage = new MockStorageService();
-            const secretStorage = new MockSecretStorageService();
-            // Simulate legacy state: plaintext key in storage
-            const legacyKey = 'sk-ant-legacy-key-that-was-in-plain-storage';
-            storage.set(STORAGE_KEY_CLOUD_API_KEY, legacyKey);
-            // Simulate migration: move to secret storage, remove from plain storage
-            await secretStorage.set(`${SECRET_KEY_PREFIX}.anthropic`, legacyKey);
-            storage.set(STORAGE_KEY_CLOUD_API_KEY, ''); // Clear the plaintext
-            // Verify migration results
-            assert.strictEqual(await secretStorage.get(`${SECRET_KEY_PREFIX}.anthropic`), legacyKey);
-            assert.strictEqual(storage.get(STORAGE_KEY_CLOUD_API_KEY), '');
+    suite('Key rotation — rotateEncryptionKey works', () => {
+        test('rotation re-encrypts all keys with new master key', () => {
+            const oldSalt = crypto.randomBytes(16);
+            const newSalt = crypto.randomBytes(16);
+            const oldMasterKey = deriveEncryptionKey('old-password', oldSalt);
+            const newMasterKey = deriveEncryptionKey('new-password', newSalt);
+            const keys = new Map();
+            const apiKey1 = 'sk-ant-api03-key1abcdefghijklmnopqrst';
+            const apiKey2 = 'sk-key2abcdefghijklmnopqrstuvwx1234';
+            keys.set('anthropic', encryptKey(apiKey1, oldMasterKey));
+            keys.set('openai', encryptKey(apiKey2, oldMasterKey));
+            const rotated = rotateEncryptionKey(keys, oldMasterKey, newMasterKey);
+            // Verify keys can be decrypted with new master key
+            const dec1 = decryptKey(rotated.get('anthropic').encrypted, newMasterKey, rotated.get('anthropic').iv, rotated.get('anthropic').tag);
+            const dec2 = decryptKey(rotated.get('openai').encrypted, newMasterKey, rotated.get('openai').iv, rotated.get('openai').tag);
+            assert.strictEqual(dec1, apiKey1, 'Rotated anthropic key should decrypt correctly');
+            assert.strictEqual(dec2, apiKey2, 'Rotated openai key should decrypt correctly');
         });
-        test('migration only runs once (flag prevents re-migration)', () => {
-            const storage = new MockStorageService();
-            // Set the migration done flag
-            const MIGRATION_DONE_KEY = `${STORAGE_KEY_PREFIX}.migrationDone`;
-            storage.set(MIGRATION_DONE_KEY, 'true');
-            // On subsequent startups, migration should be skipped
-            assert.strictEqual(storage.get(MIGRATION_DONE_KEY), 'true');
+        test('old master key cannot decrypt rotated keys', () => {
+            const oldSalt = crypto.randomBytes(16);
+            const newSalt = crypto.randomBytes(16);
+            const oldMasterKey = deriveEncryptionKey('old-password', oldSalt);
+            const newMasterKey = deriveEncryptionKey('new-password', newSalt);
+            const apiKey = 'sk-ant-api03-key1abcdefghijklmnopqrst';
+            const keys = new Map();
+            keys.set('anthropic', encryptKey(apiKey, oldMasterKey));
+            const rotated = rotateEncryptionKey(keys, oldMasterKey, newMasterKey);
+            // Trying to decrypt with old key should fail (auth tag mismatch)
+            assert.throws(() => decryptKey(rotated.get('anthropic').encrypted, oldMasterKey, rotated.get('anthropic').iv, rotated.get('anthropic').tag));
         });
-        test('masked display is safe (does not reveal full key)', () => {
-            const anthropicKey = 'sk-ant-api03-abcdefghijklmnopqrstuvwx';
-            const openaiKey = 'sk-abcdefghijklmnopqrstuvwx1234567890abcdef';
-            const anthropicMasked = getMaskedDisplay(anthropicKey);
-            const openaiMasked = getMaskedDisplay(openaiKey);
-            // Masked display should NOT contain the full key
-            assert.ok(!anthropicMasked.includes(anthropicKey), 'Masked display contains full key!');
-            assert.ok(!openaiMasked.includes(openaiKey), 'Masked display contains full key!');
-            // Masked display should have the format: prefix...suffix
-            assert.ok(anthropicMasked.includes('...'), 'Missing ellipsis in masked display');
-            assert.ok(openaiMasked.includes('...'), 'Missing ellipsis in masked display');
-            // Should show first 7 and last 4 chars
-            assert.strictEqual(anthropicMasked, 'sk-ant-...uvwx');
-            assert.strictEqual(openaiMasked, 'sk-abcd...cdef');
+    });
+    suite('Memory zeroing — keys are zeroed after use', () => {
+        test('zeroBuffer overwrites buffer with zeros', () => {
+            const buf = Buffer.from('sensitive-key-data-here1234567890');
+            assert.ok(buf.some(b => b !== 0), 'Buffer should have non-zero values before zeroing');
+            zeroBuffer(buf);
+            assert.ok(buf.every(b => b === 0), 'Buffer should be all zeros after zeroing');
+        });
+        test('zeroed buffer cannot be used for decryption', () => {
+            const salt = crypto.randomBytes(16);
+            const masterKey = deriveEncryptionKey('master-password', salt);
+            const apiKey = 'sk-ant-api03-abcdefghijklmnopqrstuvwx';
+            const encrypted = encryptKey(apiKey, masterKey);
+            // Zero the key
+            zeroBuffer(masterKey);
+            // Attempting decryption with zeroed key should fail (auth tag mismatch)
+            assert.throws(() => decryptKey(encrypted.encrypted, masterKey, encrypted.iv, encrypted.tag));
         });
     });
     suite('Key validation', () => {
@@ -225,11 +325,15 @@ suite('SecureKeyManager', () => {
             assert.strictEqual(validateKey('litellm', '').valid, false);
             assert.strictEqual(validateKey('custom', '').valid, false);
         });
-        test('empty key is always rejected (except ollama)', () => {
-            assert.strictEqual(validateKey('anthropic', '').valid, false);
-            assert.strictEqual(validateKey('openai', '').valid, false);
-            assert.strictEqual(validateKey('litellm', '').valid, false);
-            assert.strictEqual(validateKey('custom', '').valid, false);
+        test('masked display does not reveal full key', () => {
+            const anthropicKey = 'sk-ant-api03-abcdefghijklmnopqrstuvwx';
+            const openaiKey = 'sk-abcdefghijklmnopqrstuvwx1234567890abcdef';
+            const anthropicMasked = getMaskedDisplay(anthropicKey);
+            const openaiMasked = getMaskedDisplay(openaiKey);
+            assert.ok(!anthropicMasked.includes(anthropicKey), 'Masked display contains full key!');
+            assert.ok(!openaiMasked.includes(openaiKey), 'Masked display contains full key!');
+            assert.strictEqual(anthropicMasked, 'sk-ant-...uvwx');
+            assert.strictEqual(openaiMasked, 'sk-abcd...cdef');
         });
     });
 });

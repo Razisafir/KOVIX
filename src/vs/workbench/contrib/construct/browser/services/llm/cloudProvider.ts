@@ -22,6 +22,21 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
 const MAX_RETRIES = 3;
 
+// P5: Token usage tracking interface
+export interface ITokenUsage {
+        promptTokens: number;
+        completionTokens: number;
+        totalCost: number;
+}
+
+// P5: Provider health status for fallback chain
+interface IProviderHealth {
+        provider: AIProviderType;
+        healthy: boolean;
+        lastCheck: number;
+        errorCount: number;
+}
+
 /**
  * Parsed SSE chunk from the Anthropic streaming API.
  */
@@ -58,6 +73,15 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
         private _baseUrl: string;
         private _apiKey: string = '';
         private _customModels: IModelInfo[] = [];
+
+        // P5: Token usage tracking
+        private _tokenUsage: ITokenUsage = { promptTokens: 0, completionTokens: 0, totalCost: 0 };
+        // P5: Streaming error recovery — track last known good state (used for recovery on reconnect)
+        private _lastStreamedText = '';
+        // P5: Streaming error recovery — track tool calls for recovery on reconnect
+        private _lastStreamedToolCalls: Array<{ id: string; name: string; input: string }> = [];
+        // P5: Provider health for fallback chain
+        private _providerHealth: Map<AIProviderType, IProviderHealth> = new Map();
 
         private readonly _onDidChangeActiveModel = this._register(new Emitter<IModelInfo | undefined>());
         readonly onDidChangeActiveModel = this._onDidChangeActiveModel.event;
@@ -310,6 +334,100 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                 ];
         }
 
+        // P5: Get token usage for the current session
+        getTokenUsage(): ITokenUsage {
+                return { ...this._tokenUsage };
+        }
+
+        // P5: Get last streamed text for recovery purposes
+        getLastStreamedText(): string {
+                return this._lastStreamedText;
+        }
+
+        // P5: Get last streamed tool calls for recovery purposes
+        getLastStreamedToolCalls(): Array<{ id: string; name: string; input: string }> {
+                return [...this._lastStreamedToolCalls];
+        }
+
+        // P5: Update token usage estimate from streaming events
+        private updateTokenUsage(promptChars: number, completionChars: number): void {
+                // Estimate: 1 token ≈ 4 characters
+                const promptTokens = Math.ceil(promptChars / 4);
+                const completionTokens = Math.ceil(completionChars / 4);
+                this._tokenUsage.promptTokens += promptTokens;
+                this._tokenUsage.completionTokens += completionTokens;
+                // Rough cost estimate: GPT-4o-mini = $0.15/1M input, $0.60/1M output
+                const inputCost = (promptTokens / 1_000_000) * 0.15;
+                const outputCost = (completionTokens / 1_000_000) * 0.60;
+                this._tokenUsage.totalCost += inputCost + outputCost;
+        }
+
+        // P5: Provider health check — ping the API to verify the key is valid
+        async checkProviderHealth(): Promise<boolean> {
+                try {
+                        await this._resolveApiKey();
+                        if (!this._apiKey) { return false; }
+
+                        if (this.isAnthropicKey) {
+                                // Anthropic: send a minimal request to verify key
+                                const controller = new AbortController();
+                                const timeout = setTimeout(() => controller.abort(), 5000);
+                                const response = await fetch(ANTHROPIC_API_URL, {
+                                        method: 'POST',
+                                        headers: {
+                                                'Content-Type': 'application/json',
+                                                'x-api-key': this._apiKey,
+                                                'anthropic-version': '2023-06-01',
+                                                'anthropic-dangerous-direct-browser-access': 'true',
+                                        },
+                                        body: JSON.stringify({
+                                                model: this._activeModel?.id ?? DEFAULT_ANTHROPIC_MODEL,
+                                                max_tokens: 1,
+                                                messages: [{ role: 'user', content: 'ping' }],
+                                        }),
+                                        signal: controller.signal,
+                                });
+                                clearTimeout(timeout);
+                                return response.ok || response.status === 400; // 400 = valid key, bad request
+                        } else {
+                                // OpenAI-compatible: hit /models endpoint
+                                const controller = new AbortController();
+                                const timeout = setTimeout(() => controller.abort(), 5000);
+                                const response = await fetch(this._baseUrl + '/models', {
+                                        headers: { 'Authorization': 'Bearer ' + this._apiKey },
+                                        signal: controller.signal,
+                                });
+                                clearTimeout(timeout);
+                                return response.ok;
+                        }
+                } catch {
+                        return false;
+                }
+        }
+
+        // P5: Fallback chain — try next configured provider
+        async attemptFallbackChain(messages: IChatMessage[], tools: IToolDefinition[], options?: IChatOptions): Promise<AsyncIterable<AIStreamEvent> | null> {
+                // If Anthropic key fails, try OpenAI and vice versa
+                // This is a simple single-hop fallback for now
+                const providers: AIProviderType[] = this.isAnthropicKey
+                        ? ['cloud'] // Would need a separate OpenAI key for true fallback
+                        : ['cloud'];
+
+                for (const provider of providers) {
+                        const health = this._providerHealth.get(provider);
+                        if (health && !health.healthy) { continue; }
+
+                        // If we're already using this provider, skip
+                        if (provider === 'cloud' && this.providerType === 'cloud') { continue; }
+
+                        this.logService.info('[CloudProvider] Attempting fallback to ' + provider);
+                        // Note: Full fallback chain would require a second API key.
+                        // For now, log and return null.
+                }
+
+                return null;
+        }
+
         async *chat(messages: IChatMessage[], tools: IToolDefinition[], options?: IChatOptions): AsyncIterable<AIStreamEvent> {
                 // P0-2 FIX: Resolve key before chat
                 await this._resolveApiKey();
@@ -414,9 +532,12 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                                 }
 
                                 // Parse Anthropic SSE stream
+                                // P5: Streaming error recovery — track last known good state
                                 let currentToolId: string | null = null;
                                 let currentToolName: string | null = null;
                                 let currentToolInput = '';
+                                let streamedText = '';
+                                let streamedToolCalls: Array<{ id: string; name: string; input: string }> = [];
 
                                 const reader = response.body.getReader();
                                 const decoder = new TextDecoder();
@@ -462,6 +583,7 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                                                         } else if (eventType === 'content_block_delta') {
                                                                 const delta = chunk.delta;
                                                                 if (delta?.type === 'text_delta' && delta.text) {
+                                                                        streamedText += delta.text; // P5: track for recovery
                                                                         yield { type: 'token', text: delta.text };
                                                                 } else if (delta?.type === 'input_json_delta' && delta.partial_json) {
                                                                         currentToolInput += delta.partial_json;
@@ -481,6 +603,8 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                                                                                         parsedInput = { raw: currentToolInput };
                                                                                 }
                                                                         }
+                                                                        // P5: Track for streaming recovery
+                                                                        streamedToolCalls.push({ id: currentToolId, name: currentToolName, input: currentToolInput });
                                                                         yield {
                                                                                 type: 'tool_end',
                                                                                 toolId: currentToolId,
@@ -494,6 +618,9 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                                                         } else if (eventType === 'message_delta') {
                                                                 const delta = chunk.delta;
                                                                 if (delta?.stop_reason) {
+                                                                        // P5: Update token usage on completion
+                                                                        const promptChars = messages.reduce((sum, m) => sum + m.content.length, 0);
+                                                                        this.updateTokenUsage(promptChars, streamedText.length);
                                                                         yield { type: 'done', stopReason: delta.stop_reason };
                                                                 }
                                                         } else if (eventType === 'error') {
@@ -502,6 +629,9 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                                                 }
                                         }
                                 } finally {
+                                        // P5: Save last known good state for potential recovery
+                                        this._lastStreamedText = streamedText;
+                                        this._lastStreamedToolCalls = streamedToolCalls;
                                         reader.releaseLock();
                                 }
 

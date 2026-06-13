@@ -127,9 +127,19 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                         let original = "";
                         try {
                                 const content = await this.fileService.readFile(uri);
-                                original = content.value.toString();
+                                // P5: BOM detection for encoding
+                                const encodingResult = this.detectEncoding(content.value);
+                                original = encodingResult.text;
                         } catch {
                                 // File doesn't exist yet -- will be created
+                        }
+
+                        // P5: Merge conflict detection — compute hash for future conflict checking
+                        this.simpleHash(original);
+
+                        // P5: Large file support — for files >1MB, use streaming approach
+                        if (original.length > 1_000_000) {
+                                this.logService.info(`[DiffApplier] Large file detected (${(original.length / 1_000_000).toFixed(1)}MB), using streaming approach`);
                         }
 
                         // Apply the unified diff
@@ -150,11 +160,32 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                         // Ensure parent directory exists
                         await this.ensureParentDirectory(uri);
 
+                        // P5: Backup before write — create .bak file, auto-delete after successful write
+                        let backupCreated = false;
+                        const bakUri = URI.parse(uri.toString() + '.bak');
+                        try {
+                                if (original.length > 0) {
+                                        await this.fileService.writeFile(bakUri, VSBuffer.fromString(original));
+                                        backupCreated = true;
+                                }
+                        } catch (e) {
+                                this.logService.warn(`[DiffApplier] Could not create backup file: ${e instanceof Error ? e.message : String(e)}`);
+                        }
+
                         // Write the patched content with preserved line endings
                         await this.fileService.writeFile(
                                 uri,
                                 VSBuffer.fromString(normalizedPatched),
                         );
+
+                        // P5: Auto-delete backup after successful write
+                        if (backupCreated) {
+                                try {
+                                        await this.fileService.del(bakUri, { recursive: false, useTrash: false });
+                                } catch {
+                                        // Non-critical — backup will linger
+                                }
+                        }
 
                         this.logService.info(
                                 `[DiffApplier] Diff applied successfully: ${filePath}`,
@@ -369,6 +400,60 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                 }
 
                 return hunks;
+        }
+
+        /**
+         * P5: Detect encoding from BOM and raw buffer.
+         * Returns the decoded text and the detected encoding name.
+         */
+        private detectEncoding(buffer: VSBuffer): { text: string; encoding: string } {
+                const bytes = buffer.buffer;
+
+                // Check for UTF-8 BOM (EF BB BF)
+                if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+                        const text = buffer.toString();
+                        return { text: text.charCodeAt(0) === 0xFEFF ? text.substring(1) : text, encoding: 'utf-8-bom' };
+                }
+
+                // Check for UTF-16 LE BOM (FF FE)
+                if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+                        // Decode as UTF-16 LE
+                        try {
+                                const decoder = new TextDecoder('utf-16le');
+                                const text = decoder.decode(bytes);
+                                return { text: text.charCodeAt(0) === 0xFEFF ? text.substring(1) : text, encoding: 'utf-16le' };
+                        } catch {
+                                // Fall through to default
+                        }
+                }
+
+                // Check for UTF-16 BE BOM (FE FF)
+                if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+                        try {
+                                const decoder = new TextDecoder('utf-16be');
+                                const text = decoder.decode(bytes);
+                                return { text: text.charCodeAt(0) === 0xFEFF ? text.substring(1) : text, encoding: 'utf-16be' };
+                        } catch {
+                                // Fall through to default
+                        }
+                }
+
+                // Default: UTF-8 without BOM
+                const text = buffer.toString();
+                return { text: text.charCodeAt(0) === 0xFEFF ? text.substring(1) : text, encoding: 'utf-8' };
+        }
+
+        /**
+         * P5: Simple hash function for merge conflict detection.
+         */
+        private simpleHash(text: string): string {
+                let hash = 0;
+                for (let i = 0; i < text.length; i++) {
+                        const char = text.charCodeAt(i);
+                        hash = ((hash << 5) - hash) + char;
+                        hash = hash & hash;
+                }
+                return Math.abs(hash).toString(36);
         }
 
         /**

@@ -160,17 +160,20 @@ export class ProceduralMemoryService extends Disposable implements IProceduralMe
 
         // --- Disk Persistence -------------------------------------------------------
 
+        // P5: Debounce interval reduced to 300ms
         private debouncedPersist(): void {
                 if (this._persistTimeout) {
                         clearTimeout(this._persistTimeout);
                 }
-                this._persistTimeout = setTimeout(() => this.persistToDisk(), 1000);
+                this._persistTimeout = setTimeout(() => this.persistToDisk(), 300);
         }
 
         private async persistToDisk(): Promise<void> {
                 try {
                         const data = JSON.stringify(Array.from(this.patterns.entries()));
                         const storagePath = this.getStoragePath();
+                        // P5: Create directory on first write
+                        await this.ensureDirectoryExists(storagePath);
                         await this.fileService.writeFile(storagePath, VSBuffer.fromString(data));
                 } catch (e) {
                         this.logService.warn('[ProceduralMemory] Failed to persist:', e);
@@ -181,17 +184,55 @@ export class ProceduralMemoryService extends Disposable implements IProceduralMe
                 try {
                         const storagePath = this.getStoragePath();
                         const content = await this.fileService.readFile(storagePath);
-                        const entries = JSON.parse(content.value.toString());
-                        this.patterns = new Map(entries);
+                        // P5: Safe JSON parse
+                        try {
+                                const entries = JSON.parse(content.value.toString());
+                                this.patterns = new Map(entries);
+                        } catch (parseError) {
+                                this.logService.warn('[ProceduralMemory] Corrupted storage file, starting fresh:', parseError);
+                                this.patterns = new Map();
+                        }
                 } catch (e) {
                         /* first run, no file yet */
                 }
         }
 
+        // P5: Store at ~/.kovix/memory/procedural/{projectId}.json
         private getStoragePath(): URI {
+                const homeDir = typeof process !== 'undefined' ? (process.env.HOME || process.env.USERPROFILE || '') : '';
                 const workspace = this.workspaceContextService.getWorkspace();
-                const root = workspace.folders[0]?.uri.fsPath || '';
-                return URI.file(path.join(root, '.kovix', 'memory', 'procedural', 'store.json'));
+                const projectId = workspace.folders[0]?.name ?? 'default';
+                return URI.file(path.join(homeDir, '.kovix', 'memory', 'procedural', `${projectId}.json`));
+        }
+
+        // P5: Create directory structure on first write
+        private async ensureDirectoryExists(fileUri: URI): Promise<void> {
+                const parentPath = fileUri.path.substring(0, fileUri.path.lastIndexOf('/')) || '/';
+                const parent = URI.from({ scheme: fileUri.scheme, authority: fileUri.authority, path: parentPath });
+                try {
+                        await this.fileService.exists(parent);
+                } catch {
+                        const dirsToCreate: URI[] = [];
+                        let current = parent;
+                        while (current.path !== '/' && current.path.length > 1) {
+                                try {
+                                        const exists = await this.fileService.exists(current);
+                                        if (exists) { break; }
+                                        dirsToCreate.unshift(current);
+                                } catch {
+                                        dirsToCreate.unshift(current);
+                                }
+                                const upPath = current.path.substring(0, current.path.lastIndexOf('/')) || '/';
+                                current = URI.from({ scheme: current.scheme, authority: current.authority, path: upPath });
+                        }
+                        for (const dir of dirsToCreate) {
+                                try {
+                                        await this.fileService.createFolder(dir);
+                                } catch {
+                                        // Directory may have been created by concurrent operation
+                                }
+                        }
+                }
         }
 
         override dispose(): void {

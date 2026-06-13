@@ -901,6 +901,9 @@ export class ConstructOnboardingWizard extends Disposable {
 </head>
 <body>
         <div class="wizard" role="dialog" aria-modal="true" aria-label="Onboarding wizard">
+                <!-- P5: Progress indicator showing "Step X of Y" -->
+                <div style="text-align:center;margin-bottom:8px;font-size:11px;color:var(--text-muted);" id="step-label">Step 1 of 5</div>
+
                 <!-- Step Indicator -->
                 <div class="step-indicator" role="navigation" aria-label="Wizard step indicator">
                         <div class="step-dot active" id="dot-0" role="tab" aria-selected="true" aria-label="Step 1: Welcome"></div>
@@ -947,8 +950,11 @@ export class ConstructOnboardingWizard extends Disposable {
                         </div>
 
                         <div class="btn-row">
-                                <div></div>
-                                <button class="btn btn-primary" onclick="goToStep(1)" aria-label="Get Started: next step">Get Started &rarr;</button>
+                                <!-- P5: Skip option on every step -->
+                                <div style="display:flex;gap:8px;">
+                                        <button class="btn btn-secondary" onclick="skipOnboarding()" aria-label="Skip setup, configure later">Skip Setup</button>
+                                        <button class="btn btn-primary" onclick="goToStep(1)" aria-label="Get Started: next step">Get Started &rarr;</button>
+                                </div>
                         </div>
                 </div>
 
@@ -1024,7 +1030,11 @@ export class ConstructOnboardingWizard extends Disposable {
 
                         <div class="btn-row">
                                 <button class="btn btn-secondary" onclick="goToStep(0)" aria-label="Go back to Welcome">&larr; Back</button>
-                                <button class="btn btn-primary" id="step1-next" onclick="goToStep(${isWin ? 2 : 3})" disabled aria-label="Next step">Next &rarr;</button>
+                                <div style="display:flex;gap:8px;">
+                                        <!-- P5: Skip option -->
+                                        <button class="btn btn-secondary" onclick="skipOnboarding()" aria-label="Skip setup, configure later">Skip</button>
+                                        <button class="btn btn-primary" id="step1-next" onclick="goToStep(${isWin ? 2 : 3})" disabled aria-label="Next step">Next &rarr;</button>
+                                </div>
                         </div>
                 </div>
 
@@ -1162,6 +1172,10 @@ export class ConstructOnboardingWizard extends Disposable {
 
                         currentStep = step;
 
+                        // P5: Update progress label
+                        const stepLabel = document.getElementById('step-label');
+                        if (stepLabel) { stepLabel.textContent = 'Step ' + (step + 1) + ' of ' + totalSteps; }
+
                         // Trigger checks when entering steps
                         if (step === 1 && !ollamaChecked) {
                                 vscode.postMessage({ type: 'checkOllama' });
@@ -1233,16 +1247,25 @@ export class ConstructOnboardingWizard extends Disposable {
                                 icon.className = 'card-icon pending';
                                 icon.textContent = '!';
                                 desc.textContent = 'Ollama is running but no models are installed.';
-                                // SAFE: Static HTML template, no dynamic data
+                                // P5: Improved empty model handling with clear instructions
                                 detail.innerHTML = \`
                                         <div class="install-instructions">
-                                                Download a model to get started:<br>
-                                                <code>ollama pull llama3.1</code><br><br>
+                                                <strong>No models found.</strong> Run <code>ollama pull llama3.2</code> to download a model.<br><br>
                                                 Also pull the embedding model for codebase memory:<br>
                                                 <code>ollama pull nomic-embed-text</code><br><br>
                                                 Or try a smaller model:<br>
                                                 <code>ollama pull phi3:mini</code>
                                         </div>\`;
+                                // P5: Add pull button
+                                const pullBtn = document.createElement('button');
+                                pullBtn.textContent = 'Pull llama3.2';
+                                pullBtn.className = 'btn btn-primary';
+                                pullBtn.style.marginTop = '8px';
+                                pullBtn.addEventListener('click', () => {
+                                        vscode.postMessage({ type: 'selectXenova' });
+                                        desc.textContent = 'Ollama has no models. Using Xenova as fallback. You can pull models later with: ollama pull llama3.2';
+                                });
+                                detail.appendChild(pullBtn);
                         } else {
                                 // Unreachable or unknown
                                 icon.className = 'card-icon error';
@@ -1532,6 +1555,19 @@ export class ConstructOnboardingWizard extends Disposable {
                                         modelId: selectedModelId,
                                         kaliWSLEnabled: kaliEnabled,
                                         securityToolsEnabled: securityToolsEnabled,
+                                }
+                        });
+                }
+
+                // P5: Skip onboarding entirely — user can configure later
+                function skipOnboarding() {
+                        vscode.postMessage({
+                                type: 'finish',
+                                config: {
+                                        providerType: 'xenova',
+                                        modelId: null,
+                                        kaliWSLEnabled: false,
+                                        securityToolsEnabled: false,
                                 }
                         });
                 }

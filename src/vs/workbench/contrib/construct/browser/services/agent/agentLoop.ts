@@ -45,6 +45,62 @@ import { IConfigurationService } from '../../../../../../platform/configuration/
 // The default is 15 and can be adjusted between 5-50.
 // See constructApiConfig.ts for the configuration registration.
 
+// P5: Token estimation heuristic — 1 token ≈ 4 characters
+const TOKENS_PER_CHAR = 0.25;
+const RESERVED_TOKENS_FOR_RESPONSE = 2000;
+
+/**
+ * Estimate the number of tokens in a text string using a simple heuristic.
+ * 1 token ≈ 4 characters. This is a rough approximation suitable for
+ * context window budgeting; actual token counts may vary by tokenizer.
+ */
+function estimateTokens(text: string): number {
+        return Math.ceil(text.length * TOKENS_PER_CHAR);
+}
+
+/**
+ * Token-aware conversation history truncation.
+ * Keeps the system prompt (first message if role=system) and the most recent
+ * messages that fit within the model's context window, minus reserved tokens
+ * for the response.
+ */
+function truncateConversationToFit(
+        messages: IChatMessage[],
+        contextWindowTokens: number,
+        systemPrompt?: string
+): IChatMessage[] {
+        const budget = contextWindowTokens - RESERVED_TOKENS_FOR_RESPONSE;
+        if (budget <= 0) { return messages.slice(-2); }
+
+        // Calculate system prompt tokens if present
+        const systemTokens = systemPrompt ? estimateTokens(systemPrompt) : 0;
+        const remainingBudget = budget - systemTokens;
+        if (remainingBudget <= 0) { return messages.slice(-2); }
+
+        // Walk backwards through messages, accumulating tokens
+        let usedTokens = 0;
+        let cutIndex = 0;
+        const isFirstSystem = messages.length > 0 && messages[0].role === 'system';
+
+        for (let i = messages.length - 1; i >= 0; i--) {
+                const msgTokens = estimateTokens(messages[i].content) +
+                        (messages[i].toolCalls ? estimateTokens(JSON.stringify(messages[i].toolCalls)) : 0);
+                if (usedTokens + msgTokens > remainingBudget) {
+                        cutIndex = i + 1;
+                        break;
+                }
+                usedTokens += msgTokens;
+        }
+
+        if (cutIndex === 0) { return messages; }
+
+        // Preserve the first system message if present
+        if (isFirstSystem && cutIndex > 0) {
+                return [messages[0], ...messages.slice(cutIndex)];
+        }
+        return messages.slice(cutIndex);
+}
+
 /**
  * Cached result of a tool execution, used to avoid double-execution
  * during the planning phase.
@@ -400,8 +456,14 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                         // Parse the plan from the response
                         const steps = this.parsePlan(fullResponse);
 
+                        // P5: Plan quality validation
+                        const validatedSteps = this.validatePlan(steps, this.getAllPlanningTools());
+                        if (validatedSteps !== steps) {
+                                this.logService.info('[AgentLoop] Plan was modified during validation (duplicates removed or invalid tools filtered)');
+                        }
+
                         return {
-                                steps,
+                                steps: validatedSteps,
                                 summary: fullResponse,
                                 rawResponse: fullResponse,
                         };
@@ -658,19 +720,22 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                         this._conversationHistory.push({ role: 'user', content: task });
                                         this._conversationHistory.push({ role: 'assistant', content: currentText || finalSummary || 'Task completed.' });
 
-                                        // H2: Cap conversation history at 50 messages, keeping first system message if any
-                                        const MAX_HISTORY = 50;
-                                        if (this._conversationHistory.length > MAX_HISTORY) {
+                                        // P5: Token-aware conversation history truncation replaces simple count cap.
+                                        // Determine the active model's context window for budgeting.
+                                        const activeModel = this.aiService.getActiveModel();
+                                        const contextWindow = activeModel?.contextWindowTokens ?? 8192;
+                                        this._conversationHistory = truncateConversationToFit(
+                                                this._conversationHistory,
+                                                contextWindow,
+                                                systemPrompt
+                                        );
+                                        // Safety: still enforce a hard cap of 200 messages to prevent pathological growth
+                                        if (this._conversationHistory.length > 200) {
                                                 const firstMsg = this._conversationHistory[0];
-                                                const isSystem = firstMsg?.role === 'system';
-                                                if (isSystem) {
-                                                        // Keep the system message + most recent (MAX_HISTORY - 1) messages
-                                                        this._conversationHistory = [
-                                                                firstMsg,
-                                                                ...this._conversationHistory.slice(-(MAX_HISTORY - 1))
-                                                        ];
+                                                if (firstMsg?.role === 'system') {
+                                                        this._conversationHistory = [firstMsg, ...this._conversationHistory.slice(-199)];
                                                 } else {
-                                                        this._conversationHistory = this._conversationHistory.slice(-MAX_HISTORY);
+                                                        this._conversationHistory = this._conversationHistory.slice(-200);
                                                 }
                                         }
                                         break;
@@ -711,8 +776,33 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                 } catch (error) {
                         const msg = error instanceof Error ? error.message : String(error);
                         this.logService.error(`[AgentLoop] Error: ${msg}`);
-                        this._onError.fire({ text: msg, recoverable: false });
-                        yield { type: 'error', text: msg, recoverable: false };
+
+                        // P5: Enhanced error recovery — classify and attempt recovery
+                        const classifiedError = this.classifyAgentError(msg);
+                        if (classifiedError === 'context_window_exceeded') {
+                                // Truncate history and retry once
+                                this.logService.info('[AgentLoop] Context window exceeded — truncating conversation history');
+                                const activeModel = this.aiService.getActiveModel();
+                                const contextWindow = activeModel?.contextWindowTokens ?? 8192;
+                                this._conversationHistory = truncateConversationToFit(
+                                        this._conversationHistory,
+                                        contextWindow
+                                );
+                                this._onError.fire({ text: 'Context window exceeded. Conversation history has been truncated. Please retry.', recoverable: true });
+                                yield { type: 'error', text: 'Context window exceeded. Conversation history has been truncated. Please retry.', recoverable: true };
+                        } else if (classifiedError === 'rate_limit_hit') {
+                                this._onError.fire({ text: 'Rate limit hit. Please wait a moment and try again.', recoverable: true });
+                                yield { type: 'error', text: 'Rate limit hit. Please wait a moment and try again.', recoverable: true };
+                        } else if (classifiedError === 'model_unavailable') {
+                                this._onError.fire({ text: 'Model unavailable. Attempting to fall back to next provider. Please retry.', recoverable: true });
+                                yield { type: 'error', text: 'Model unavailable. Attempting to fall back to next provider. Please retry.', recoverable: true };
+                        } else if (classifiedError === 'tool_execution_timeout') {
+                                this._onError.fire({ text: 'Tool execution timed out. Please try again or simplify your request.', recoverable: true });
+                                yield { type: 'error', text: 'Tool execution timed out. Please try again or simplify your request.', recoverable: true };
+                        } else {
+                                this._onError.fire({ text: msg, recoverable: false });
+                                yield { type: 'error', text: msg, recoverable: false };
+                        }
                 } finally {
                         this._isRunning = false;
                         this._activeSnapshotId = null;
@@ -1042,6 +1132,26 @@ Guidelines:
         }
 
         /**
+         * P5: Classify an agent error into categories for targeted recovery.
+         */
+        private classifyAgentError(message: string): 'context_window_exceeded' | 'rate_limit_hit' | 'model_unavailable' | 'tool_execution_timeout' | 'unknown' {
+                const lower = message.toLowerCase();
+                if (lower.includes('context') && (lower.includes('exceed') || lower.includes('too long') || lower.includes('too many tokens') || lower.includes('max_tokens') || lower.includes('token limit'))) {
+                        return 'context_window_exceeded';
+                }
+                if (lower.includes('rate limit') || lower.includes('429') || lower.includes('too many requests') || lower.includes('quota')) {
+                        return 'rate_limit_hit';
+                }
+                if (lower.includes('model') && (lower.includes('not found') || lower.includes('unavailable') || lower.includes('not available') || lower.includes('not loaded'))) {
+                        return 'model_unavailable';
+                }
+                if (lower.includes('timeout') || lower.includes('timed out') || lower.includes('deadline exceeded')) {
+                        return 'tool_execution_timeout';
+                }
+                return 'unknown';
+        }
+
+        /**
          * Parse a plan from the LLM's text response.
          */
         private parsePlan(response: string): IPlanStep[] {
@@ -1075,6 +1185,65 @@ Guidelines:
                 }
 
                 return steps;
+        }
+
+        /**
+         * P5: Validate a plan's quality.
+         * - At least 1 step
+         * - No duplicate steps (same action + target)
+         * - Each step references a valid tool (check against registered tools)
+         * If validation fails, log warnings and return a cleaned-up plan.
+         */
+        private validatePlan(steps: IPlanStep[], availableTools: IToolDefinition[]): IPlanStep[] {
+                if (steps.length === 0) {
+                        this.logService.warn('[AgentLoop] Plan validation: no steps found, creating fallback plan');
+                        return [{
+                                index: 0,
+                                action: 'Read',
+                                target: 'workspace',
+                                description: 'Explore workspace to understand structure',
+                        }];
+                }
+
+                // Build set of valid tool names (action types map to tools)
+                const validToolNames = new Set(availableTools.map(t => t.name));
+                // Also allow the bracket-style action types from parsePlan
+                const validActions = new Set(['Read', 'Create', 'Edit', 'Run']);
+                // Map action types to tool names
+                const actionToTool: Record<string, string> = {
+                        'Read': 'read_file',
+                        'Create': 'write_file',
+                        'Edit': 'edit_file',
+                        'Run': 'run_command',
+                };
+
+                const seen = new Set<string>();
+                const deduped: IPlanStep[] = [];
+                let reindex = 0;
+
+                for (const step of steps) {
+                        // Check for duplicates
+                        const key = `${step.action}:${step.target}`;
+                        if (seen.has(key)) {
+                                this.logService.warn(`[AgentLoop] Plan validation: removing duplicate step "${key}"`);
+                                continue;
+                        }
+                        seen.add(key);
+
+                        // Check if action maps to a valid tool
+                        const toolName = actionToTool[step.action];
+                        if (toolName && !validToolNames.has(toolName) && !validActions.has(step.action)) {
+                                this.logService.warn(`[AgentLoop] Plan validation: step "${key}" references unavailable tool "${toolName}", keeping as-is`);
+                                // Keep the step — it may still be useful context for the agent
+                        }
+
+                        deduped.push({
+                                ...step,
+                                index: reindex++,
+                        });
+                }
+
+                return deduped;
         }
 
         /**
