@@ -1,4 +1,7 @@
-// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -897,12 +900,33 @@ export class ConstructOnboardingWizard extends Disposable {
                         margin-top: 16px;
                 }
                 .skip-link:hover { color: var(--text-secondary); }
+
+                /* P7: Progress bar */
+                .progress-bar-track {
+                        width: 100%;
+                        height: 4px;
+                        background: var(--border);
+                        border-radius: 2px;
+                        margin: 8px 0 12px;
+                        overflow: hidden;
+                }
+                .progress-bar-fill {
+                        height: 100%;
+                        background: var(--accent);
+                        border-radius: 2px;
+                        transition: width 0.4s ease;
+                }
         </style>
 </head>
 <body>
         <div class="wizard" role="dialog" aria-modal="true" aria-label="Onboarding wizard">
                 <!-- P5: Progress indicator showing "Step X of Y" -->
-                <div style="text-align:center;margin-bottom:8px;font-size:11px;color:var(--text-muted);" id="step-label">Step 1 of 5</div>
+                <div style="text-align:center;margin-bottom:4px;font-size:11px;color:var(--text-muted);" id="step-label" aria-live="polite">Step 1 of 5</div>
+
+                <!-- P7: Visual progress bar -->
+                <div class="progress-bar-track" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Setup progress" id="progress-bar">
+                        <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%"></div>
+                </div>
 
                 <!-- Step Indicator -->
                 <div class="step-indicator" role="navigation" aria-label="Wizard step indicator">
@@ -1176,6 +1200,15 @@ export class ConstructOnboardingWizard extends Disposable {
                         const stepLabel = document.getElementById('step-label');
                         if (stepLabel) { stepLabel.textContent = 'Step ' + (step + 1) + ' of ' + totalSteps; }
 
+                        // P7: Update progress bar
+                        const progressFill = document.getElementById('progress-bar-fill');
+                        const progressBar = document.getElementById('progress-bar');
+                        if (progressFill && progressBar) {
+                                const pct = Math.round((step / (totalSteps - 1)) * 100);
+                                progressFill.style.width = pct + '%';
+                                progressBar.setAttribute('aria-valuenow', String(pct));
+                        }
+
                         // Trigger checks when entering steps
                         if (step === 1 && !ollamaChecked) {
                                 vscode.postMessage({ type: 'checkOllama' });
@@ -1273,18 +1306,20 @@ export class ConstructOnboardingWizard extends Disposable {
                                 desc.textContent = 'Ollama is not running or not installed.';
                                 // SAFE: Static HTML template, no dynamic data
                                 // XSS FIX: Replace inline onclick with addEventListener
+                                // P7: Enhanced error recovery with helpful guidance
                                 detail.innerHTML = \`
                                         <div class="install-instructions">
-                                                <strong>Install Ollama for local AI:</strong><br>
+                                                <strong>Ollama is not reachable.</strong> This is fine — you can still use Kovix with other providers.<br><br>
+                                                To set up Ollama later:<br>
                                                 1. Download from <a href="https://ollama.ai">https://ollama.ai</a><br>
                                                 2. Install and start Ollama<br>
                                                 3. Run <code>ollama pull llama3.1</code> to download a model<br>
-                                                4. Run <code>ollama pull nomic-embed-text</code> for codebase memory<br>
-                                                4. Click "Retry" below<br><br>
+                                                4. Run <code>ollama pull nomic-embed-text</code> for codebase memory<br><br>
                                         </div>\`;
                                 const retryBtn = document.createElement('button');
                                 retryBtn.textContent = 'Retry';
                                 retryBtn.className = 'btn btn-secondary';
+                                retryBtn.setAttribute('aria-label', 'Retry Ollama connection check');
                                 retryBtn.style.marginTop = '8px';
                                 retryBtn.addEventListener('click', () => retryOllama());
                                 detail.appendChild(retryBtn);

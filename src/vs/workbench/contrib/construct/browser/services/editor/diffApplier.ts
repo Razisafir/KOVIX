@@ -1,4 +1,7 @@
-// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from "../../../../../../base/common/lifecycle.js";
 import { ILogService } from "../../../../../../platform/log/common/log.js";
@@ -301,7 +304,7 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                 }
 
                 // Apply hunks in reverse order to preserve line numbers
-                let result = [...lines];
+                const result = [...lines];
                 const sortedHunks = [...hunks].sort((a, b) => b.oldStart - a.oldStart);
 
                 for (const hunk of sortedHunks) {

@@ -22,6 +22,8 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IContextViewService } from '../../../../platform/contextview/browser/contextView.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 
 /**
  * Obsidian-like Memory Explorer view panel.
@@ -37,6 +39,10 @@ export class ObsidianMemoryTreePanel extends ViewPane {
         private currentFilter: string = '';
         private selectedEntryId: string | undefined;
         private editContainer: HTMLElement | undefined;
+
+        // P7: Privacy notice dismissed state
+        private static readonly PRIVACY_NOTICE_DISMISSED_KEY = 'construct.memory.privacyNoticeDismissed';
+        private _autoLearnToggle!: HTMLInputElement;
 
         constructor(
                 options: IViewPaneOptions,
@@ -55,6 +61,8 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 @IQuickInputService private readonly quickInputService: IQuickInputService,
                 @INotificationService private readonly notificationService: INotificationService,
                 @IContextViewService contextViewService: IContextViewService,
+                @IStorageService private readonly storageService: IStorageService,
+                @IDialogService private readonly dialogService: IDialogService,
         ) {
                 super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
         }
@@ -86,6 +94,12 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 header.appendChild(refreshBtn);
                 container.appendChild(header);
 
+                // P7: Privacy notice banner
+                this._renderPrivacyBanner(container);
+
+                // P7: Auto-learn toggle + Clear All button bar
+                this._renderSettingsBar(container);
+
                 // --- Search box ---
                 const searchContainer = dom.$('.obsidian-memory-search');
                 searchContainer.style.cssText = `padding: 4px 8px; flex-shrink: 0;`;
@@ -93,6 +107,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 this.searchBox = dom.$('input') as HTMLInputElement;
                 this.searchBox.type = 'text';
                 this.searchBox.placeholder = 'Search memories...';
+                this.searchBox.setAttribute('aria-label', 'Search memories');
                 this.searchBox.style.cssText = `
                         width: 100%; background: var(--vscode-input-background);
                         border: 1px solid var(--vscode-input-border);
@@ -139,6 +154,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 const btn = dom.$('button') as HTMLButtonElement;
                 btn.textContent = label;
                 btn.title = title;
+                btn.setAttribute('aria-label', title);
                 btn.style.cssText = `
                         background: none; border: 1px solid var(--vscode-editorWidget-border);
                         color: var(--vscode-foreground); border-radius: 2px;
@@ -149,6 +165,126 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 btn.onmouseleave = () => { btn.style.background = 'none'; };
                 btn.onclick = onClick;
                 return btn;
+        }
+
+        // --- P7: Privacy Notice Banner ---
+
+        private _renderPrivacyBanner(container: HTMLElement): void {
+                const dismissed = this.storageService.getBoolean(
+                        ObsidianMemoryTreePanel.PRIVACY_NOTICE_DISMISSED_KEY,
+                        StorageScope.PROFILE,
+                        false
+                );
+                if (dismissed) { return; }
+
+                const banner = dom.$('.obsidian-memory-privacy-banner');
+                banner.setAttribute('role', 'alert');
+                banner.style.cssText = `
+                        padding: 6px 10px; margin: 0 8px 4px;
+                        background: var(--vscode-editorInfo-background, #1A2744);
+                        border: 1px solid var(--vscode-editorInfo-foreground, #00E5FF);
+                        border-radius: 4px; font-size: 11px;
+                        color: var(--vscode-editorInfo-foreground, #E0E7FF);
+                        display: flex; align-items: center; justify-content: space-between;
+                        gap: 8px; flex-shrink: 0;
+                `;
+
+                const text = dom.$('.obsidian-memory-privacy-text');
+                text.textContent = 'Kovix automatically stores conversation context. You can disable this in Settings.';
+
+                const dismissBtn = dom.$('button') as HTMLButtonElement;
+                dismissBtn.textContent = '\u2715'; // ×
+                dismissBtn.setAttribute('aria-label', 'Dismiss privacy notice');
+                dismissBtn.style.cssText = `
+                        background: none; border: none; color: var(--vscode-editorInfo-foreground, #4A5568);
+                        cursor: pointer; font-size: 14px; padding: 0 4px; flex-shrink: 0;
+                `;
+                dismissBtn.onclick = () => {
+                        this.storageService.store(
+                                ObsidianMemoryTreePanel.PRIVACY_NOTICE_DISMISSED_KEY,
+                                true,
+                                StorageScope.PROFILE,
+                                StorageTarget.USER
+                        );
+                        banner.remove();
+                };
+
+                banner.appendChild(text);
+                banner.appendChild(dismissBtn);
+                container.appendChild(banner);
+        }
+
+        // --- P7: Settings Bar (Auto-learn toggle + Clear All) ---
+
+        private _renderSettingsBar(container: HTMLElement): void {
+                const bar = dom.$('.obsidian-memory-settings-bar');
+                bar.style.cssText = `
+                        padding: 4px 8px; display: flex; align-items: center;
+                        justify-content: space-between; flex-shrink: 0;
+                `;
+
+                // Auto-learn toggle
+                const toggleWrap = dom.$('.obsidian-memory-autolearn');
+                toggleWrap.style.cssText = `display: flex; align-items: center; gap: 6px;`;
+
+                const autoLearn = this.configurationService.getValue<boolean>('construct.memory.autoLearn') ?? true;
+
+                this._autoLearnToggle = document.createElement('input');
+                this._autoLearnToggle.type = 'checkbox';
+                this._autoLearnToggle.checked = autoLearn;
+                this._autoLearnToggle.id = 'obsidian-auto-learn-toggle';
+                this._autoLearnToggle.setAttribute('aria-label', 'Auto-extract memories from conversations');
+                this._autoLearnToggle.style.cssText = `accent-color: var(--vscode-focusBorder); cursor: pointer;`;
+                this._autoLearnToggle.onchange = () => {
+                        this.configurationService.updateValue(
+                                'construct.memory.autoLearn',
+                                this._autoLearnToggle.checked
+                        );
+                };
+
+                const toggleLabel = dom.$('label');
+                toggleLabel.setAttribute('for', 'obsidian-auto-learn-toggle');
+                toggleLabel.style.cssText = `font-size: 11px; color: var(--vscode-descriptionForeground); cursor: pointer;`;
+                toggleLabel.textContent = 'Auto-learn';
+
+                toggleWrap.appendChild(this._autoLearnToggle);
+                toggleWrap.appendChild(toggleLabel);
+
+                // Clear All button
+                const clearAllBtn = dom.$('button') as HTMLButtonElement;
+                clearAllBtn.textContent = 'Clear All';
+                clearAllBtn.setAttribute('aria-label', 'Clear all memories');
+                clearAllBtn.style.cssText = `
+                        background: none; border: 1px solid var(--vscode-editorWidget-border);
+                        color: var(--vscode-errorForeground, #FF4444); border-radius: 2px;
+                        padding: 2px 8px; cursor: pointer; font-size: 11px;
+                `;
+                clearAllBtn.onclick = () => this._clearAllMemories();
+
+                bar.appendChild(toggleWrap);
+                bar.appendChild(clearAllBtn);
+                container.appendChild(bar);
+        }
+
+        private async _clearAllMemories(): Promise<void> {
+                const result = await this.dialogService.confirm({
+                        message: 'Are you sure you want to clear all memories?',
+                        detail: 'This action cannot be undone. All memory entries will be permanently deleted.',
+                        primaryButton: 'Clear All',
+                        cancelButton: 'Cancel',
+                });
+                if (!result.confirmed) { return; }
+
+                try {
+                        const allEntries = this.obsidianMemory.getAllMemories();
+                        for (const entry of allEntries) {
+                                await this.obsidianMemory.deleteMemory(entry.id);
+                        }
+                        this.notificationService.info(`Cleared ${allEntries.length} memory entries.`);
+                        this.refresh();
+                } catch (error) {
+                        this.notificationService.error(`Failed to clear memories: ${error instanceof Error ? error.message : String(error)}`);
+                }
         }
 
         async refresh(): Promise<void> {
@@ -293,18 +429,19 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                         content.appendChild(desc);
                 }
 
-                // Source badge
+                // Source badge — P7: Enhanced with explicit text labels
                 const sourceBadge = dom.$('.obsidian-memory-source');
+                sourceBadge.setAttribute('aria-label', `Source: ${entry.source}`);
                 sourceBadge.style.cssText = `
                         font-size: 9px; padding: 1px 4px; border-radius: 2px;
                         background: var(--vscode-badge-background);
                         color: var(--vscode-badge-foreground); flex-shrink: 0;
                 `;
                 const sourceLabels: Record<string, string> = {
-                        'auto-extract': '🤖',
-                        'user-created': '✏️',
-                        'imported': '📥',
-                        'session-recording': '💬',
+                        'auto-extract': '🤖 Auto',
+                        'user-created': '✏️ Manual',
+                        'imported': '📥 Import',
+                        'session-recording': '💬 Session',
                 };
                 sourceBadge.textContent = sourceLabels[entry.source] ?? entry.source;
                 sourceBadge.title = entry.source;
@@ -316,6 +453,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 const deleteBtn = dom.$('button') as HTMLButtonElement;
                 deleteBtn.textContent = '×';
                 deleteBtn.title = 'Delete';
+                deleteBtn.setAttribute('aria-label', `Delete memory: ${entry.title}`);
                 deleteBtn.style.cssText = `
                         background: none; border: none; color: var(--vscode-descriptionForeground);
                         cursor: pointer; font-size: 14px; padding: 0 2px;
@@ -385,6 +523,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 // Back button
                 const backBtn = dom.$('button') as HTMLButtonElement;
                 backBtn.textContent = '← Back';
+                backBtn.setAttribute('aria-label', 'Back to memory list');
                 backBtn.style.cssText = `
                         background: none; border: 1px solid var(--vscode-editorWidget-border);
                         color: var(--vscode-foreground); border-radius: 2px;
@@ -410,6 +549,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 const titleInput = dom.$('input') as HTMLInputElement;
                 titleInput.type = 'text';
                 titleInput.value = entry.title;
+                titleInput.setAttribute('aria-label', 'Memory title');
                 titleInput.style.cssText = `
                         width: 100%; box-sizing: border-box; padding: 4px 8px;
                         background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border);
@@ -420,6 +560,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 // Category dropdown
                 form.appendChild(this.createLabel('Category'));
                 const categorySelect = dom.$('select') as HTMLSelectElement;
+                categorySelect.setAttribute('aria-label', 'Memory category');
                 categorySelect.style.cssText = `
                         width: 100%; box-sizing: border-box; padding: 4px 8px;
                         background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border);
@@ -439,6 +580,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 const tagsInput = dom.$('input') as HTMLInputElement;
                 tagsInput.type = 'text';
                 tagsInput.value = entry.tags.join(', ');
+                tagsInput.setAttribute('aria-label', 'Memory tags');
                 tagsInput.style.cssText = `
                         width: 100%; box-sizing: border-box; padding: 4px 8px;
                         background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border);
@@ -450,6 +592,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
                 form.appendChild(this.createLabel('Content'));
                 const contentArea = dom.$('textarea') as HTMLTextAreaElement;
                 contentArea.value = entry.content;
+                contentArea.setAttribute('aria-label', 'Memory content');
                 contentArea.style.cssText = `
                         width: 100%; box-sizing: border-box; padding: 8px;
                         background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border);
@@ -479,6 +622,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
 
                 const saveBtn = dom.$('button') as HTMLButtonElement;
                 saveBtn.textContent = 'Save';
+                saveBtn.setAttribute('aria-label', 'Save memory changes');
                 saveBtn.style.cssText = `
                         background: var(--vscode-button-background); border: none;
                         color: var(--vscode-button-foreground); border-radius: 2px;
@@ -502,6 +646,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
 
                 const deleteBtn = dom.$('button') as HTMLButtonElement;
                 deleteBtn.textContent = 'Delete';
+                deleteBtn.setAttribute('aria-label', 'Delete this memory');
                 deleteBtn.style.cssText = `
                         background: var(--vscode-errorBackground, #5a1d1d); border: none;
                         color: var(--vscode-errorForeground, #f48771); border-radius: 2px;
@@ -511,6 +656,7 @@ export class ObsidianMemoryTreePanel extends ViewPane {
 
                 const cancelBtn = dom.$('button') as HTMLButtonElement;
                 cancelBtn.textContent = 'Cancel';
+                cancelBtn.setAttribute('aria-label', 'Cancel editing');
                 cancelBtn.style.cssText = `
                         background: none; border: 1px solid var(--vscode-editorWidget-border);
                         color: var(--vscode-foreground); border-radius: 2px;

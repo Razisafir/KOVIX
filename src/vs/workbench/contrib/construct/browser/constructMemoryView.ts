@@ -88,6 +88,7 @@ export class ConstructMemoryViewPane extends ViewPane {
 
                                 // F-G-006: Privacy notice info bar
                                 const privacyBar = dom.$('.construct-memory-privacy');
+                                privacyBar.setAttribute('role', 'alert');
                                 privacyBar.style.cssText = `
                                                 padding: 6px 10px; border-bottom: 1px solid #1A1F2E;
                                                 background: #0D1117; display: flex; align-items: center;
@@ -131,6 +132,7 @@ export class ConstructMemoryViewPane extends ViewPane {
                                 const refreshBtn = dom.$('button') as HTMLButtonElement;
                                 refreshBtn.textContent = 'R';
                                 refreshBtn.title = 'Refresh memories';
+                                refreshBtn.setAttribute('aria-label', 'Refresh memories');
                                 refreshBtn.style.cssText = `
                                                 background: none; border: 1px solid #1A1F2E; color: #4A5568;
                                                 border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;
@@ -149,6 +151,7 @@ export class ConstructMemoryViewPane extends ViewPane {
                                 const autoLearnCb = dom.$('input') as HTMLInputElement;
                                 autoLearnCb.type = 'checkbox';
                                 autoLearnCb.checked = this.constructMemory.config.autoLearn !== false;
+                                autoLearnCb.setAttribute('aria-label', 'Toggle auto-extract from conversations');
                                 autoLearnCb.style.cssText = `accent-color: #00E5FF; width: 12px; height: 12px;`;
                                 autoLearnCb.onchange = () => {
                                         const enabled = autoLearnCb.checked;
@@ -167,6 +170,7 @@ export class ConstructMemoryViewPane extends ViewPane {
                                 const clearAllBtn = dom.$('button') as HTMLButtonElement;
                                 clearAllBtn.textContent = '\uD83D\uDDD1'; // 🗑
                                 clearAllBtn.title = 'Clear all memories';
+                                clearAllBtn.setAttribute('aria-label', 'Clear all memories');
                                 clearAllBtn.style.cssText = `
                                                 background: none; border: 1px solid #1A1F2E; color: #FF444480;
                                                 border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 11px;
@@ -184,6 +188,7 @@ export class ConstructMemoryViewPane extends ViewPane {
                                 this.searchBox = dom.$('input') as HTMLInputElement;
                                 this.searchBox.type = 'text';
                                 this.searchBox.placeholder = 'Search memories...';
+                                this.searchBox.setAttribute('aria-label', 'Search memories');
                                 this.searchBox.style.cssText = `
                                                 width: 100%; background: #0A0E1A; border: 1px solid #1A1F2E;
                                                 border-radius: 3px; padding: 5px 8px; color: #E0E7FF;
@@ -596,20 +601,20 @@ export class ConstructMemoryViewPane extends ViewPane {
                                 if (!confirmed) { return; }
 
                                 try {
-                                                // Clear recent memories
-                                                for (const memory of this.recentMemories) {
-                                                        if (memory.id) {
-                                                                await this.constructMemory.forgetMemory(memory.id).catch(() => { });
-                                                        }
+                                        // Clear recent memories
+                                        for (const memory of this.recentMemories) {
+                                                if (memory.id) {
+                                                        await this.constructMemory.forgetMemory(memory.id).catch(() => { });
                                                 }
-                                                // Clear profile
-                                                this.profile = { static: [], dynamic: [] };
-                                                this.recentMemories = [];
-                                                this.renderTree();
-                                                this.renderStats();
-                                                this.logService.info('[ConstructMemoryView] All memories cleared');
+                                        }
+                                        // Clear profile
+                                        this.profile = { static: [], dynamic: [] };
+                                        this.recentMemories = [];
+                                        this.renderTree();
+                                        this.renderStats();
+                                        this.logService.info('[ConstructMemoryView] All memories cleared');
                                 } catch (error) {
-                                                this.logService.warn('[ConstructMemoryView] Failed to clear memories:', error);
+                                        this.logService.warn('[ConstructMemoryView] Failed to clear memories:', error);
                                 }
                 }
 }

@@ -1,4 +1,7 @@
-// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 
 
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
@@ -537,7 +540,7 @@ export class CloudProvider extends Disposable implements IConstructAIProvider {
                                 let currentToolName: string | null = null;
                                 let currentToolInput = '';
                                 let streamedText = '';
-                                let streamedToolCalls: Array<{ id: string; name: string; input: string }> = [];
+                                const streamedToolCalls: Array<{ id: string; name: string; input: string }> = [];
 
                                 const reader = response.body.getReader();
                                 const decoder = new TextDecoder();

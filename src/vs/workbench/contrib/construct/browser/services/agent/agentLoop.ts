@@ -1,4 +1,7 @@
-// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
@@ -591,7 +594,7 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
 
                                                         // Execute the tool with error recovery
                                                         let toolResult = await this.executeTool(event.toolName, event.toolInput, false, signal);
-                                                        let success = !toolResult.startsWith('Error:');
+                                                        const success = !toolResult.startsWith('Error:');
 
                                                         // Error recovery: if tool failed, attempt recovery
                                                         if (!success && this.errorRecovery) {

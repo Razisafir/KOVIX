@@ -41,7 +41,7 @@ jobs:
         run: npm audit --production --audit-level=critical
 
       - name: Compile
-        run: npm run compile
+        run: NODE_OPTIONS="--max-old-space-size=8192" npm run compile
 
       - name: Build Windows app
         run: node ./node_modules/gulp/bin/gulp.js vscode-win32-x64
@@ -89,7 +89,7 @@ jobs:
         run: npm audit --production --audit-level=critical
 
       - name: Compile
-        run: npm run compile
+        run: NODE_OPTIONS="--max-old-space-size=8192" npm run compile
 
       # macOS runners cost 10× more than Linux; only build when releasing
       - name: Build macOS app
@@ -138,7 +138,7 @@ jobs:
         run: npm audit --production --audit-level=critical
 
       - name: Compile
-        run: npm run compile
+        run: NODE_OPTIONS="--max-old-space-size=8192" npm run compile
 
       - name: Build Linux package
         run: node ./node_modules/gulp/bin/gulp.js vscode-linux-x64

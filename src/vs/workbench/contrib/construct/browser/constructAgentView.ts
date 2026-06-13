@@ -46,6 +46,15 @@ import * as Nls from './constructNls.js';
 
 type ExecutionState = 'idle' | 'planning' | 'refining' | 'awaiting_approval' | 'executing' | 'paused_at_milestone' | 'complete' | 'error' | 'stopped';
 
+type PlanStepStatus = 'pending' | 'in-progress' | 'complete' | 'error';
+
+interface PlanStepVisual {
+        index: number;
+        label: string;
+        status: PlanStepStatus;
+        element?: HTMLElement;
+}
+
 type ContextScope = 'currentFile' | 'workspace' | 'selectedText';
 
 interface PendingDiff {
@@ -84,6 +93,18 @@ export class ConstructAgentViewPane extends ViewPane {
         // F-G-003: Store last task for crash recovery / retry
         private _lastFailedTaskText: string | null = null;
         private _errorRecoveryBar: HTMLElement | null = null;
+
+        // P7: Streaming progress state
+        private _streamingStatusBar: HTMLElement | null = null;
+        private _streamingTokenCount = 0;
+        private _streamingToolCallCount = 0;
+        private _streamingTimerInterval: number | undefined;
+        private _streamingStartTime = 0;
+
+        // P7: Plan visualization state
+        private _planStepVisuals: PlanStepVisual[] = [];
+        private _planTimelineContainer: HTMLElement | null = null;
+        private _currentPlanStepIndex = -1;
 
         // Performance metrics tracking
         private taskStartTime = 0;
@@ -305,7 +326,14 @@ export class ConstructAgentViewPane extends ViewPane {
                         font-size: 13px; outline: none; resize: none;
                         min-height: 36px; max-height: 200px;
                         font-family: inherit; line-height: 1.4;
+                        outline-offset: -1px;
                 `;
+                this.inputBox.addEventListener('focus', () => {
+                        this.inputBox.style.borderColor = '#00E5FF';
+                });
+                this.inputBox.addEventListener('blur', () => {
+                        this.inputBox.style.borderColor = '#1A1F2E';
+                });
                 this.inputBox.addEventListener('input', () => {
                         this.inputBox.style.height = 'auto';
                         this.inputBox.style.height = Math.min(this.inputBox.scrollHeight, 200) + 'px';
@@ -318,6 +346,7 @@ export class ConstructAgentViewPane extends ViewPane {
                         background: #00E5FF; color: #0A0E1A; border: none;
                         border-radius: 4px; padding: 6px 12px; cursor: pointer;
                         font-size: 14px; font-weight: bold;
+                        outline-offset: 2px;
                 `;
 
                 this.stopBtn = dom.$('button.construct-stop-btn') as HTMLButtonElement;
@@ -327,6 +356,7 @@ export class ConstructAgentViewPane extends ViewPane {
                         background: #FF4444; color: white; border: none;
                         border-radius: 4px; padding: 6px 10px; cursor: pointer;
                         font-size: 12px; display: none;
+                        outline-offset: 2px;
                 `;
 
                 // Handle send
@@ -395,6 +425,7 @@ export class ConstructAgentViewPane extends ViewPane {
                         background: transparent; color: #4A5568; border: none;
                         cursor: pointer; font-size: 14px; padding: 4px 6px;
                         display: none; border-radius: 3px;
+                        outline-offset: 2px;
                 `;
                 this.clearBtn.title = Nls.CLEAR_CHAT;
                 this.clearBtn.onclick = () => { this.clearMessages(); };
@@ -635,6 +666,9 @@ export class ConstructAgentViewPane extends ViewPane {
                         this.setExecutionState('awaiting_approval');
                         this.updateMessageContent(planningMsg, '');
                         this.renderPlan(plan, task);
+
+                        // P7: Render plan timeline visualization for execution tracking
+                        this._renderPlanTimeline(plan.steps);
 
                 } catch (error) {
                         this.setExecutionState('error');
@@ -899,6 +933,9 @@ export class ConstructAgentViewPane extends ViewPane {
                 // Streaming output area
                 const execMsg = this.addAgentMessage('', 'streaming');
 
+                // P7: Create streaming progress status bar
+                this._createStreamingStatusBar();
+
                 let fullText = '';
                 let stepCount = 0;
                 let currentToolName = '';
@@ -918,6 +955,9 @@ export class ConstructAgentViewPane extends ViewPane {
 
                                         case 'token':
                                                 fullText += event.text;
+                                                // P7: Track token count for streaming progress
+                                                this._streamingTokenCount++;
+                                                this._updateStreamingStatusBar();
                                                 break;
 
                                         case 'tool_start':
@@ -937,6 +977,10 @@ export class ConstructAgentViewPane extends ViewPane {
                                                                 currentToolDetail = input.command.substring(0, 60);
                                                         }
                                                 }
+                                                // P7: Track tool call count and update plan visualization
+                                                this._streamingToolCallCount++;
+                                                this._updateStreamingStatusBar();
+                                                this._advancePlanStep(stepCount - 1, 'in-progress');
                                                 break;
 
                                         case 'tool_executing':
@@ -965,8 +1009,12 @@ export class ConstructAgentViewPane extends ViewPane {
 
                                                 if (event.success) {
                                                         fullText += `\n[OK] ${event.toolName} completed`;
+                                                        // P7: Mark plan step complete
+                                                        this._advancePlanStep(stepCount - 1, 'complete');
                                                 } else {
                                                         fullText += `\n[FAIL] ${event.toolName} failed: ${event.result.substring(0, 200)}`;
+                                                        // P7: Mark plan step error
+                                                        this._advancePlanStep(stepCount - 1, 'error');
                                                 }
                                                 break;
                                         }
@@ -997,6 +1045,8 @@ export class ConstructAgentViewPane extends ViewPane {
 
                                         case 'complete':
                                                 fullText += `\n\n[OK] Task complete`;
+                                                // P7: Mark all remaining plan steps as complete
+                                                this._completeAllPlanSteps();
                                                 break;
 
                                         case 'error':
@@ -1011,6 +1061,8 @@ export class ConstructAgentViewPane extends ViewPane {
                                                 } else {
                                                         fullText += `\n\n[FAIL] ${event.text}`;
                                                 }
+                                                // P7: Mark current plan step as error on error event
+                                                this._advancePlanStep(this._currentPlanStepIndex, 'error');
                                                 break;
                                 }
 
@@ -1020,9 +1072,14 @@ export class ConstructAgentViewPane extends ViewPane {
 
                         this.setExecutionState(abortController.signal.aborted ? 'stopped' : 'complete');
 
-                        // Transition back to idle after a brief delay so the user can
-                        // see the final state indicator, then send another message.
-                        setTimeout(() => { this.setExecutionState('idle'); }, 1500);
+                        // P7: Transition to idle after brief delay only on success.
+                        // Error state stays persistent — user must take action via recovery bar.
+                        if (abortController.signal.aborted) {
+                                // Stopped by user — brief display then idle
+                                setTimeout(() => { this.setExecutionState('idle'); }, 1500);
+                        } else {
+                                setTimeout(() => { this.setExecutionState('idle'); }, 1500);
+                        }
 
                         // Auto-learn the task completion
                         if (this.constructMemory.config.enabled && this.constructMemory.config.autoLearn) {
@@ -1049,6 +1106,8 @@ export class ConstructAgentViewPane extends ViewPane {
                         this.currentCancellationToken?.dispose();
                         this.currentCancellationToken = null;
                         this._abortController = null;
+                        // P7: Clean up streaming progress
+                        this._destroyStreamingStatusBar();
                 }
         }
 
@@ -1109,11 +1168,17 @@ export class ConstructAgentViewPane extends ViewPane {
                         }
                         // F-G-003: Remove error recovery bar when transitioning to idle
                         this.removeErrorRecoveryBar();
+                        // P7: Auto-focus input after agent response
+                        this.inputBox.focus();
                 } else if (state === 'error') {
                         // F-G-003: Error state is persistent — user must take action
                         this.inputBox.placeholder = Nls.PLACEHOLDER_ERROR_RECOVERY;
                         this.sendBtn.style.display = 'none';
                         this.stopBtn.style.display = 'none';
+                        // P7: Focus on error recovery bar for accessibility
+                        if (this._errorRecoveryBar) {
+                                this._errorRecoveryBar.focus();
+                        }
                 } else if (state === 'planning') {
                         this.inputBox.placeholder = Nls.PLACEHOLDER_PLANNING;
                 } else if (state === 'executing') {
@@ -1128,10 +1193,13 @@ export class ConstructAgentViewPane extends ViewPane {
                 this.removeErrorRecoveryBar();
 
                 const bar = dom.$('.construct-error-recovery');
+                bar.setAttribute('role', 'alert');
+                bar.setAttribute('tabindex', '0');
                 bar.style.cssText = `
                         background: #FF444415; border: 1px solid #FF444440;
                         border-radius: 6px; padding: 10px 12px; margin: 8px 0;
                         display: flex; flex-direction: column; gap: 8px;
+                        outline: none;
                 `;
 
                 const msgEl = dom.$('.construct-error-recovery-msg');
@@ -1145,9 +1213,11 @@ export class ConstructAgentViewPane extends ViewPane {
                 const retryBtn = dom.$('button') as HTMLButtonElement;
                 retryBtn.textContent = Nls.RETRY;
                 retryBtn.setAttribute('aria-label', 'Retry failed task');
+                retryBtn.tabIndex = 0;
                 retryBtn.style.cssText = `
                         background: #00E5FF; color: #0A0E1A; border: none; border-radius: 4px;
                         padding: 5px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+                        outline-offset: 2px;
                 `;
                 retryBtn.onclick = () => {
                         this.removeErrorRecoveryBar();
@@ -1165,9 +1235,11 @@ export class ConstructAgentViewPane extends ViewPane {
                 const undoBtn = dom.$('button') as HTMLButtonElement;
                 undoBtn.textContent = Nls.UNDO_CHANGES;
                 undoBtn.setAttribute('aria-label', 'Undo changes');
+                undoBtn.tabIndex = 0;
                 undoBtn.style.cssText = `
                         background: transparent; color: #FFB300; border: 1px solid #FFB30040;
                         border-radius: 4px; padding: 5px 14px; font-size: 12px; cursor: pointer;
+                        outline-offset: 2px;
                 `;
                 undoBtn.onclick = async () => {
                         this.removeErrorRecoveryBar();
@@ -1188,9 +1260,11 @@ export class ConstructAgentViewPane extends ViewPane {
                 const dismissBtn = dom.$('button') as HTMLButtonElement;
                 dismissBtn.textContent = Nls.DISMISS;
                 dismissBtn.setAttribute('aria-label', 'Dismiss error');
+                dismissBtn.tabIndex = 0;
                 dismissBtn.style.cssText = `
                         background: transparent; color: #4A5568; border: 1px solid #1A1F2E;
                         border-radius: 4px; padding: 5px 14px; font-size: 12px; cursor: pointer;
+                        outline-offset: 2px;
                 `;
                 dismissBtn.onclick = () => {
                         this.removeErrorRecoveryBar();
@@ -1889,5 +1963,205 @@ export class ConstructAgentViewPane extends ViewPane {
                 const div = document.createElement('div');
                 div.textContent = text;
                 return div.innerHTML;
+        }
+
+        // --- P7: Streaming Progress Status Bar ---
+
+        private _createStreamingStatusBar(): void {
+                this._destroyStreamingStatusBar();
+                this._streamingTokenCount = 0;
+                this._streamingToolCallCount = 0;
+                this._streamingStartTime = Date.now();
+
+                const bar = dom.$('.construct-streaming-status');
+                bar.setAttribute('role', 'status');
+                bar.setAttribute('aria-live', 'polite');
+                bar.setAttribute('aria-label', 'Execution progress');
+                bar.style.cssText = `
+                        background: #0D1117; border: 1px solid #1A1F2E;
+                        border-radius: 4px; padding: 6px 10px; margin: 4px 0;
+                        display: flex; align-items: center; gap: 16px;
+                        font-size: 11px; color: #8B949E;
+                `;
+
+                const tokenSpan = dom.$('.construct-streaming-tokens');
+                tokenSpan.style.cssText = `font-family: monospace;`;
+                tokenSpan.textContent = 'Tokens: 0';
+
+                const timerSpan = dom.$('.construct-streaming-timer');
+                timerSpan.style.cssText = `font-family: monospace;`;
+                timerSpan.textContent = '0.0s';
+
+                const toolSpan = dom.$('.construct-streaming-tools');
+                toolSpan.style.cssText = `font-family: monospace;`;
+                toolSpan.textContent = 'Tools: 0';
+
+                const spinner = dom.$('.construct-streaming-spinner');
+                spinner.style.cssText = `color: #00E5FF; animation: construct-spin 0.8s linear infinite;`;
+                spinner.textContent = '\u2B22'; // spinning hexagon indicator
+
+                bar.appendChild(spinner);
+                bar.appendChild(tokenSpan);
+                bar.appendChild(timerSpan);
+                bar.appendChild(toolSpan);
+
+                this.messageContainer.appendChild(bar);
+                this._streamingStatusBar = bar;
+
+                // Update timer every 100ms
+                this._streamingTimerInterval = window.setInterval(() => {
+                        const elapsed = (Date.now() - this._streamingStartTime) / 1000;
+                        timerSpan.textContent = `${elapsed.toFixed(1)}s`;
+                }, 100);
+
+                this.scrollToBottom();
+        }
+
+        private _updateStreamingStatusBar(): void {
+                if (!this._streamingStatusBar) { return; }
+                const tokenSpan = this._streamingStatusBar.querySelector('.construct-streaming-tokens');
+                const toolSpan = this._streamingStatusBar.querySelector('.construct-streaming-tools');
+                if (tokenSpan) {
+                        tokenSpan.textContent = `Tokens: ~${this._streamingTokenCount}`;
+                }
+                if (toolSpan) {
+                        toolSpan.textContent = `Tools: ${this._streamingToolCallCount}`;
+                }
+        }
+
+        private _destroyStreamingStatusBar(): void {
+                if (this._streamingTimerInterval !== undefined) {
+                        clearInterval(this._streamingTimerInterval);
+                        this._streamingTimerInterval = undefined;
+                }
+                if (this._streamingStatusBar) {
+                        this._streamingStatusBar.remove();
+                        this._streamingStatusBar = null;
+                }
+        }
+
+        // --- P7: Plan Visualization (Timeline/Checklist) ---
+
+        private _renderPlanTimeline(steps: Array<{ action: string; target: string; description: string }>): void {
+                this._planTimelineContainer?.remove();
+                this._planStepVisuals = [];
+                this._currentPlanStepIndex = -1;
+
+                const container = dom.$('.construct-plan-timeline');
+                container.setAttribute('role', 'list');
+                container.setAttribute('aria-label', 'Execution plan progress');
+                container.style.cssText = `
+                        margin: 8px 0; padding: 8px 10px;
+                        background: #141B2D; border: 1px solid #1A1F2E;
+                        border-radius: 6px;
+                `;
+
+                const header = dom.$('.construct-plan-timeline-header');
+                header.style.cssText = `font-size: 12px; font-weight: 600; color: #E0E7FF; margin-bottom: 8px;`;
+                header.textContent = `\uD83D\uDCCB Execution Progress`;
+                container.appendChild(header);
+
+                for (let i = 0; i < steps.length; i++) {
+                        const step = steps[i];
+                        const row = dom.$('.construct-plan-timeline-step');
+                        row.setAttribute('role', 'listitem');
+                        row.setAttribute('aria-label', `Step ${i + 1}: ${step.action} ${step.target} - pending`);
+                        row.style.cssText = `
+                                display: flex; align-items: center; gap: 8px; padding: 4px 0;
+                                font-size: 12px; color: #4A5568; position: relative;
+                        `;
+
+                        // Status indicator dot/icon
+                        const indicator = dom.$('.construct-plan-timeline-indicator');
+                        indicator.style.cssText = `
+                                width: 16px; height: 16px; border-radius: 50%;
+                                border: 2px solid #1A1F2E; flex-shrink: 0;
+                                display: flex; align-items: center; justify-content: center;
+                                font-size: 9px; color: transparent;
+                        `;
+                        indicator.textContent = '\u25CF'; // filled circle
+
+                        // Vertical connecting line
+                        if (i < steps.length - 1) {
+                                row.style.cssText += `
+                                        border-left: 2px solid #1A1F2E; margin-left: 7px; padding-left: 16px;
+                                `;
+                        } else {
+                                row.style.cssText += `
+                                        margin-left: 7px; padding-left: 16px;
+                                `;
+                        }
+
+                        // Label
+                        const icon = this.getActionIcon(step.action);
+                        const label = dom.$('.construct-plan-timeline-label');
+                        label.textContent = `${icon} ${step.action}: ${step.target}`;
+
+                        row.appendChild(indicator);
+                        row.appendChild(label);
+                        container.appendChild(row);
+
+                        this._planStepVisuals.push({
+                                index: i,
+                                label: `${step.action}: ${step.target}`,
+                                status: 'pending',
+                                element: row,
+                        });
+                }
+
+                this.messageContainer.appendChild(container);
+                this._planTimelineContainer = container;
+                this.scrollToBottom();
+        }
+
+        private _advancePlanStep(stepIndex: number, status: PlanStepStatus): void {
+                if (stepIndex < 0 || stepIndex >= this._planStepVisuals.length) { return; }
+
+                // Mark previous steps as complete if skipped
+                for (let i = 0; i < stepIndex; i++) {
+                        if (this._planStepVisuals[i].status === 'pending' || this._planStepVisuals[i].status === 'in-progress') {
+                                this._updatePlanStepVisual(i, 'complete');
+                        }
+                }
+
+                this._updatePlanStepVisual(stepIndex, status);
+                this._currentPlanStepIndex = stepIndex;
+        }
+
+        private _updatePlanStepVisual(stepIndex: number, status: PlanStepStatus): void {
+                if (stepIndex < 0 || stepIndex >= this._planStepVisuals.length) { return; }
+                const visual = this._planStepVisuals[stepIndex];
+                visual.status = status;
+
+                if (!visual.element) { return; }
+                const indicator = visual.element.querySelector('.construct-plan-timeline-indicator') as HTMLElement;
+                const label = visual.element.querySelector('.construct-plan-timeline-label') as HTMLElement;
+                if (!indicator || !label) { return; }
+
+                const statusConfig: Record<PlanStepStatus, { borderColor: string; bgColor: string; textColor: string; icon: string; labelColor: string }> = {
+                        'pending': { borderColor: '#1A1F2E', bgColor: 'transparent', textColor: 'transparent', icon: '\u25CF', labelColor: '#4A5568' },
+                        'in-progress': { borderColor: '#00E5FF', bgColor: '#00E5FF20', textColor: '#00E5FF', icon: '\u25CF', labelColor: '#E0E7FF' },
+                        'complete': { borderColor: '#00C853', bgColor: '#00C853', textColor: '#0A0E1A', icon: '\u2713', labelColor: '#8B949E' },
+                        'error': { borderColor: '#FF4444', bgColor: '#FF4444', textColor: '#FFFFFF', icon: '\u2717', labelColor: '#FF6666' },
+                };
+
+                const cfg = statusConfig[status];
+                indicator.style.borderColor = cfg.borderColor;
+                indicator.style.background = cfg.bgColor;
+                indicator.style.color = cfg.textColor;
+                indicator.textContent = cfg.icon;
+                label.style.color = cfg.labelColor;
+
+                visual.element.setAttribute('aria-label', `Step ${stepIndex + 1}: ${visual.label} - ${status}`);
+
+                this.scrollToBottom();
+        }
+
+        private _completeAllPlanSteps(): void {
+                for (let i = 0; i < this._planStepVisuals.length; i++) {
+                        if (this._planStepVisuals[i].status === 'pending' || this._planStepVisuals[i].status === 'in-progress') {
+                                this._updatePlanStepVisual(i, 'complete');
+                        }
+                }
         }
 }

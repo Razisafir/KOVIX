@@ -1,4 +1,7 @@
-// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
 
 /**
  * SEC-4.2: Comprehensive tests for Node-layer terminal security parity.
@@ -12,6 +15,7 @@
  */
 
 import assert from 'assert';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import {
         DEFAULT_COMMAND_ALLOWLIST,
         FILE_OPERATION_COMMANDS,
@@ -28,6 +32,8 @@ import {
 // ─── Command Allowlist Enforcement ────────────────────────────────────────────
 
 suite('SEC-4.2: Command Allowlist Enforcement', () => {
+
+        ensureNoDisposablesAreLeakedInTestSuite();
 
         test('allowlisted commands pass exact match', () => {
                 assert.strictEqual(isCommandInAllowlist('ls'), true);
@@ -100,6 +106,8 @@ suite('SEC-4.2: Command Allowlist Enforcement', () => {
 
 suite('SEC-4.2: Shell Metacharacter Detection', () => {
 
+        ensureNoDisposablesAreLeakedInTestSuite();
+
         test('semicolons are detected', () => {
                 assert.strictEqual(detectShellMetacharInArgs('; rm -rf /'), ';');
         });
@@ -140,6 +148,8 @@ suite('SEC-4.2: Shell Metacharacter Detection', () => {
 // ─── Output Sanitization ─────────────────────────────────────────────────────
 
 suite('SEC-4.2: Output Sanitization', () => {
+
+        ensureNoDisposablesAreLeakedInTestSuite();
 
         test('ANSI escape sequences are stripped', () => {
                 const input = '\x1b[31mError\x1b[0m: file not found';
@@ -223,6 +233,8 @@ suite('SEC-4.2: Output Sanitization', () => {
 
 suite('SEC-4.2: Rate Limiting', () => {
 
+        ensureNoDisposablesAreLeakedInTestSuite();
+
         test('allows commands within rate limit', () => {
                 const limiter = new TerminalRateLimiter();
                 for (let i = 0; i < TERMINAL_RATE_LIMIT.maxCommands; i++) {
@@ -273,6 +285,8 @@ suite('SEC-4.2: Rate Limiting', () => {
 
 suite('SEC-4.2: File Operation Commands', () => {
 
+        ensureNoDisposablesAreLeakedInTestSuite();
+
         test('FILE_OPERATION_COMMANDS contains expected entries', () => {
                 assert.ok(FILE_OPERATION_COMMANDS.includes('cat'));
                 assert.ok(FILE_OPERATION_COMMANDS.includes('ls'));
@@ -298,6 +312,8 @@ suite('SEC-4.2: File Operation Commands', () => {
 // ─── Integration: TerminalNodeService Security Checks ────────────────────────
 
 suite('SEC-4.2: TerminalNodeService Security Integration', () => {
+
+        ensureNoDisposablesAreLeakedInTestSuite();
 
         test('allowlist rejects unknown command name via exact match', () => {
                 // "npmx" is NOT "npm" — exact match required

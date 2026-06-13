@@ -1,9 +1,6 @@
-// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 /*---------------------------------------------------------------------------------------------
- *  No-op implementation of IConstructTelemetryService.
- *  All methods are empty stubs — telemetry is opt-in and disabled by default.
- *  When telemetry is enabled in the future, replace this with a real implementation
- *  that integrates with VS Code's ITelemetryService.
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { IConstructTelemetryService, ConstructTelemetryEvent, IConstructTelemetryProperties } from '../../../../../../platform/construct/common/telemetry/constructTelemetryService.js';

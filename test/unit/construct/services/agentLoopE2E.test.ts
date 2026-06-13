@@ -87,10 +87,10 @@ class OllamaTestClient {
 
 			while (true) {
 				const { done, value } = await reader.read();
-				if (done) break;
+				if (done) {break;}
 				const text = decoder.decode(value, { stream: true });
 				for (const line of text.split('\n')) {
-					if (!line.trim()) continue;
+					if (!line.trim()) {continue;}
 					try {
 						const json = JSON.parse(line);
 						if (json.message?.content) {
@@ -109,7 +109,7 @@ class OllamaTestClient {
 	async isReady(): Promise<boolean> {
 		try {
 			const res = await fetch(`${this.host}/api/tags`);
-			if (!res.ok) return false;
+			if (!res.ok) {return false;}
 			const data = await res.json();
 			const models: string[] = (data.models || []).map((m: any) => m.name || m);
 			return models.some((name: string) =>
