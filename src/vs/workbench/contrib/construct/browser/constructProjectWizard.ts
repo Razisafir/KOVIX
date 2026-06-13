@@ -1,7 +1,4 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) 2025 Razisafir. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import * as dom from '../../../../base/browser/dom.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';

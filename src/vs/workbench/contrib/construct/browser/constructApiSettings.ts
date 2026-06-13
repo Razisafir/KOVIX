@@ -1,9 +1,4 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import { localize, localize2 } from '../../../../nls';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -491,3 +486,28 @@ registerAction2(class SwitchKeyProviderAction extends Action2 {
                 notificationService.info(localize('providerSwitched', "Active provider switched to {0}.", meta.label));
         }
 });
+
+// ─── Security Settings Registration ─────────────────────────────────────────────
+
+const securityConfiguration: IConfigurationNode = {
+        id: 'construct.security',
+        order: 110,
+        title: localize('construct.security', "Construct -- Security Tools"),
+        type: 'object',
+        properties: {
+                'construct.security.kaliIntegration': {
+                        type: 'boolean',
+                        default: false,
+                        description: localize('construct.security.kaliIntegration', "Enable Kali Linux security tool integration. When enabled, security tools (nmap, nuclei, sqlmap, etc.) are available. All tools require explicit user confirmation before execution. Disabled by default for safety."),
+                        scope: 1 /* ConfigurationScope.APPLICATION */,
+                },
+                'construct.security.allowInternalScanning': {
+                        type: 'boolean',
+                        default: false,
+                        description: localize('construct.security.allowInternalScanning', "Allow security tools to scan internal/local network addresses (127.0.0.1, 10.x.x.x, 172.16-31.x.x, 192.168.x.x). Disabled by default — only scan targets you have permission to test."),
+                        scope: 1 /* ConfigurationScope.APPLICATION */,
+                },
+        },
+};
+
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration(securityConfiguration);

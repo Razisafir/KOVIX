@@ -1,9 +1,8 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import { localize, localize2 } from '../../../../nls';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -88,11 +87,32 @@ import { IObsidianMemoryService } from '../../../../platform/construct/common/me
 import { IConstructTelemetryService } from '../../../../platform/construct/common/telemetry/constructTelemetryService.js';
 import { ObsidianMemoryServiceImpl } from './services/memory/obsidianMemoryServiceImpl.js';
 import { ConstructTelemetryService } from './services/telemetry/constructTelemetryService.js';
+import { IKovixLicenseService } from '../../../../platform/construct/common/license/kovixLicenseService.js';
+import { KovixLicenseServiceImpl } from './services/license/kovixLicenseServiceImpl.js';
+import { IDistributionDetector } from '../../../../platform/construct/common/terminal/distributionDetector.js';
+import { IKaliToolBridge } from '../../../../platform/construct/common/terminal/kaliToolBridge.js';
+import { DistributionDetectorService } from './services/kali/distributionDetectorService.js';
+import { KaliToolBridgeService } from './services/kali/kaliToolBridgeService.js';
 import { ObsidianMemoryTreePanel } from './constructMemoryExplorer.js';
 import { MEMORY_CATEGORIES, MEMORY_CATEGORY_LABELS } from '../../../../platform/construct/common/memory/obsidianMemoryTypes.js';
 import './constructMemoryConfig';
 import './constructApiConfig';
 import './constructApiSettings';
+
+// P3: Feature completion imports
+import { ITestGenerationTool } from '../../../../platform/construct/common/tools/testGenerationTool.js';
+import { ICodeReviewTool } from '../../../../platform/construct/common/tools/codeReviewTool.js';
+import { ICodebaseIndex } from '../../../../platform/construct/common/indexing/codebaseIndex.js';
+// IBrowserAutomationTool interface is defined in platform/construct/common/browser/browserAutomationTool.ts
+// but not registered as a singleton here since IBrowserAutomationService already covers Phase 18.
+// The tool registry dispatches browser_open/screenshot/click/read directly.
+import { ISkillService } from '../../../../platform/construct/common/skills/skillService.js';
+import { IHookService } from '../../../../platform/construct/common/hooks/hookService.js';
+import { TestGenerationToolService } from './services/tools/testGenerationToolService.js';
+import { CodeReviewToolService } from './services/tools/codeReviewToolService.js';
+import { CodebaseIndexService } from './services/indexing/codebaseIndexService.js';
+import { SkillServiceImpl } from './services/skills/skillServiceImpl.js';
+import { HookServiceImpl } from './services/hooks/hookServiceImpl.js';
 
 const constructViewIcon = registerIcon('construct-view-icon', Codicon.robot, localize('constructViewIcon', 'View icon of the Kovix Agent view.'));
 const constructMemoryIcon = registerIcon('construct-memory-icon', Codicon.symbolEvent, localize('constructMemoryIcon', 'View icon of the Kovix Memory view.'));
@@ -636,6 +656,43 @@ registerSingleton(IObsidianMemoryService, ObsidianMemoryServiceImpl, Instantiati
 
 // --- Telemetry Service Singleton ---------------------------------------------------
 registerSingleton(IConstructTelemetryService, ConstructTelemetryService, InstantiationType.Delayed);
+
+// --- License Service Singleton ---------------------------------------------------
+registerSingleton(IKovixLicenseService, KovixLicenseServiceImpl, InstantiationType.Delayed);
+
+// --- P4: Kali Linux Integration Singletons --------------------------------------
+registerSingleton(IDistributionDetector, DistributionDetectorService, InstantiationType.Delayed);
+registerSingleton(IKaliToolBridge, KaliToolBridgeService, InstantiationType.Delayed);
+
+// --- P3: Feature Completion Singletons -------------------------------------------
+registerSingleton(ITestGenerationTool, TestGenerationToolService, InstantiationType.Delayed);
+registerSingleton(ICodeReviewTool, CodeReviewToolService, InstantiationType.Delayed);
+registerSingleton(ICodebaseIndex, CodebaseIndexService, InstantiationType.Delayed);
+// IBrowserAutomationTool is already covered by IBrowserAutomationService (Phase 18).
+// We keep IBrowserAutomationTool registered with a placeholder; the tool registry
+// dispatches browser_open/screenshot/click/read directly.
+registerSingleton(ISkillService, SkillServiceImpl, InstantiationType.Delayed);
+registerSingleton(IHookService, HookServiceImpl, InstantiationType.Delayed);
+
+// --- License Nag Banner -----------------------------------------------------------
+class KovixLicenseBannerContribution extends Disposable implements IWorkbenchContribution {
+        static readonly ID = 'workbench.contrib.kovixLicenseBanner';
+
+        constructor(
+                @IKovixLicenseService licenseService: IKovixLicenseService,
+                @INotificationService notificationService: INotificationService,
+        ) {
+                super();
+
+                if (!licenseService.isValid()) {
+                        notificationService.info(
+                                localize('kovixLicenseNag', "KOVIX requires a license key. Visit kovix.dev to purchase.")
+                        );
+                }
+        }
+}
+
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(KovixLicenseBannerContribution, LifecyclePhase.Restored);
 
 // --- Feature Build: Project Commands -----------------------------------------
 registerAction2(class NewProjectAction extends Action2 {
@@ -1241,3 +1298,182 @@ registerAction2(class EditObsidianMemoryAction extends Action2 {
                 }
         }
 });
+
+// --- P3: Code Review Command --------------------------------------------------
+
+registerAction2(class ReviewCodeAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.reviewCode',
+                        title: localize2('reviewCode', "Review Code"),
+                        f1: true,
+                        category: localize2('constructCategoryReview', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const codeReviewTool = accessor.get(ICodeReviewTool);
+                const quickInput = accessor.get(IQuickInputService);
+                const notificationService = accessor.get(INotificationService);
+                const logService = accessor.get(ILogService);
+
+                const target = await quickInput.input({
+                        prompt: 'File URI or diff to review',
+                        placeHolder: 'e.g., file:///path/to/file.ts',
+                });
+                if (!target) { return; }
+
+                try {
+                        const result = await codeReviewTool.reviewCode(target, {
+                                severity: 'all',
+                                includeSuggestions: true,
+                        });
+
+                        if (result.findings.length === 0) {
+                                notificationService.info('No issues found in the reviewed code.');
+                                return;
+                        }
+
+                        // Display findings as a summary
+                        const summary = result.findings.map(f => {
+                                const loc = f.line ? `:${f.line}` : '';
+                                const sev = f.severity.toUpperCase();
+                                const sug = f.suggestion ? `\n  Suggestion: ${f.suggestion}` : '';
+                                return `[${sev}] ${f.message} (${f.file}${loc})${sug}`;
+                        }).join('\n\n');
+
+                        notificationService.info(`Code Review: ${result.findings.length} finding(s)\n\n${summary.substring(0, 1000)}`);
+                        logService.info('[Construct] Code review completed:', result.findings.length, 'findings');
+                } catch (error) {
+                        logService.error('[Construct] Code review failed:', error);
+                        notificationService.error('Code review failed: ' + (error instanceof Error ? error.message : String(error)));
+                }
+        }
+});
+
+// --- P3: Generate Tests Command ------------------------------------------------
+
+registerAction2(class GenerateTestsAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.generateTests',
+                        title: localize2('generateTests', "Generate Tests"),
+                        f1: true,
+                        category: localize2('constructCategoryTestGen', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const testGenTool = accessor.get(ITestGenerationTool);
+                const quickInput = accessor.get(IQuickInputService);
+                const notificationService = accessor.get(INotificationService);
+                const logService = accessor.get(ILogService);
+
+                const fileUri = await quickInput.input({
+                        prompt: 'File URI to generate tests for',
+                        placeHolder: 'e.g., file:///path/to/file.ts',
+                });
+                if (!fileUri) { return; }
+
+                try {
+                        const result = await testGenTool.generateTests(fileUri);
+                        notificationService.info(`Tests generated for ${fileUri} using ${result.framework}. Suggested path: ${result.suggestedFilePath}`);
+                        logService.info('[Construct] Tests generated:', result.framework, result.suggestedFilePath);
+                } catch (error) {
+                        logService.error('[Construct] Test generation failed:', error);
+                        notificationService.error('Test generation failed: ' + (error instanceof Error ? error.message : String(error)));
+                }
+        }
+});
+
+// --- P3: Index Workspace Command (Codebase Search) ----------------------------
+
+registerAction2(class IndexWorkspaceP3Action extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.indexCodebase',
+                        title: localize2('indexCodebase', "Index Codebase for Semantic Search"),
+                        f1: true,
+                        category: localize2('constructCategoryIndex', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const codebaseIndex = accessor.get(ICodebaseIndex);
+                const notificationService = accessor.get(INotificationService);
+                const logService = accessor.get(ILogService);
+
+                notificationService.info('Indexing codebase...');
+                try {
+                        await codebaseIndex.indexWorkspace();
+                        notificationService.info(`Codebase indexing complete. ${codebaseIndex.indexedFileCount} files indexed.`);
+                } catch (error) {
+                        logService.error('[Construct] Codebase indexing failed:', error);
+                        notificationService.error('Codebase indexing failed: ' + (error instanceof Error ? error.message : String(error)));
+                }
+        }
+});
+
+// --- P3: Show Skills Picker Command --------------------------------------------
+
+registerAction2(class ShowSkillsAction extends Action2 {
+        constructor() {
+                super({
+                        id: 'construct.showSkills',
+                        title: localize2('showSkills', "Show Agent Skills"),
+                        f1: true,
+                        category: localize2('constructCategorySkills', "Construct"),
+                });
+        }
+        async run(accessor: ServicesAccessor): Promise<void> {
+                const skillService = accessor.get(ISkillService);
+                const quickInput = accessor.get(IQuickInputService);
+
+                const skills = skillService.listSkills();
+                if (skills.length === 0) {
+                        await quickInput.pick([{ label: 'No skills available', alwaysShow: true }]);
+                        return;
+                }
+
+                const picks = skills.map(s => ({
+                        label: `/${s.name}`,
+                        description: s.description,
+                        detail: `Tools: ${s.allowedTools.join(', ') || 'all'}`,
+                        skillName: s.name,
+                }));
+
+                const pick = await quickInput.pick(picks, { placeHolder: 'Select a skill to execute' });
+                if (pick) {
+                        // Execute the skill
+                        await skillService.executeSkill((pick as any).skillName, {
+                                userInput: `/${(pick as any).skillName}`,
+                                skillName: (pick as any).skillName,
+                                args: [],
+                        });
+                }
+        }
+});
+
+// --- P3: Inline Suggestions Registration ---------------------------------------
+// The ConstructInlineSuggestionProvider is registered in the workbench contribution below.
+
+class ConstructInlineSuggestionsContribution extends Disposable implements IWorkbenchContribution {
+        static readonly ID = 'workbench.contrib.constructInlineSuggestions';
+
+        constructor(
+                @IConstructAIService aiService: IConstructAIService,
+                @ILogService logService: ILogService,
+                @IInstantiationService instantiationService: IInstantiationService,
+        ) {
+                super();
+
+                // Register the inline completion provider
+                try {
+                        const { ConstructInlineSuggestionProvider } = require('./constructInlineSuggestion.js') as typeof import('./constructInlineSuggestion.js');
+                        instantiationService.createInstance(ConstructInlineSuggestionProvider);
+                        logService.info('[Construct] Inline suggestions provider created');
+                } catch (error) {
+                        logService.debug('[Construct] Inline suggestions not available:', error);
+                }
+        }
+}
+
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(ConstructInlineSuggestionsContribution, LifecyclePhase.Restored);
+

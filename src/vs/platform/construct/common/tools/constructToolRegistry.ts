@@ -1,9 +1,4 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 
 import { createDecorator } from '../../../instantiation/common/instantiation.js';
@@ -46,6 +41,8 @@ export interface IToolDefinition {
         modifiesFiles: boolean;
         /** Whether this tool requires network access */
         requiresNetwork: boolean;
+        /** Whether this tool requires explicit user confirmation before execution */
+        requiresConfirmation?: boolean;
         /** Category for UI grouping */
         category: 'file' | 'terminal' | 'search' | 'network' | 'system' | 'security';
 }

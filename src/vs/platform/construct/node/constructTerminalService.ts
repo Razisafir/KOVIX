@@ -1,9 +1,4 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import {
         ITerminalExecutor, ITerminalExecResult,
@@ -11,6 +6,7 @@ import {
         TerminalRateLimiter, DEFAULT_COMMAND_ALLOWLIST, FILE_OPERATION_COMMANDS,
         TERMINAL_RATE_LIMIT,
         detectShellMetacharInArgs,
+        isPrivilegeEscalation,
 } from '../common/terminal/terminalExecutor.js';
 import { assertWithinWorkspace } from '../common/security/workspaceGuard.js';
 import { ILogService } from '../../log/common/log.js';
@@ -43,7 +39,12 @@ export class TerminalNodeService extends Disposable implements ITerminalExecutor
                 @ILogService private readonly logService: ILogService,
         ) {
                 super();
-                this.logService.info('[TerminalNode] Service created (SEC-4.2 hardened)');
+                this.logService.info('[TerminalNode] Service created (SEC-4.2 hardened, SEC-P2 privilege escalation protection)');
+        }
+
+        /** SEC-P2: Check if a command requires user confirmation (privilege escalation) */
+        requiresConfirmation(command: string): boolean {
+                return isPrivilegeEscalation(command);
         }
 
         /**
@@ -65,6 +66,10 @@ export class TerminalNodeService extends Disposable implements ITerminalExecutor
                         /\bchmod\s+(777|666)\s+\//i,
                         /\b:()\s*\{.*;\s*\}/, // fork bomb
                         />\/etc\//i,
+                        /\bpkexec\b/i,                  // SEC-P2: PolicyKit escalation
+                        /\bdoas\b/i,                    // SEC-P2: OpenBSD doas
+                        /\bgosu\b/i,                    // SEC-P2: gosu (Docker user switching)
+                        /\brun0\b/i,                    // SEC-P2: systemd-run0
                 ];
                 return dangerousPatterns.some(pattern => pattern.test(command));
         }
@@ -122,6 +127,12 @@ export class TerminalNodeService extends Disposable implements ITerminalExecutor
                 if (this.isBlocked(command)) {
                         this.logSecurityEvent('blocklist_rejected', command, 'Matched dangerous command pattern');
                         throw new Error('Command blocked by security policy');
+                }
+
+                // ── SEC-P2: Privilege escalation check ─────────────────────────────
+                if (isPrivilegeEscalation(command)) {
+                        this.logSecurityEvent('privilege_escalation_rejected', command, 'Privilege escalation command blocked');
+                        throw new Error(`Command requires user confirmation: "${commandName}" is a privilege escalation command. These commands are blocked for security. If you need elevated privileges, run the command manually in a terminal.`);
                 }
 
                 // ── SEC-4.2: Record execution for rate limiting (before execution) ──

@@ -1,9 +1,4 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -19,6 +14,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IWebviewWorkbenchService } from '../../webviewPanel/browser/webviewWorkbenchService.js';
 import { IOverlayWebview } from '../../webview/browser/webview.js';
 import { ISecureKeyManager, LLMProvider } from '../../../../platform/construct/common/security/secureKeyManager.js';
+import { IDistributionDetector } from '../../../../platform/construct/common/terminal/distributionDetector.js';
 
 /** Storage key for the onboarding completion flag. */
 const ONBOARDING_COMPLETE_KEY = 'construct.onboarding.complete';
@@ -40,6 +36,9 @@ type WebviewToHostMessage =
         | { type: 'checkKaliWSL' }
         | { type: 'enableKaliWSL' }
         | { type: 'skipKali' }
+        | { type: 'checkSecurityTools' }
+        | { type: 'enableSecurityTools' }
+        | { type: 'skipSecurityTools' }
         | { type: 'finish'; config: OnboardingConfig };
 
 /**
@@ -49,6 +48,7 @@ interface OnboardingConfig {
         providerType: AIProviderType;
         modelId?: string;
         kaliWSLEnabled?: boolean;
+        securityToolsEnabled?: boolean;
 }
 
 /**
@@ -74,6 +74,7 @@ export class ConstructOnboardingWizard extends Disposable {
                 @IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
                 @IWebviewWorkbenchService private readonly webviewWorkbenchService: IWebviewWorkbenchService,
                 @ISecureKeyManager private readonly secureKeyManager: ISecureKeyManager,
+                @IDistributionDetector private readonly distributionDetector: IDistributionDetector,
         ) {
                 super();
         }
@@ -177,12 +178,16 @@ export class ConstructOnboardingWizard extends Disposable {
                         }
 
                         case 'checkKaliWSL': {
-                                if (!isWindows) {
+                                // Use the new distribution detector for enhanced detection
+                                const dist = await this.distributionDetector.detectDistribution();
+                                if (dist && dist.available) {
+                                        this.postMessage({ type: 'kaliStatus', available: true, notWindows: false, distributionType: dist.type, distributionName: dist.name });
+                                } else if (!isWindows) {
                                         this.postMessage({ type: 'kaliStatus', available: false, notWindows: true });
-                                        break;
+                                } else {
+                                        const wslAvailable = await this.toolRegistry.isKaliWSLAvailable();
+                                        this.postMessage({ type: 'kaliStatus', available: wslAvailable, notWindows: false });
                                 }
-                                const available = await this.toolRegistry.isKaliWSLAvailable();
-                                this.postMessage({ type: 'kaliStatus', available, notWindows: false });
                                 break;
                         }
 
@@ -194,6 +199,26 @@ export class ConstructOnboardingWizard extends Disposable {
 
                         case 'skipKali': {
                                 this.postMessage({ type: 'kaliSkipped' });
+                                break;
+                        }
+
+                        case 'checkSecurityTools': {
+                                await this.checkSecurityTools();
+                                break;
+                        }
+
+                        case 'enableSecurityTools': {
+                                await this.configurationService.updateValue(
+                                        'construct.security.kaliIntegration',
+                                        true,
+                                        ConfigurationTarget.USER,
+                                );
+                                this.postMessage({ type: 'securityToolsEnabled' });
+                                break;
+                        }
+
+                        case 'skipSecurityTools': {
+                                this.postMessage({ type: 'securityToolsSkipped' });
                                 break;
                         }
 
@@ -314,6 +339,34 @@ export class ConstructOnboardingWizard extends Disposable {
         }
 
         // -----------------------------------------------------------------------
+        // Security Tools Detection
+        // -----------------------------------------------------------------------
+
+        private async checkSecurityTools(): Promise<void> {
+                try {
+                        const dist = await this.distributionDetector.detectDistribution();
+                        if (dist && dist.available) {
+                                const tools = await this.distributionDetector.detectTools(dist);
+                                this.postMessage({
+                                        type: 'securityToolsStatus',
+                                        available: true,
+                                        distributionType: dist.type,
+                                        distributionName: dist.name,
+                                        tools,
+                                });
+                        } else {
+                                this.postMessage({
+                                        type: 'securityToolsStatus',
+                                        available: false,
+                                });
+                        }
+                } catch (error) {
+                        this.logService.error('[ConstructOnboarding] Failed to check security tools:', error);
+                        this.postMessage({ type: 'securityToolsStatus', available: false });
+                }
+        }
+
+        // -----------------------------------------------------------------------
         // Save config
         // -----------------------------------------------------------------------
 
@@ -353,6 +406,15 @@ export class ConstructOnboardingWizard extends Disposable {
                                 );
                         }
 
+                        // Persist security tools preference
+                        if (config.securityToolsEnabled !== undefined) {
+                                await this.configurationService.updateValue(
+                                        'construct.security.kaliIntegration',
+                                        config.securityToolsEnabled,
+                                        ConfigurationTarget.USER,
+                                );
+                        }
+
                         // Also write to .construct/settings.json for easy direct editing
                         try {
                                 const workspace = this.workspaceContextService.getWorkspace();
@@ -372,6 +434,7 @@ export class ConstructOnboardingWizard extends Disposable {
                                                 defaultModel: config.modelId ?? '',
                                                 ollamaEndpoint: 'http://localhost:11434',
                                                 kaliEnabled: config.kaliWSLEnabled ?? false,
+                                                securityToolsEnabled: config.securityToolsEnabled ?? false,
                                                 providerType: config.providerType,
                                                 embeddingModel: 'nomic-embed-text',
                                         };
@@ -846,7 +909,9 @@ export class ConstructOnboardingWizard extends Disposable {
                         <div class="step-line" id="line-1"></div>
                         <div class="step-dot" id="dot-2" role="tab" aria-selected="false" aria-label="Step 3: Kali Linux"></div>
                         <div class="step-line" id="line-2"></div>
-                        <div class="step-dot" id="dot-3" role="tab" aria-selected="false" aria-label="Step 4: Ready"></div>
+                        <div class="step-dot" id="dot-3" role="tab" aria-selected="false" aria-label="Step 4: Security Tools"></div>
+                        <div class="step-line" id="line-3"></div>
+                        <div class="step-dot" id="dot-4" role="tab" aria-selected="false" aria-label="Step 5: Ready"></div>
                 </div>
 
                 <!-- Step 0: Welcome -->
@@ -991,8 +1056,36 @@ export class ConstructOnboardingWizard extends Disposable {
                         </div>
                 </div>
 
-                <!-- Step 3: You're Ready! -->
-                <div class="step" id="step-3" role="tabpanel" aria-label="Setup Complete">
+                <!-- Step 3: Security Tools Setup -->
+                <div class="step" id="step-3" role="tabpanel" aria-label="Security Tools Setup">
+                        <div class="step-title">Security Tools Setup</div>
+                        <div class="step-subtitle">
+                                Kovix can integrate with Kali Linux security tools.<br>
+                                All tools require explicit user confirmation before execution.
+                        </div>
+
+                        <div class="card" id="security-tools-card">
+                                <div class="card-header">
+                                        <div class="card-icon pending" id="security-tools-icon"><span class="spinner"></span></div>
+                                        <div>
+                                                <div class="card-title">Kali Security Tools</div>
+                                                <div class="card-desc" id="security-tools-desc">Checking for available security tools...</div>
+                                        </div>
+                                </div>
+                                <div id="security-tools-detail"></div>
+                        </div>
+
+                        <div class="btn-row">
+                                <button class="btn btn-secondary" onclick="goToStep(2)" aria-label="Go back to Kali Linux">&larr; Back</button>
+                                <div style="display:flex;gap:8px;">
+                                        <button class="btn btn-secondary" onclick="skipSecurityTools()" aria-label="Skip Security Tools setup">Skip</button>
+                                        <button class="btn btn-primary" id="step3-next" onclick="goToStep(4)" disabled aria-label="Next step">Next &rarr;</button>
+                                </div>
+                        </div>
+                </div>
+
+                <!-- Step 4: You're Ready! -->
+                <div class="step" id="step-4" role="tabpanel" aria-label="Setup Complete">
                         <div class="completion-checkmark">&#x2713;</div>
                         <div class="step-title">You're Ready!</div>
                         <div class="step-subtitle">
@@ -1010,8 +1103,12 @@ export class ConstructOnboardingWizard extends Disposable {
                                         <span class="config-value" id="summary-model">-</span>
                                 </div>
                                 <div class="config-row" id="summary-kali-row" style="display:none;">
-                                        <span class="config-label">Kali WSL2</span>
+                                        <span class="config-label">Kali Linux</span>
                                         <span class="config-value" id="summary-kali">-</span>
+                                </div>
+                                <div class="config-row" id="summary-security-row" style="display:none;">
+                                        <span class="config-label">Security Tools</span>
+                                        <span class="config-value" id="summary-security">-</span>
                                 </div>
                         </div>
 
@@ -1027,12 +1124,14 @@ export class ConstructOnboardingWizard extends Disposable {
 
                 // ---- State ----
                 let currentStep = 0;
-                const totalSteps = 4;
+                const totalSteps = 5;
                 let selectedProvider = /** @type {string|null} */ (null);
                 let selectedModelId = /** @type {string|null} */ (null);
                 let kaliEnabled = false;
+                let securityToolsEnabled = false;
                 let ollamaChecked = false;
                 let kaliChecked = false;
+                let securityToolsChecked = false;
 
                 // ---- Navigation ----
                 function goToStep(step) {
@@ -1070,7 +1169,10 @@ export class ConstructOnboardingWizard extends Disposable {
                         if (step === 2 && !kaliChecked) {
                                 vscode.postMessage({ type: 'checkKaliWSL' });
                         }
-                        if (step === 3) {
+                        if (step === 3 && !securityToolsChecked) {
+                                vscode.postMessage({ type: 'checkSecurityTools' });
+                        }
+                        if (step === 4) {
                                 updateSummary();
                         }
                 }
@@ -1333,6 +1435,69 @@ export class ConstructOnboardingWizard extends Disposable {
                         goToStep(3);
                 }
 
+                // ---- Security Tools ----
+                function renderSecurityToolsStatus(data) {
+                        securityToolsChecked = true;
+                        const icon = document.getElementById('security-tools-icon');
+                        const desc = document.getElementById('security-tools-desc');
+                        const detail = document.getElementById('security-tools-detail');
+
+                        if (data.available) {
+                                icon.className = 'card-icon success';
+                                icon.textContent = '\\u2713';
+                                desc.textContent = data.distributionName + ' detected with security tools.';
+
+                                const toolList = document.createElement('div');
+                                toolList.className = 'install-instructions';
+                                const toolText = data.tools && data.tools.length > 0
+                                        ? data.tools.join(', ')
+                                        : 'No tools detected';
+                                toolList.textContent = 'Available tools: ' + toolText;
+                                detail.appendChild(toolList);
+
+                                const checkOptDiv = document.createElement('div');
+                                checkOptDiv.className = 'check-option';
+                                const secCb = document.createElement('input');
+                                secCb.type = 'checkbox';
+                                secCb.id = 'security-checkbox';
+                                const secLabel = document.createElement('label');
+                                secLabel.htmlFor = 'security-checkbox';
+                                secLabel.textContent = 'Enable Kali security tools integration (all tools require confirmation)';
+                                checkOptDiv.appendChild(secCb);
+                                checkOptDiv.appendChild(secLabel);
+                                checkOptDiv.addEventListener('click', () => enableSecurityTools(true));
+                                detail.appendChild(checkOptDiv);
+                                document.getElementById('step3-next').disabled = false;
+                        } else {
+                                icon.className = 'card-icon info';
+                                icon.textContent = '\\u2139';
+                                desc.textContent = 'No Kali Linux installation detected.';
+                                detail.innerHTML = \
+                                        '<div class="install-instructions">' +
+                                        '<strong>Install Kali Linux:</strong><br>' +
+                                        '• WSL: <code>wsl --install -d kali-linux</code> (Windows)<br>' +
+                                        '• Docker: <code>docker pull kalilinux/kali-rolling</code> (Any OS)<br>' +
+                                        '• Native: Install Kali Linux as your OS<br><br>' +
+                                        'You can enable security tools later in settings.' +
+                                        '</div>';
+                                document.getElementById('step3-next').disabled = false;
+                        }
+                }
+
+                function enableSecurityTools(enabled) {
+                        securityToolsEnabled = enabled;
+                        const cb = document.getElementById('security-checkbox');
+                        if (cb) cb.checked = enabled;
+                        if (enabled) {
+                                vscode.postMessage({ type: 'enableSecurityTools' });
+                        }
+                }
+
+                function skipSecurityTools() {
+                        securityToolsEnabled = false;
+                        goToStep(4);
+                }
+
                 // ---- Summary ----
                 function updateSummary() {
                         const providerNames = {
@@ -1345,10 +1510,16 @@ export class ConstructOnboardingWizard extends Disposable {
                         document.getElementById('summary-model').textContent =
                                 selectedModelId || 'Default';
                         const kaliRow = document.getElementById('summary-kali-row');
-                        if (kaliRow && ${isWin ? 'true' : 'false'}) {
+                        if (kaliRow) {
                                 kaliRow.style.display = '';
                                 document.getElementById('summary-kali').textContent =
                                         kaliEnabled ? 'Enabled' : 'Disabled';
+                        }
+                        const securityRow = document.getElementById('summary-security-row');
+                        if (securityRow) {
+                                securityRow.style.display = '';
+                                document.getElementById('summary-security').textContent =
+                                        securityToolsEnabled ? 'Enabled' : 'Disabled';
                         }
                 }
 
@@ -1360,6 +1531,7 @@ export class ConstructOnboardingWizard extends Disposable {
                                         providerType: selectedProvider || 'xenova',
                                         modelId: selectedModelId,
                                         kaliWSLEnabled: kaliEnabled,
+                                        securityToolsEnabled: securityToolsEnabled,
                                 }
                         });
                 }
@@ -1390,6 +1562,13 @@ export class ConstructOnboardingWizard extends Disposable {
                                 case 'kaliEnabled':
                                         break;
                                 case 'kaliSkipped':
+                                        break;
+                                case 'securityToolsStatus':
+                                        renderSecurityToolsStatus(msg);
+                                        break;
+                                case 'securityToolsEnabled':
+                                        break;
+                                case 'securityToolsSkipped':
                                         break;
                                 case 'configSaved':
                                         // Config saved — could close or redirect

@@ -1,9 +1,4 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 
 import { localize } from '../../../../nls';
@@ -184,3 +179,29 @@ const agentConfiguration: IConfigurationNode = {
 };
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration(agentConfiguration);
+
+// --- P3: Feature Completion Configuration ---
+
+const featureCompletionConfiguration: IConfigurationNode = {
+        id: 'construct.features',
+        order: 106,
+        title: localize('construct.features', "Construct -- Features"),
+        type: 'object',
+        properties: {
+                'construct.inlineSuggestions.enabled': {
+                        type: 'boolean',
+                        default: true,
+                        description: localize('construct.inlineSuggestions.enabled', "Enable AI-powered inline code suggestions (tab completion). When enabled, the Construct AI provides inline completions as you type."),
+                        scope: 4 /* ConfigurationScope.WINDOW */
+                },
+                'construct.onlineMode': {
+                        type: 'boolean',
+                        default: false,
+                        description: localize('construct.onlineMode', "Enable online mode for network-dependent tools (web search, browser automation). When disabled, only offline tools are available."),
+                        scope: 4 /* ConfigurationScope.WINDOW */
+                }
+        }
+};
+
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration(featureCompletionConfiguration);
+

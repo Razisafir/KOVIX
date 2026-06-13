@@ -1,14 +1,20 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import { IWorkspaceContextService } from '../../../workspace/common/workspace.js';
 // Use VS Code's browser-safe path utilities — Node 'path' is NOT available in the renderer
 import * as path from '../../../../base/common/path.js';
 import { realpathSync } from 'fs';
+
+/**
+ * SEC-CWE59: Detect whether the current platform has a case-insensitive filesystem.
+ * macOS (darwin) and Windows are case-insensitive; Linux is case-sensitive.
+ * Used for case-normalisation during path comparison to prevent
+ * bypass via different casing (e.g., /Workspace vs /WORKSPACE).
+ */
+const IS_CASE_INSENSITIVE_FS: boolean =
+        (typeof process !== 'undefined' && process.platform)
+                ? process.platform === 'darwin' || process.platform === 'win32'
+                : false;
 
 /**
  * Assert that a path is within the workspace boundary.
@@ -73,7 +79,12 @@ export function assertWithinWorkspace(
                         realRoot = root;
                 }
 
-                if (!realPath.startsWith(realRoot + path.sep) && realPath !== realRoot) {
+                // SEC-CWE59: Case-insensitive comparison on macOS/Windows to prevent
+                // casing-based bypass (e.g., /WORKSPACE/foo when root is /Workspace)
+                const comparePath = IS_CASE_INSENSITIVE_FS ? realPath.toLowerCase() : realPath;
+                const compareRoot = IS_CASE_INSENSITIVE_FS ? realRoot.toLowerCase() : realRoot;
+
+                if (!comparePath.startsWith(compareRoot + path.sep) && comparePath !== compareRoot) {
                         throw new Error(`Path traversal detected: ${filePath} resolves outside workspace`);
                 }
         } else {

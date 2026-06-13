@@ -1,6 +1,10 @@
-MIT License
+This software contains code from multiple copyright holders under different licenses.
 
-Copyright (c) 2024 - present Razisafir
+==============================================================================
+Section 1: Code-OSS Base — MIT License
+==============================================================================
+
+Copyright (c) 2015 - present Microsoft Corporation. All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +23,37 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+This MIT License applies to the Code-OSS base, which is the underlying
+open-source editor framework originally developed by Microsoft Corporation.
+The Code-OSS base is available at https://github.com/microsoft/vscode
+
+==============================================================================
+Section 2: Kovix Construct AI System — Proprietary License
+==============================================================================
+
+Copyright (c) 2025 Razisafir. All rights reserved.
+
+The Kovix Construct AI System is proprietary software owned by Razisafir.
+All rights are reserved. This software is NOT open source.
+
+The Kovix Construct AI System is licensed under a commercial End-User License
+Agreement (EULA). The full terms and conditions are set forth in
+CONSTRUCT_LICENSE.txt, which is included with this software.
+
+You may NOT use, copy, modify, merge, publish, distribute, sublicense,
+reverse engineer, or sell any part of the Kovix Construct AI System without
+a valid paid license from Razisafir.
+
+For licensing inquiries: security@kovix.dev
+
+==============================================================================
+IMPORTANT NOTICE
+==============================================================================
+
+The MIT license applies ONLY to the Code-OSS base. The Kovix Construct AI
+System is proprietary and requires a paid license. The two licensing regimes
+are independent and non-overlapping. Nothing in the MIT license grants any
+rights to the Kovix Construct AI System, and nothing in the Kovix Construct
+AI System EULA modifies or restricts your rights under the MIT license with
+respect to the Code-OSS base.

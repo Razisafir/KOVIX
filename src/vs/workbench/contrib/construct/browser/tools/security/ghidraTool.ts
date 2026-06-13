@@ -1,3 +1,5 @@
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
+
 import { IToolDefinition } from '../../../../../../platform/construct/common/tools/constructToolRegistry.js';
 
 export const ghidraToolDefinition: IToolDefinition = {
@@ -7,11 +9,11 @@ export const ghidraToolDefinition: IToolDefinition = {
                 type: 'object',
                 properties: {
                         binary_path: { type: 'string', description: 'Path to the binary file (must be within workspace)' },
-                        function_name: { type: 'string', description: 'Specific function to decompile' }
                 },
                 required: ['binary_path']
         },
         modifiesFiles: false,
         requiresNetwork: false,
+        requiresConfirmation: true,
         category: 'security'
 };

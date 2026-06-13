@@ -1,9 +1,4 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import { Disposable } from "../../../../../../base/common/lifecycle.js";
 import { ILogService } from "../../../../../../platform/log/common/log.js";
@@ -16,6 +11,8 @@ import {
 import { URI } from "../../../../../../base/common/uri.js";
 import { VSBuffer } from "../../../../../../base/common/buffer.js";
 import { joinPath } from "../../../../../../base/common/resources";
+// SEC-CWE59: Symlink resolution and case-insensitive path comparison
+import { realpathSync } from 'fs';
 
 export class DiffApplierService extends Disposable implements IDiffApplier {
         readonly _serviceBrand: undefined;
@@ -53,9 +50,32 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                         return true; // No workspace, allow all paths
                 }
 
-                // Normalize the path to prevent traversal attacks
-                const normalizedPath = uri.path.replace(/\\/g, '/').replace(/\/+/g, '/');
-                const workspacePath = this._workspaceRoot.path.replace(/\\/g, '/').replace(/\/+/g, '/');
+                // SEC-CWE59: Resolve symlinks before comparing paths
+                let realFsPath: string;
+                let realRootFsPath: string;
+                const fsPath = uri.fsPath;
+                const rootFsPath = this._workspaceRoot.fsPath;
+
+                try {
+                        realFsPath = realpathSync(fsPath);
+                } catch {
+                        // File doesn't exist yet — check parent directory instead
+                        try {
+                                const { dirname } = require('path');
+                                realFsPath = realpathSync(dirname(fsPath));
+                        } catch {
+                                realFsPath = fsPath;
+                        }
+                }
+                try {
+                        realRootFsPath = realpathSync(rootFsPath);
+                } catch {
+                        realRootFsPath = rootFsPath;
+                }
+
+                // Normalize the real paths to prevent traversal attacks
+                const normalizedPath = realFsPath.replace(/\\/g, '/').replace(/\/+/g, '/');
+                const workspacePath = realRootFsPath.replace(/\\/g, '/').replace(/\/+/g, '/');
 
                 // Reject paths with traversal that would escape the workspace
                 // e.g., "../../etc/passwd" or "src/../../../etc/shadow"
@@ -78,18 +98,26 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                         }
                 }
 
+                // SEC-CWE59: Case-insensitive comparison on macOS/Windows
+                const isCaseInsensitive = typeof process !== 'undefined' &&
+                        (process.platform === 'darwin' || process.platform === 'win32');
+                const comparePath = isCaseInsensitive ? normalizedPath.toLowerCase() : normalizedPath;
+                const compareWorkspace = isCaseInsensitive ? workspacePath.toLowerCase() : workspacePath;
+
                 // Check if the URI is within the workspace root
-                return normalizedPath.startsWith(workspacePath);
+                return comparePath.startsWith(compareWorkspace);
         }
 
         async applyDiff(filePath: string, diff: string): Promise<IDiffApplyResult> {
-                // Workspace validation
+                // Workspace validation (SEC-CWE59: includes symlink + case checks)
                 if (!this.isWithinWorkspace(filePath)) {
                         return {
                                 success: false,
                                 error: `Cannot write outside workspace: "${filePath}". All file operations must be within the workspace root for security.`,
                         };
                 }
+                // SEC-CWE59: Also assert using realpath-based check
+                this.assertWithinWorkspace(filePath);
 
                 const uri = this.resolveUri(filePath);
                 this.logService.info(`[DiffApplier] Applying diff to: ${filePath}`);
@@ -143,6 +171,7 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                 if (!this.isWithinWorkspace(filePath)) {
                         throw new Error(`Cannot write outside workspace: "${filePath}". All file operations must be within the workspace root for security.`);
                 }
+                this.assertWithinWorkspace(filePath);
 
                 const uri = this.resolveUri(filePath);
                 await this.ensureParentDirectory(uri);
@@ -161,6 +190,7 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                 if (!this.isWithinWorkspace(filePath)) {
                         throw new Error(`Security: Cannot read file outside workspace: ${filePath}`);
                 }
+                this.assertWithinWorkspace(filePath);
 
                 const uri = this.resolveUri(filePath);
                 try {
@@ -182,6 +212,7 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                 if (!this.isWithinWorkspace(filePath)) {
                         throw new Error(`Path "${filePath}" is outside the workspace root.`);
                 }
+                this.assertWithinWorkspace(filePath);
 
                 const uri = this.resolveUri(filePath);
                 await this.ensureParentDirectory(uri);
@@ -193,6 +224,7 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                 if (!this.isWithinWorkspace(filePath)) {
                         throw new Error(`Path "${filePath}" is outside the workspace root.`);
                 }
+                this.assertWithinWorkspace(filePath);
 
                 const uri = this.resolveUri(filePath);
                 await this.fileService.del(uri, { recursive: false, useTrash: true });
@@ -203,6 +235,7 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                 if (!this.isWithinWorkspace(filePath)) {
                         return false;
                 }
+                this.assertWithinWorkspace(filePath);
 
                 const uri = this.resolveUri(filePath);
                 try {
@@ -396,6 +429,49 @@ export class DiffApplierService extends Disposable implements IDiffApplier {
                                 const msg = error instanceof Error ? error.message : String(error);
                                 this.logService.warn(`[DiffApplier] Could not create directory ${dir.path}: ${msg}`);
                         }
+                }
+        }
+
+        /**
+         * SEC-CWE59: Assert that a file path is within the workspace using realpath resolution.
+         * Throws an error if the resolved path escapes the workspace root.
+         * This is a separate, realpath-based check in addition to isWithinWorkspace().
+         */
+        private assertWithinWorkspace(filePath: string): void {
+                if (!this._workspaceRoot) { return; }
+
+                const uri = this.resolveUri(filePath);
+                const fsPath = uri.fsPath;
+                const rootFsPath = this._workspaceRoot.fsPath;
+
+                let realFsPath: string;
+                let realRootFsPath: string;
+
+                try {
+                        realFsPath = realpathSync(fsPath);
+                } catch {
+                        try {
+                                const { dirname } = require('path');
+                                realFsPath = realpathSync(dirname(fsPath));
+                        } catch {
+                                realFsPath = fsPath;
+                        }
+                }
+                try {
+                        realRootFsPath = realpathSync(rootFsPath);
+                } catch {
+                        realRootFsPath = rootFsPath;
+                }
+
+                // SEC-CWE59: Case-insensitive comparison on macOS/Windows
+                const isCaseInsensitive = typeof process !== 'undefined' &&
+                        (process.platform === 'darwin' || process.platform === 'win32');
+                const comparePath = isCaseInsensitive ? realFsPath.toLowerCase() : realFsPath;
+                const compareRoot = isCaseInsensitive ? realRootFsPath.toLowerCase() : realRootFsPath;
+                const { sep } = require('path');
+
+                if (!comparePath.startsWith(compareRoot + sep) && comparePath !== compareRoot) {
+                        throw new Error(`Security: path "${filePath}" resolves outside workspace (realpath check)`);
                 }
         }
 

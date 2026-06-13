@@ -1,9 +1,4 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
@@ -54,6 +49,24 @@ export interface IMCPServerManager extends IDisposable {
 
         /** Execute an MCP tool. 30-second timeout enforced. */
         executeTool(serverName: string, toolName: string, args: any, signal?: AbortSignal): Promise<IMCPExecutionResult>;
+
+        /**
+         * SEC-P2: Check if a tool from a given server requires user confirmation.
+         * First-time tool calls from an MCP server must be confirmed by the user.
+         * Returns the current confirmation state: 'always' | 'once' | 'never' | 'required'.
+         */
+        getToolConfirmationState(serverName: string, toolName: string): 'always' | 'once' | 'never' | 'required';
+
+        /**
+         * SEC-P2: Set the user's confirmation decision for a tool.
+         * 'always' = auto-approve all future calls to this tool from this server.
+         * 'once' = approve this single call, ask again next time.
+         * 'never' = block all future calls to this tool from this server.
+         */
+        setToolConfirmationDecision(serverName: string, toolName: string, decision: 'always' | 'once' | 'never'): void;
+
+        /** SEC-P2: Event fired when an MCP tool requires user confirmation. */
+        readonly onDidRequestToolConfirmation: Event<{ serverName: string; toolName: string }>;
 
         /** List tools from one server, or all connected servers. */
         listTools(serverName?: string): Promise<IMCPTool[]>;

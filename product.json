@@ -4,7 +4,7 @@
         "applicationName": "kovix",
         "dataFolderName": ".kovix",
         "win32MutexName": "kovixide",
-        "licenseName": "MIT",
+        "licenseName": "Proprietary + MIT (Code-OSS base)",
         "licenseUrl": "https://github.com/Razisafir/KOVIX/blob/main/LICENSE.txt",
         "serverLicenseUrl": "https://github.com/Razisafir/KOVIX/blob/main/LICENSE.txt",
         "serverGreeting": [],

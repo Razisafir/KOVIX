@@ -1,9 +1,4 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
@@ -40,6 +35,9 @@ import { IObsidianMemoryService } from '../../../../../../platform/construct/com
 import { IConstructToolRegistry } from '../../../../../../platform/construct/common/tools/constructToolRegistry.js';
 // H3: Prompt sanitizer for memory injection prevention
 import { PromptSanitizer } from '../../../../../../platform/construct/common/agent/promptSanitizer.js';
+// SEC-P2: Injection detection in agent output
+import { detectInjectionInOutput, truncateForInjection } from '../../../../../../platform/construct/common/security/promptSanitiser.js';
+// SEC-P2: Injection detection in agent output
 // F-F-004: Configuration service for configurable max rounds
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 
@@ -335,9 +333,17 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                                         }
                                                         break;
                                                 }
-                                                case 'done':
+                                                case 'done': {
                                                         stopReason = event.stopReason;
+                                                        // SEC-P2: Scan the accumulated LLM response for injection patterns
+                                                        if (currentText) {
+                                                                const injectionCheck = detectInjectionInOutput(currentText);
+                                                                if (injectionCheck.detected) {
+                                                                        this.logService.warn(`[AgentLoop] ⚠️ Potential injection detected in planning LLM response. Patterns: ${injectionCheck.patterns.join(', ')}`);
+                                                                }
+                                                        }
                                                         break;
+                                                }
                                                 case 'error':
                                                         throw new Error(event.text);
                                         }
@@ -601,9 +607,19 @@ export class AgentLoopService extends Disposable implements IAgentLoop {
                                                         break;
                                                 }
 
-                                                case 'done':
+                                                case 'done': {
                                                         stopReason = event.stopReason;
+                                                        // SEC-P2: Scan the accumulated LLM response for injection patterns
+                                                        if (currentText) {
+                                                                const injectionCheck = detectInjectionInOutput(currentText);
+                                                                if (injectionCheck.detected) {
+                                                                        this.logService.warn(`[AgentLoop] ⚠️ Potential injection detected in LLM response. Patterns: ${injectionCheck.patterns.join(', ')}`);
+                                                                        // Flag the response but don't block — log the warning for monitoring
+                                                                        yield { type: 'error', text: `[SECURITY] Potential prompt injection detected in LLM output. Patterns: ${injectionCheck.patterns.join(', ')}. Response is being monitored.`, recoverable: true };
+                                                                }
+                                                        }
                                                         break;
+                                                }
 
                                                 case 'error':
                                                         yield { type: 'error', text: event.text, recoverable: true };
@@ -987,6 +1003,8 @@ Guidelines:
                                 prompt = await this.memoryOrchestrator.injectContextIntoPrompt(prompt, projectId);
                                 // H3: Sanitize memory-injected prompt to prevent injection attacks
                                 prompt = PromptSanitizer.wrapMemoryBlock(prompt);
+                                // SEC-P2: Enforce content size limit on the injected prompt
+                                prompt = truncateForInjection(prompt, 'memoryOrchestrator');
                         } catch (error) {
                                 this.logService.warn('[AgentLoop] Memory context injection failed, using base prompt:', error instanceof Error ? error.message : String(error));
                         }
@@ -998,7 +1016,7 @@ Guidelines:
                                 const universalContext = await this.universalMemory.getContextForTask(task, this._currentPlanContext ?? 'default');
                                 if (universalContext) {
                                         // H3: Sanitize universal memory context before appending
-                                        const sanitizedContext = PromptSanitizer.sanitize(universalContext);
+                                        const sanitizedContext = PromptSanitizer.sanitize(truncateForInjection(universalContext, 'universalMemory'));
                                         prompt += `\n\n[Universal Knowledge]\n${sanitizedContext}`;
                                 }
                         } catch (error) {
@@ -1012,7 +1030,7 @@ Guidelines:
                                 const obsidianContext = this.obsidianMemory.getRelevantContext(task, 5);
                                 if (obsidianContext) {
                                         // H3: Sanitize Obsidian memory context before appending
-                                        const sanitizedContext = PromptSanitizer.sanitize(obsidianContext);
+                                        const sanitizedContext = PromptSanitizer.sanitize(truncateForInjection(obsidianContext, 'obsidianMemory'));
                                         prompt += `\n\n${sanitizedContext}`;
                                 }
                         } catch (error) {

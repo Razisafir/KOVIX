@@ -1,14 +1,9 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../../../platform/log/common/log.js';
 import { IWorkspaceContextService } from '../../../../../../platform/workspace/common/workspace.js';
-import { ITerminalExecutor, ITerminalExecResult, TerminalRateLimiter, detectShellMetacharInArgs, isCommandInAllowlist, sanitiseForAuditLog } from '../../../../../../platform/construct/common/terminal/terminalExecutor.js';
+import { ITerminalExecutor, ITerminalExecResult, TerminalRateLimiter, detectShellMetacharInArgs, isCommandInAllowlist, isPrivilegeEscalation, DEFAULT_COMMAND_TIMEOUT_S, sanitiseForAuditLog, sanitiseOutput } from '../../../../../../platform/construct/common/terminal/terminalExecutor.js';
 import { ITerminalService } from '../../../../terminal/browser/terminal.js';
 import { IShellLaunchConfig } from '../../../../../../platform/terminal/common/terminal.js';
 import { URI } from '../../../../../../base/common/uri.js';
@@ -33,6 +28,10 @@ const BLOCKLIST_PATTERNS: RegExp[] = [
         /\bshutdown\b/,                                                  // shutdown
         /\breboot\b/,                                                    // reboot
         /\binit\s+[06]\b/,                                              // init 0 / init 6
+        /\bpkexec\b/,                                                    // SEC-P2: PolicyKit escalation
+        /\bdoas\b/,                                                      // SEC-P2: OpenBSD doas
+        /\bgosu\b/,                                                      // SEC-P2: gosu (Docker user switching)
+        /\brun0\b/,                                                      // SEC-P2: systemd-run0 (systemd privilege escalation)
 ];
 
 /** Marker used to capture exit code from shell output. */
@@ -44,6 +43,8 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
         /** SEC-3: Rate limiter per agent session */
         private readonly rateLimiter = new TerminalRateLimiter();
 
+        /** SEC-P2: Track whether user has confirmed privilege escalation this session — reserved for future UI confirmation flow */
+
         constructor(
                 @ILogService private readonly logService: ILogService,
                 @IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
@@ -51,7 +52,12 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                 @IConfigurationService private readonly configurationService: IConfigurationService,
         ) {
                 super();
-                this.logService.info('[TerminalExecutor] Service created (SEC-3 hardened)');
+                this.logService.info('[TerminalExecutor] Service created (SEC-3 hardened, SEC-P2 privilege escalation protection)');
+        }
+
+        /** SEC-P2: Check if a command requires user confirmation (privilege escalation) */
+        requiresConfirmation(command: string): boolean {
+                return isPrivilegeEscalation(command);
         }
 
         isBlocked(command: string): boolean {
@@ -104,16 +110,25 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                         }
                 }
 
-                // Security check
+                        // SEC-3: Security check — blocklist
                 if (this.isBlocked(command)) {
                         throw new Error(`Command blocked by security policy: "${command}". This command matches a dangerous pattern.`);
+                }
+
+                // SEC-P2: Privilege escalation check — even in unrestricted mode, commands
+                // like sudo, pkexec, doas, gosu, run0 require user confirmation
+                if (isPrivilegeEscalation(command)) {
+                        this.logService.warn(`[TerminalExecutor] Privilege escalation command blocked: ${sanitiseForAuditLog(command)}`);
+                        throw new Error(`Command requires user confirmation: "${command.split(/\s+/)[0]}" is a privilege escalation command. These commands are blocked for security. If you need elevated privileges, run the command manually in a terminal.`);
                 }
 
                 // SEC-3: Record execution for rate limiting
                 this.rateLimiter.recordExecution();
 
-                // Smart timeout: npm/yarn/pnpm commands get 120s, others get 60s
-                const effectiveTimeout = timeout ?? this.inferTimeout(command);
+                // SEC-P2: Use configurable timeout from construct.terminal.commandTimeout
+                const configTimeout = this.configurationService.getValue<number>('construct.terminal.commandTimeout') ?? DEFAULT_COMMAND_TIMEOUT_S;
+                const clampedTimeout = Math.max(10, Math.min(300, configTimeout));
+                const effectiveTimeout = timeout ?? this.inferTimeout(command, clampedTimeout * 1000);
                 this.logService.info(`[TerminalExecutor] Executing: ${sanitiseForAuditLog(command)} (timeout: ${effectiveTimeout}ms)`);
 
                 // Resolve working directory
@@ -189,9 +204,10 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                                 if (!settled) {
                                         const code = typeof e === 'number' ? e : (e?.code ?? exitCode);
                                         cleanup();
+                                        // SEC-P2: Redact secrets from command output before returning to agent
                                         const result = {
-                                                stdout: this.cleanOutput(stdout),
-                                                stderr: this.cleanOutput(stderr),
+                                                stdout: sanitiseOutput(this.cleanOutput(stdout)),
+                                                stderr: sanitiseOutput(this.cleanOutput(stderr)),
                                                 exitCode: code,
                                         };
 
@@ -211,8 +227,8 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                                         cleanup();
                                         this.auditLog(command, 124, effectiveTimeout);
                                         resolve({
-                                                stdout: this.cleanOutput(stdout),
-                                                stderr: 'Command timed out',
+                                                stdout: sanitiseOutput(this.cleanOutput(stdout)),
+                                                stderr: sanitiseOutput('Command timed out'),
                                                 exitCode: 124, // Standard timeout exit code
                                         });
                                 }
@@ -229,8 +245,8 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                                                 cleanup();
                                                 this.auditLog(command, 130, Date.now() - startTime);
                                                 resolve({
-                                                        stdout: this.cleanOutput(stdout),
-                                                        stderr: 'Command cancelled by user',
+                                                        stdout: sanitiseOutput(this.cleanOutput(stdout)),
+                                                        stderr: sanitiseOutput('Command cancelled by user'),
                                                         exitCode: 130, // Standard SIGINT exit code
                                                 });
                                         }
@@ -327,9 +343,9 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
          * Package manager commands (npm, yarn, pnpm) get 120s because they
          * often need to download and install large dependencies.
          * Build commands get 120s as well.
-         * All other commands default to 60s.
+         * All other commands default to the provided default timeout.
          */
-        private inferTimeout(command: string): number {
+        private inferTimeout(command: string, defaultTimeout: number): number {
                 const slowCommands = [
                         'npm ', 'npm install', 'npm create', 'npm run',
                         'yarn ', 'yarn install', 'yarn create', 'yarn run',
@@ -348,7 +364,7 @@ export class TerminalExecutorService extends Disposable implements ITerminalExec
                                 return 120000;
                         }
                 }
-                return 60000;
+                return defaultTimeout;
         }
 
         override dispose(): void {

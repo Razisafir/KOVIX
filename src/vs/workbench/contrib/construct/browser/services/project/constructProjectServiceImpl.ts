@@ -1,7 +1,4 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) 2025 Razisafir. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import { IConstructProjectService } from '../../../../../../platform/construct/common/project/constructProjectService.js';
 import { IKovixProject, IProjectCreationInput, PROJECT_CONFIG_FILENAME, GLOBAL_PROJECT_REGISTRY_FILENAME, IProjectRegistryEntry } from '../../../../../../platform/construct/common/project/constructProjectTypes.js';

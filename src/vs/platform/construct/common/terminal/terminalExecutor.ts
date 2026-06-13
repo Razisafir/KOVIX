@@ -1,12 +1,8 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 
 import { createDecorator } from '../../../instantiation/common/instantiation.js';
+import { redactSecrets } from '../security/secretRedactor.js';
 
 export const ITerminalExecutor = createDecorator<ITerminalExecutor>('construct.terminalExecutor');
 
@@ -49,6 +45,21 @@ export const DEFAULT_COMMAND_ALLOWLIST: string[] = [
         'mkdir', 'touch', 'cp', 'mv',
         'sed', 'awk', 'sort', 'uniq', 'diff', 'patch',
 ];
+
+/**
+ * SEC-P2: Commands that are ALWAYS blocked, even in unrestricted mode.
+ * These privilege escalation commands must never be executed without
+ * explicit user confirmation.
+ */
+export const PRIVILEGE_ESCALATION_BLOCKLIST: readonly string[] = [
+        'sudo', 'su', 'pkexec', 'doas', 'gosu', 'run0',
+];
+
+/**
+ * SEC-P2: Default command timeout in seconds.
+ * Can be configured via construct.terminal.commandTimeout (range: 10-300).
+ */
+export const DEFAULT_COMMAND_TIMEOUT_S = 60;
 
 /**
  * SEC-3: Rate limit configuration for terminal commands.
@@ -159,7 +170,8 @@ export function sanitiseOutput(text: string): string {
         // 1. Strip ANSI escape sequences
         let result = stripAnsiEscapeSequences(text);
 
-        // 2. Redact secrets
+        // 2. Redact secrets (using comprehensive secretRedactor + audit log patterns)
+        result = redactSecrets(result);
         result = sanitiseForAuditLog(result);
 
         // 3. Truncate if too long
@@ -168,6 +180,17 @@ export function sanitiseOutput(text: string): string {
         }
 
         return result;
+}
+
+/**
+ * SEC-P2: Check if a command uses a privilege escalation tool.
+ * These commands (sudo, su, pkexec, doas, gosu, run0) are always
+ * blocked from automatic execution, even in unrestricted mode.
+ */
+export function isPrivilegeEscalation(command: string): boolean {
+        const baseCommand = command.trim().split(/\s+/)[0];
+        const commandName = baseCommand.split('/').pop() ?? baseCommand;
+        return PRIVILEGE_ESCALATION_BLOCKLIST.includes(commandName);
 }
 
 /**
@@ -233,10 +256,12 @@ export interface ITerminalExecutor {
          * - Restricted mode allowlist (if enabled)
          * - Working directory jail
          * - Rate limit (10 commands / 30 seconds)
+         * - Privilege escalation blocklist (sudo, su, pkexec, doas, gosu, run0)
+         * - Command timeout (configurable via construct.terminal.commandTimeout)
          *
          * @param command The command to execute
          * @param cwd Working directory (defaults to workspace root)
-         * @param timeout Timeout in milliseconds (default: 60000)
+         * @param timeout Timeout in milliseconds (default: from construct.terminal.commandTimeout, 60s)
          * @param signal Optional AbortSignal for cancellation
          * @param onOutput Optional callback for streaming output chunks. Receives
          *   cleaned (ANSI-stripped) output data as it arrives, enabling real-time
@@ -255,7 +280,14 @@ export interface ITerminalExecutor {
         /**
          * Check if a command is on the security blocklist.
          * Blocklist includes: rm -rf /, sudo, curl|sh, wget|sh, mkfs, dd to /dev,
-         * chmod 777 /, writing to /etc/, fork bombs.
+         * chmod 777 /, writing to /etc/, fork bombs, privilege escalation.
          */
         isBlocked(command: string): boolean;
+
+        /**
+         * SEC-P2: Check if a command requires user confirmation even in unrestricted mode.
+         * Commands matching the privilege escalation blocklist (sudo, pkexec, doas, gosu, run0)
+         * require explicit user approval before execution.
+         */
+        requiresConfirmation(command: string): boolean;
 }

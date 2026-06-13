@@ -1,9 +1,4 @@
-// Copyright (c) 2025 Razisafir. All rights reserved.
-// Kovix proprietary code. See CONSTRUCT_ADDITIONAL_TERMS.txt.
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+// Copyright (c) 2025 Razisafir. All rights reserved. See CONSTRUCT_LICENSE.txt.
 
 import { Event, Emitter } from '../../../../../../base/common/event.js';
 import { Disposable } from '../../../../../../base/common/lifecycle.js';
@@ -57,6 +52,11 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
 
         private readonly _onDidUpdateHealth = this._register(new Emitter<IMCPHealthStatus>());
         readonly onDidUpdateHealth: Event<IMCPHealthStatus> = this._onDidUpdateHealth.event;
+
+        // SEC-P2: Tool confirmation tracking for MCP security
+        private readonly _toolConfirmationDecisions = new Map<string, 'always' | 'once' | 'never'>();
+        private readonly _onDidRequestToolConfirmation = this._register(new Emitter<{ serverName: string; toolName: string }>());
+        readonly onDidRequestToolConfirmation: Event<{ serverName: string; toolName: string }> = this._onDidRequestToolConfirmation.event;
 
         constructor(
                 @IInstantiationService instantiationService: IInstantiationService,
@@ -480,6 +480,22 @@ export class MCPServerManagerService extends Disposable implements IMCPServerMan
 
         private delay(ms: number): Promise<void> {
                 return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // SEC-P2: MCP tool confirmation methods
+        getToolConfirmationState(serverName: string, toolName: string): 'always' | 'once' | 'never' | 'required' {
+                const key = `${serverName}__${toolName}`;
+                const decision = this._toolConfirmationDecisions.get(key);
+                if (decision === 'always') { return 'always'; }
+                if (decision === 'never') { return 'never'; }
+                if (decision === 'once') { return 'required'; } // 'once' was used for the previous call, now required again
+                return 'required'; // No decision yet — confirmation required
+        }
+
+        setToolConfirmationDecision(serverName: string, toolName: string, decision: 'always' | 'once' | 'never'): void {
+                const key = `${serverName}__${toolName}`;
+                this._toolConfirmationDecisions.set(key, decision);
+                this.logService.info(`[MCP Manager] Tool confirmation decision: ${serverName}/${toolName} = ${decision}`);
         }
 
         override dispose(): void {
